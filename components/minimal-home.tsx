@@ -19,16 +19,14 @@
  * lifts the pick set; the chip opens the overlay in select mode).
  */
 import { useCallback, useEffect, useState } from "react";
-import { ListTreeIcon } from "lucide-react";
+import { BookOpenIcon, DumbbellIcon, FileTextIcon, ListTreeIcon, SparklesIcon } from "lucide-react";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { GraphCostControl } from "@/components/graph-view.tsx";
 import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImport } from "@/components/notes-import.tsx";
 import { Hint } from "@/components/ui/hint";
 import type { ChatSummary, GraphCostSummary, GraphSnapshot } from "@/src/core";
 
-/** The quiet centered summary — a pure body (props in, markup out) so
- * the render suite can pin it statically. Very quiet by owner ruling:
- * muted small text, no cards, no chrome. */
+/** Apple Bento Dashboard Knowledge Summary */
 export function KnowledgeSummary({
 	propositions,
 	chains,
@@ -44,37 +42,66 @@ export function KnowledgeSummary({
 }) {
 	const empty =
 		propositions === 0 && chains === 0 && teachSessions === 0 && practiceSessions === 0 && importedNotes === 0;
+
 	return (
-		<div data-testid="knowledge-summary" className="flex flex-col items-center text-center">
-			{/* Own-line law (owner, 2026-10-06): every count sits on its own
-			    row — no dot separators; the two blocks (graph, sessions)
-			    part with one empty line; the notes COUNT (never the file
-			    list) rides after the same parting. */}
-			<div className="flex flex-col gap-1">
-				<p className="font-ui text-sm text-muted-foreground">
-					{propositions} {propositions === 1 ? "proposition" : "propositions"}
-				</p>
-				<p className="font-ui text-sm text-muted-foreground">
-					{chains} {chains === 1 ? "chain" : "chains"}
-				</p>
+		<div data-testid="knowledge-summary" className="flex flex-col items-center text-center max-w-xl w-full px-6 pointer-events-auto">
+			{/* Apple Headline */}
+			<div className="mb-6 flex flex-col items-center">
+				<div className="size-12 rounded-2xl bg-gradient-to-br from-[#007aff] to-[#5856d6] flex items-center justify-center text-white shadow-lg mb-3">
+					<SparklesIcon className="size-6" />
+				</div>
+				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Welcome to LearnHarness</h1>
+				<p className="text-sm text-muted-foreground mt-1">An adaptive agent harness for deliberate learning</p>
 			</div>
-			<div className="h-4" aria-hidden="true" />
-			<div className="flex flex-col gap-1">
-				<p className="font-ui text-sm text-muted-foreground">
-					{teachSessions} {teachSessions === 1 ? "teaching session" : "teaching sessions"}
-				</p>
-				<p className="font-ui text-sm text-muted-foreground">
-					{practiceSessions} {practiceSessions === 1 ? "practice session" : "practice sessions"}
-				</p>
+
+			{/* Apple Bento Grid */}
+			<div className="grid grid-cols-3 gap-3 w-full mb-4">
+				{/* Bento 1: Knowledge Graph */}
+				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
+					<div className="size-8 rounded-xl bg-[#007aff]/15 flex items-center justify-center text-[#007aff] mb-2">
+						<BookOpenIcon className="size-4" />
+					</div>
+					<span className="text-xl font-bold tracking-tight text-foreground">{propositions}</span>
+					<p className="font-ui text-xs text-muted-foreground mt-0.5">
+						{propositions} {propositions === 1 ? "proposition" : "propositions"}
+					</p>
+					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
+						{chains} {chains === 1 ? "chain" : "chains"}
+					</span>
+				</div>
+
+				{/* Bento 2: Study Sessions */}
+				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
+					<div className="size-8 rounded-xl bg-[#34c759]/15 flex items-center justify-center text-[#34c759] mb-2">
+						<DumbbellIcon className="size-4" />
+					</div>
+					<span className="text-xl font-bold tracking-tight text-foreground">{teachSessions + practiceSessions}</span>
+					<p className="font-ui text-xs text-muted-foreground mt-0.5">
+						{teachSessions} {teachSessions === 1 ? "teaching session" : "teaching sessions"}
+					</p>
+					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
+						{practiceSessions} {practiceSessions === 1 ? "practice session" : "practice sessions"}
+					</span>
+				</div>
+
+				{/* Bento 3: Sources & Notes */}
+				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
+					<div className="size-8 rounded-xl bg-[#af52de]/15 flex items-center justify-center text-[#af52de] mb-2">
+						<FileTextIcon className="size-4" />
+					</div>
+					<span className="text-xl font-bold tracking-tight text-foreground">{importedNotes}</span>
+					<p className="font-ui text-xs text-muted-foreground mt-0.5">
+						{importedNotes} {importedNotes === 1 ? "imported note" : "imported notes"}
+					</p>
+					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
+						sources
+					</span>
+				</div>
 			</div>
-			<div className="h-4" aria-hidden="true" />
-			<p className="font-ui text-sm text-muted-foreground">
-				{importedNotes} {importedNotes === 1 ? "imported note" : "imported notes"}
-			</p>
+
 			{empty && (
-				<div className="pt-2 font-ui text-xs text-muted-foreground/70">
-					<p>Start a session to begin learning.</p>
-					<p className="mt-1">Attach your material with the paperclip or drag and drop.</p>
+				<div className="apple-glass-pill rounded-full px-4 py-2 border border-white/10 text-xs text-muted-foreground">
+					<span>Start a session below to begin learning • Attach material with the paperclip</span>
 				</div>
 			)}
 		</div>
@@ -156,13 +183,13 @@ export function MinimalHome({
 			    entry law). */}
 			<div className="lh-no-drag lh-wco-floating absolute right-2 top-2 z-10 flex max-w-[calc(100%-5.5rem)] flex-col items-end gap-2">
 				<div className="flex min-w-0 items-start gap-2">
-					<div className="graph-chrome-fade-in shrink-0 rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur">
+					<div className="graph-chrome-fade-in shrink-0 rounded-full border border-white/10 apple-glass-pill px-1.5 py-1 shadow-lg backdrop-blur">
 						<Hint label="Every reasoning chain" side="bottom">
 							<button
 								type="button"
 								onClick={() => setChainsOpen(true)}
 								data-testid="open-chain-table"
-								className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent"
+								className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-all hover:text-foreground hover:bg-white/10 apple-btn-tactile cursor-pointer"
 							>
 								<ListTreeIcon className="size-3" />
 								Chains

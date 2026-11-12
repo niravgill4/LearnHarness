@@ -166,7 +166,7 @@ export function Home({
 	};
 
 	return (
-		<div className="relative h-dvh">
+		<div className="relative h-dvh apple-canvas-bg">
 			{/* Window-drag strip (merged chrome, owner 2026-09-17): a dedicated
 			    mask element, deliberately FIRST in the DOM. Electron's app-region
 			    mask resolves by DOM order — a no-drag element subtracts only drag
@@ -242,9 +242,33 @@ export function Home({
 						)}
 					/>
 					{startError && <p role="alert" className="mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
+					{!topic.trim() && !dictation.active && (
+						<div className="mb-2.5 flex items-center justify-center gap-2 overflow-x-auto py-1 scrollbar-none">
+							{[
+								{ label: "Quantum Computing", icon: "⚡" },
+								{ label: "Transformer Attention", icon: "🧠" },
+								{ label: "CRISPR-Cas9", icon: "🧬" },
+								{ label: "Fourier Transform", icon: "📐" },
+							].map((item) => (
+								<button
+									key={item.label}
+									type="button"
+									onClick={() => {
+										topicRef.current = item.label;
+										setTopic(item.label);
+										topicInputRef.current?.focus();
+									}}
+									className="flex items-center gap-1.5 rounded-full border border-white/10 apple-glass-pill px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-all apple-btn-tactile cursor-pointer shrink-0 shadow-sm"
+								>
+									<span className="text-xs">{item.icon}</span>
+									<span>{item.label}</span>
+								</button>
+							))}
+						</div>
+					)}
 					<form
 						data-attachment-composer=""
-						className="flex items-end gap-1.5 rounded-2xl border bg-card p-1.5 shadow-lg"
+						className="flex items-end gap-2 rounded-[24px] apple-glass p-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/15 transition-all"
 					onSubmit={(e) => {
 						e.preventDefault();
 						void start();
@@ -277,16 +301,15 @@ export function Home({
 						}}
 						placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
 						autoFocus
-						className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
+						className="field-sizing-content lh-input max-h-48 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 outline-none placeholder:text-muted-foreground text-base"
 					/>
 					<AttachFilesButton editorRef={topicInputRef} />
-					{/* No tooltip on the start square — the ↵ glyph is the
-					    affordance (owner, subtlety round 2026-09-25). */}
+					{/* Apple 44pt touch target and tactile press */}
 					<button
 						type="submit"
 						aria-label="Start session"
 						disabled={(!topic.trim() && !dictation.active) || busy}
-						className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-primary text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-40"
+						className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#007aff] text-white shadow-[0_4px_14px_rgba(0,122,255,0.4)] transition-all hover:bg-[#0071eb] apple-btn-tactile disabled:opacity-30 cursor-pointer"
 					>
 						<CornerDownLeftIcon className="size-5" />
 					</button>
@@ -299,7 +322,7 @@ export function Home({
 						dictationSlot={<DictationBar dictation={dictation} />}
 						turns={[] as TurnUsage[]}
 						leadingSlot={
-							<div className="flex items-center gap-0.5 rounded-md border border-border/60 bg-background p-0.5" data-testid="home-mode-switch">
+							<div className="flex items-center p-1 rounded-full border border-white/10 bg-black/40 apple-glass" data-testid="home-mode-switch">
 								{(["teach", "practice"] as const).map((m) => (
 									<button
 										key={m}
@@ -307,9 +330,9 @@ export function Home({
 										data-testid={`home-mode-${m}`}
 										onClick={() => setMode(m)}
 										className={
-											"flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors " +
+											"flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all apple-btn-tactile cursor-pointer " +
 											(mode === m
-												? "bg-accent text-foreground"
+												? "bg-[#007aff] text-white shadow-[0_2px_8px_rgba(0,122,255,0.35)]"
 												: "text-muted-foreground hover:text-foreground")
 										}
 									>

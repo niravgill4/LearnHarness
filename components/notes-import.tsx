@@ -106,20 +106,20 @@ export function NotesImportControl({ importing, onImportFiles }: { importing: bo
 		onClose: () => { setOpen(false); return "closed"; } });
 	const choices = [["Files", filesRef], ["Folder", folderRef]] as const;
 	return (
-		<div ref={rootRef} className="relative shrink-0 rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur"
+		<div ref={rootRef} className="relative shrink-0 rounded-full border border-white/10 apple-glass-pill px-1.5 py-1 shadow-lg backdrop-blur"
 			onBlur={(event) => { if (interactions.isElementEligible(panelRef.current) && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
 			<input ref={filesRef} type="file" multiple accept={IMPORT_ACCEPT} className="hidden" onChange={onChange} />
 			<input ref={folderRef} type="file" {...{ webkitdirectory: "" }} className="hidden" onChange={onChange} />
 			<Hint label="Extract files into the graph" side="bottom">
 				<button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" data-testid="import-notes"
-					className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent">
+					className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-all hover:text-foreground hover:bg-white/10 apple-btn-tactile cursor-pointer">
 					<WaypointsIcon className="size-3" />{importing ? "Extracting…" : "Extract files…"}
 				</button>
 			</Hint>
 			{open && (
-				<div ref={panelRef} role="menu" aria-label="Extract files into the graph" aria-describedby={hintId} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="absolute right-0 top-full mt-1 w-52 rounded-lg border bg-card p-1 shadow-lg">
-					<div role="none"><p id={hintId} className="px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">For lessons, attach material to a session instead.</p></div>
-					{choices.map(([label, input]) => <button key={label} type="button" role="menuitem" className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-accent"
+				<div ref={panelRef} role="menu" aria-label="Extract files into the graph" aria-describedby={hintId} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl border border-white/10 apple-glass p-1.5 shadow-2xl backdrop-blur-2xl">
+					<div role="none"><p id={hintId} className="px-2.5 py-1.5 text-xs leading-relaxed text-muted-foreground">For lessons, attach material to a session instead.</p></div>
+					{choices.map(([label, input]) => <button key={label} type="button" role="menuitem" className="block w-full rounded-xl px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-white/10 text-foreground cursor-pointer"
 						onClick={() => { setOpen(false); input.current?.click(); }}>{label}</button>)}
 				</div>
 			)}

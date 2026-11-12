@@ -83,9 +83,10 @@ describe("presets", () => {
 
 /** The declarations of the block opening with `selector {`. */
 function cssBlock(css: string, selector: string): Map<string, string> {
-	const start = css.indexOf(`${selector} {`);
+	const normalized = css.replace(/\r\n/g, "\n");
+	const start = normalized.indexOf(`${selector} {`);
 	assert.ok(start >= 0, `missing ${selector}`);
-	const body = css.slice(start, css.indexOf("}", start));
+	const body = normalized.slice(start, normalized.indexOf("}", start));
 	const out = new Map<string, string>();
 	for (const m of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) out.set(m[1]!, m[2]!.trim());
 	return out;

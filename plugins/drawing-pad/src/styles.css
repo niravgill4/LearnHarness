@@ -3,11 +3,24 @@
   overflow: hidden; background: var(--background); color: var(--foreground);
 }
 .drawing-pad-tools {
-  position: absolute; top: 0; left: 0; z-index: 1;
-  display: flex; width: max-content; max-width: calc(100% - 52px); gap: 6px; align-items: center;
-  min-height: 48px; padding: 8px 12px; overflow-x: auto; pointer-events: none;
+  position: absolute; top: 12px; left: 16px; z-index: 20;
+  display: flex; width: max-content; max-width: calc(100% - 32px); gap: 4px; align-items: center;
+  min-height: 44px; padding: 4px 8px; border-radius: 9999px; overflow-x: auto;
+  pointer-events: auto;
+  background-color: color-mix(in srgb, var(--card) 85%, transparent);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36), inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.2);
 }
-.drawing-pad-tools > span { flex: 0 0 auto; pointer-events: auto; }
+.drawing-pad-tools > span { flex: 0 0 auto; }
+.drawing-pad-tools button {
+  border-radius: 9999px !important;
+  transition: transform 0.12s ease, background-color 0.15s ease;
+}
+.drawing-pad-tools button:active {
+  transform: scale(0.94);
+}
 .drawing-pad-viewport { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
 .drawing-pad-paper { position: absolute; inset: 0; overflow: hidden; }
 .drawing-pad-background { position: absolute; max-width: none; max-height: none; pointer-events: none; user-select: none; }

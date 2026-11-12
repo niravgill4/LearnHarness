@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { LhViewMessage, LhViewPart } from "@/src/core";
-import { ArrowDownIcon, DownloadIcon } from "lucide-react";
+import { ArrowDownIcon, DownloadIcon, SparklesIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -50,18 +50,23 @@ export const ConversationEmptyState = ({
 }: ConversationEmptyStateProps) => (
   <div
     className={cn(
-      "flex size-full flex-col items-center justify-center gap-3 p-8 text-center",
+      "flex size-full flex-col items-center justify-center gap-3 p-8 text-center select-none",
       className
     )}
     {...props}
   >
     {children ?? (
       <>
-        {icon && <div className="text-muted-foreground">{icon}</div>}
-        <div className="space-y-1">
-          <h3 className="font-medium text-sm">{title}</h3>
+        <div className="relative mb-2 flex items-center justify-center">
+          <div className="absolute -inset-2.5 rounded-2xl bg-gradient-to-tr from-[#007aff] to-[#5856d6] opacity-35 blur-xl animate-pulse" />
+          <div className="relative size-14 rounded-2xl bg-gradient-to-b from-[#007aff] via-[#0071eb] to-[#5856d6] flex items-center justify-center text-white shadow-[0_8px_24px_rgba(0,122,255,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] ring-1 ring-white/20">
+            {icon ?? <SparklesIcon className="size-7 stroke-[2]" />}
+          </div>
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="font-semibold text-base text-foreground tracking-tight font-title">{title}</h3>
           {description && (
-            <p className="text-muted-foreground text-sm">{description}</p>
+            <p className="text-muted-foreground text-xs leading-relaxed font-sans">{description}</p>
           )}
         </div>
       </>

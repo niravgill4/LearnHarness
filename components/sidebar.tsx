@@ -225,7 +225,7 @@ export function SidebarToggle() {
 				aria-hidden={open}
 				tabIndex={open ? -1 : 0}
 				onClick={toggle}
-				className={cn("sidebar-motion duration-200", open ? "pointer-events-none opacity-0" : "opacity-100")}
+				className={cn("sidebar-motion duration-200 rounded-xl apple-glass border border-white/10 hover:bg-white/10 text-muted-foreground hover:text-foreground shadow-sm transition-all apple-btn-tactile cursor-pointer", open ? "pointer-events-none opacity-0" : "opacity-100")}
 			>
 				{/* Owner, round 6: size-4, SAME as the close glyph — the toggle
 				    must not grow when the sidebar is closed (it did: size-5 here).
@@ -318,26 +318,20 @@ export function SessionRow({
 			onContextMenu={onContextMenu}
 			data-testid={kbdSelected ? "session-row-kbd" : "session-row"}
 			className={cn(
-				"relative mb-0.5 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent",
-				active && "bg-accent",
-				kbdSelected && !active && "bg-accent/60 ring-1 ring-border",
+				"relative mb-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all apple-btn-tactile",
+				active
+					? "bg-[#007aff] text-white shadow-sm font-medium"
+					: "hover:bg-white/10 text-foreground/90",
+				kbdSelected && !active && "bg-white/15 ring-1 ring-white/20",
 			)}
 		>
 			<SessionStatus busy={chat.busy || chat.compacting} />
 			<span className="min-w-0 flex-1">
-				{/* Titles are the learner's/teacher's WORDS — Source Sans 3, the
-				    same voice the words were typed in (every input is lh-prose);
-				    the meta line below stays JetBrains Mono (machine data). One
-				    rule, finally applied to the picker too (owner, typography
-				    round): mono = chrome, Source Sans = human words. */}
-				<span className="block truncate font-prose text-(length:--lh-prose-size)">{chat.title}</span>
-				<span className="block text-xs text-muted-foreground">{sessionMeta(chat)}</span>
+				<span className={cn("block truncate text-sm font-normal", active ? "text-white font-medium" : "text-foreground")}>{chat.title}</span>
+				<span className={cn("block text-xs mt-0.5", active ? "text-white/80" : "text-muted-foreground")}>{sessionMeta(chat)}</span>
 			</span>
-			{/* The dumbbell rides the FAR RIGHT (owner round 6, 2026-10-05) —
-			    was left of the name; right-aligned keeps the titles flush with
-			    the teaching rows and reads cleaner. */}
 			{(chat.kind ?? "teach") === "practice" && (
-				<DumbbellIcon className="size-3.5 shrink-0 text-muted-foreground/70" aria-label="Practice session" />
+				<DumbbellIcon className={cn("size-3.5 shrink-0", active ? "text-white" : "text-muted-foreground/70")} aria-label="Practice session" />
 			)}
 		</button>
 	);
@@ -656,23 +650,10 @@ function SessionsSidebar() {
 			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
 			aria-hidden={!open}
 		>
-			<div className="flex h-full w-72 flex-col border-r bg-background">
-				{/* LH wordmark — the owner's header; close toggle sits at the edge.
-				    Merged chrome (2026-09-17): in Electron this band is the
-				    window's drag surface and starts after the traffic lights
-				    (.lh-lights-gutter); in the browser those classes are inert. */}
-				<div className="lh-drag lh-lights-gutter flex items-center justify-between px-4 py-3">
-					{/* The owner's mark (2026-09-17) replaces the "LH" text — still the
-					    home link, still vertically centered by the band's items-center.
-					    The 92px .lh-lights-gutter keeps it clear of the traffic lights
-					    with the lights' own edge-inset as the gap. */}
-					{/* Hover mirrors the ghost toggle buttons (owner ask, 2026-09-17):
-					    same size-9 chip geometry, same hover:bg-accent treatment. */}
+			<div className="flex h-full w-72 flex-col border-r border-white/10 apple-glass">
+				{/* Apple macOS / iPadOS Window Chrome Header */}
+				<div className="lh-drag lh-lights-gutter flex items-center justify-between px-4 py-3.5 border-b border-white/5">
 					<Hint
-						// Kept (owner, subtlety round 2026-09-25) but to the RIGHT
-						// of the logo, carrying its real shortcut: ⌘G jumps to
-						// the graph view (keyboard-shortcuts routes it to "/",
-						// the same destination as this logo).
 						label="Home"
 						action="jump-graph"
 						side="right"
@@ -680,9 +661,10 @@ function SessionsSidebar() {
 						<Link
 							href="/"
 							aria-label="Home"
-							className="lh-no-drag flex size-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
+							className="lh-no-drag flex items-center gap-2.5 rounded-xl px-2 py-1 transition-all hover:bg-white/10"
 						>
-							<LhMark className="size-6" />
+							<LhMark className="size-5 text-[#007aff]" />
+							<span className="font-semibold text-sm tracking-tight text-foreground">LearnHarness</span>
 						</Link>
 					</Hint>
 					<Hint label="Close sidebar" action="toggle-sidebar">
@@ -691,63 +673,49 @@ function SessionsSidebar() {
 							size="icon"
 							aria-label="Close sidebar"
 							onClick={toggle}
-							className="lh-no-drag"
+							className="lh-no-drag size-8 rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all"
 						>
 							<PanelLeftCloseIcon className="size-4" />
 						</Button>
 					</Hint>
 				</div>
 
-				{/* Core doors always lead explicit plugin sidebar placements. */}
-				<PluginSidebarActions>
+				{/* Apple prominent action buttons */}
+				<div className="p-3 pb-2 flex gap-2">
 					<button
 						type="button"
 						data-testid="new-session"
 						title="Teaching"
 						onClick={() => void newSession()}
-						className="flex min-w-0 w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#007aff] hover:bg-[#0071eb] text-white py-2 px-3 shadow-sm font-medium text-xs transition-all apple-btn-tactile cursor-pointer"
 					>
-						<PlusIcon className="size-3 shrink-0" />
-						<span className="min-w-0 truncate">Teaching</span>
-						<span className="sr-only">create a new teaching session</span>
+						<PlusIcon className="size-3.5 shrink-0 stroke-[2.5]" />
+						<span className="truncate">Teach</span>
 					</button>
 					<button
 						type="button"
 						data-testid="new-session-practice"
 						title="Practice"
 						onClick={() => router.push("/chat/new?mode=practice")}
-						className="flex min-w-0 w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-foreground py-2 px-3 shadow-sm font-medium text-xs transition-all apple-btn-tactile cursor-pointer"
 					>
-						<DumbbellIcon className="size-3 shrink-0" />
-						<span className="min-w-0 truncate">Practice</span>
-						<span className="sr-only">create a new practice session</span>
+						<DumbbellIcon className="size-3.5 shrink-0" />
+						<span className="truncate">Practice</span>
 					</button>
-				</PluginSidebarActions>
+				</div>
 
-				<div className="mx-3 mb-2 flex items-center gap-2">
-					<span className="text-xs uppercase tracking-widest text-muted-foreground/70">Sessions</span>
+				{/* Apple Native Search Field */}
+				<div className="px-3 mb-2">
 					<Hint label="Search sessions" action="sessions-search" side="bottom">
-					<span className="relative flex-1">
+					<span className="relative flex w-full">
 						<Input
 							ref={searchRef}
 							data-testid="session-search"
 							value={query}
 							onChange={(e) => {
 								setQuery(e.target.value);
-								// The list reorders under the query every keystroke —
-								// a stale walk index would point at the wrong row.
 								setKbdIndex(null);
 							}}
-							// THE SEARCH OWNS THE WALK (owner, 2026-10-10 — the
-							// retired Alt+↑/↓/↵ cycle's successor): ↑/↓ cycle the
-							// filtered rows (wrap), Enter opens the walked row —
-							// or the FIRST match when nothing is walked (the
-							// quick-open pattern) — then blurs (focus returns to
-							// the app per the Enter law; the query stays for
-							// re-searching). Esc leaves the search (owner,
-							// keyboard wave): blur back to normal, and claim the
-							// key so the window Esc chain (dictation / abort)
-							// doesn't also fire.
 							onKeyDown={(e) => {
 								if (e.key === "Escape") {
 									if (!interactions.isElementEligible(e.currentTarget)) return;
@@ -756,12 +724,10 @@ function SessionsSidebar() {
 									e.currentTarget.blur();
 									return;
 								}
-								// Modified keys belong to the surface (⇧↵ etc.).
 								if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 								const n = shown?.length ?? 0;
 								if (n === 0) return;
 								if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-									// The rows move, not the caret.
 									e.preventDefault();
 									const dir = e.key === "ArrowDown" ? 1 : -1;
 									setKbdIndex((i) =>
@@ -778,23 +744,17 @@ function SessionsSidebar() {
 									e.currentTarget.blur();
 								}
 							}}
-							placeholder="Search…"
+							placeholder="Search sessions…"
 							aria-label="Search sessions"
-							className="h-6 rounded-sm border-border bg-background pl-6 text-xs placeholder:text-muted-foreground/60"
+							className="h-8 rounded-xl border-white/10 bg-black/25 pl-8 text-xs placeholder:text-muted-foreground/70 transition-all focus-visible:ring-2 focus-visible:ring-[#007aff]"
 						/>
-						<SearchIcon className="pointer-events-none absolute left-1.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/70" />
+						<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
 					</span>
 					</Hint>
 				</div>
 
-				{/* The three-way filter, HEADING THE LIST (owner round 8b,
-				    2026-10-05 — moved below the search): it scopes what the
-				    list shows, so it sits directly above it as a caption row;
-				    search stays the top muscle-memory target. Order: Teaching /
-				    Practice / All — the real modes first, "All" as the escape
-				    hatch on the right, mirroring the create-buttons above.
-				    Persisted client-side. */}
-				<div className="mx-3 flex items-center gap-0.5 rounded-md border border-border/60 bg-background p-0.5" data-testid="session-kind-filter">
+				{/* Apple Native Segmented Control */}
+				<div className="mx-3 mb-2 flex items-center p-0.5 rounded-xl bg-black/30 border border-white/10" data-testid="session-kind-filter">
 					{(["teach", "practice", "all"] as const).map((f) => (
 						<button
 							key={f}
@@ -802,13 +762,13 @@ function SessionsSidebar() {
 							data-testid={`kind-filter-${f}`}
 							onClick={() => setFilter(f)}
 							className={cn(
-								"flex-1 rounded-sm px-2 py-1 text-[11px] uppercase tracking-wider transition-colors",
+								"flex-1 rounded-lg py-1 text-xs font-medium transition-all apple-btn-tactile",
 								kindFilter === f
-									? "bg-accent text-foreground"
+									? "bg-[#007aff] text-white shadow-sm"
 									: "text-muted-foreground hover:text-foreground",
 							)}
 						>
-							{f === "teach" ? "Teaching" : f === "all" ? "All" : "Practice"}
+							{f === "teach" ? "Teach" : f === "all" ? "All" : "Practice"}
 						</button>
 					))}
 				</div>
@@ -853,19 +813,17 @@ function SessionsSidebar() {
 					    learner opted out (no ambient signal, user decision). */}
 					<ActivitySection />
 
-					{/* Settings entry (settings-app wave): same row language as
-					    New session — quiet, bottom-pinned, opens the centered
-					    dialog (also mod+, in the keyboard registry). */}
-					<div className="px-3 pb-3 pt-1">
+					{/* Settings entry: Apple System Settings capsule */}
+					<div className="px-3 pb-3 pt-1 border-t border-white/5">
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
 								onClick={() => openSettings()}
 								data-testid="settings-entry"
-								className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground apple-btn-tactile cursor-pointer"
 							>
-								<SettingsIcon className="size-3" />
-								Settings
+								<SettingsIcon className="size-4" />
+								<span>Settings</span>
 							</button>
 						</Hint>
 					</div>

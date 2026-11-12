@@ -217,7 +217,7 @@ export function Composer({
 						type="submit"
 						data-testid="next-problem-button"
 						aria-label="Next problem"
-						className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-[10px] bg-success px-4 font-ui text-xs font-medium uppercase tracking-wide text-background transition-colors hover:bg-success/85"
+						className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#34c759] px-4 font-sans text-xs font-semibold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-[#30b753] apple-btn-tactile cursor-pointer"
 					>
 						Next problem
 						<ArrowRightIcon className="size-4" />
@@ -228,10 +228,10 @@ export function Composer({
 						aria-label={busy && !canSend ? "Stop" : "Send"}
 						disabled={!busy && !canSend}
 						className={cn(
-							"flex size-10 shrink-0 items-center justify-center rounded-[10px] transition-colors",
+							"flex size-11 shrink-0 items-center justify-center rounded-xl transition-all shadow-sm apple-btn-tactile cursor-pointer",
 							busy && !canSend
-								? "bg-secondary text-foreground hover:bg-accent"
-								: "bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40",
+								? "bg-[#2c2c2e] text-foreground hover:bg-[#3a3a3c]"
+								: "bg-[#007aff] text-white hover:bg-[#0071eb] disabled:opacity-40",
 						)}
 					>
 						{busy && !canSend ? <SquareIcon className="size-4" /> : <CornerDownLeftIcon className="size-5" />}
