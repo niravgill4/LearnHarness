@@ -16,12 +16,12 @@ Inspected the current homepages in Chromium, captured two frames per site, and e
 
 The user requests serious, abstract, distinctive motion while retaining the dark onboarding UI. The focal work is an original optical surface made from connected strata. Light travels across the field and brings ordered traces into focus. Small irregularities diminish as account setup advances: a visual metaphor for information becoming organized understanding, rather than a literal quiz or a claim about a learner's progress.
 
-The material is monochrome, with fine contour structure, diffuse shading, a narrow moving caustic and restrained spatial grain. The finite, open surface has no closed spinning knot, cartoon illustration, simulated study records, lesson cards or chapter controls. The signup forms keep their hierarchy and position. The scene persists across the shared welcome layout.
+The material is monochrome, with fine contour structure, diffuse shading, moving light and restrained spatial grain. The expanded composition contains three interwoven open surfaces and hundreds of contours. A 4.8-second opening gesture separates the layers, then two crossing light patterns and a slow camera orbit reveal their depth. The artwork extends toward the panel edges, with a soft vertical mask protecting the text and controls. There are no closed spinning knots, cartoon illustrations, simulated study records, lesson cards or chapter controls. The signup forms keep their hierarchy and position. The scene persists across the shared welcome layout.
 
 ## Runtime contract
 
-- Original WebGL 2 shaders, two draw calls per frame, geometry uploaded once. No asset downloads or added rendering dependency.
-- Animation capped at approximately 30fps and device pixel density at 1.5. Pointer response is bounded; it does not move forms.
+- Original WebGL 2 shaders, two indexed draw calls per frame for three surfaces. Shared geometry and shape tangents are prepared once; live displacement and lighting stay on the GPU. Initial geometry density adapts to the canvas width. No asset downloads or added rendering dependency.
+- Animation capped at approximately 30fps and device pixel density at 1.5. Rendering resolution adapts down under sustained slow frames while preserving the geometry and contour count; paused and reduced-motion views return to full resolution. Pointer response is bounded; it does not move forms.
 - Pause freezes the animation clock. Hidden/offscreen scenes stop scheduling frames. Live Reduce Motion changes produce a still composition while preserving manual setup.
-- An SVG rendering of the same underlying surface remains available before hydration, without WebGL, and during context loss. Context restoration rebuilds resources. GPU resources and observers are released on unmount.
+- An SVG rendering of all three underlying surfaces remains available before hydration, without WebGL, and during context loss. Context restoration rebuilds resources. GPU resources and observers are released on unmount.
 - The animation is an expressive brand surface. It does not represent saved knowledge, API activity or measured learning progress.
