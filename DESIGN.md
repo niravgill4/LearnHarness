@@ -1,5 +1,5 @@
 ---
-name: LearnHarness
+name: Cognera
 description: A focused learning workspace with sculpted surfaces and a continuous reading canvas.
 colors:
   canvas: "#1a1a1e"

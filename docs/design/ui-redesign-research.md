@@ -1,4 +1,4 @@
-# LearnHarness UI research and redesign
+# Cognera UI research and redesign
 
 ## Approved direction
 

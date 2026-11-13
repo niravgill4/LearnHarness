@@ -690,7 +690,7 @@ input, textarea, [contenteditable] { caret-color: var(--lh-accent); }
 }
 
 
-/* LearnHarness: sculpted dark workspace. All materials derive from the active theme. */
+/* Cognera: sculpted dark workspace. All materials derive from the active theme. */
 :root {
  --workspace-edge: color-mix(in srgb, var(--border) 82%, transparent);
  --workspace-black: color-mix(in srgb, var(--background) 18%, #000);

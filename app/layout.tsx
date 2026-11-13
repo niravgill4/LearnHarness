@@ -17,7 +17,7 @@ const ui = localFont({ src: "../public/fonts/jetbrains-mono-variable.woff2", wei
 const prose = localFont({ src: "../public/fonts/source-sans-variable.woff2", weight: "200 900", variable: "--font-sans3", display: "swap", preload: false });
 
 export const metadata: Metadata = {
-	title: "Learning Harness",
+	title: "Cognera",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
 };
 

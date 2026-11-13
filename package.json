@@ -8,7 +8,7 @@
 	},
 	"homepage": "https://github.com/amosblomqvist/learnharness",
 	"desktopName": "learnharness.desktop",
-	"description": "An agent harness for learning: adaptive teaching, practice, and a persistent knowledge graph.",
+	"description": "Cognera is an adaptive learning workspace for teaching, practice, and connected knowledge.",
 	"type": "module",
 	"private": true,
 	"main": "electron/main.cjs",

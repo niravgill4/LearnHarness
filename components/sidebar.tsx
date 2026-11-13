@@ -9,7 +9,7 @@ import type { ChatDeleteMode, ThemeMode } from "@/src/core";
 import { DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, WaypointsIcon, SearchIcon, SettingsIcon } from "lucide-react";
 import { ActivitySection } from "@/components/activity-dock";
 import { CoverageMenuBlock } from "@/components/extraction-coverage";
-import { LhMark } from "@/components/lh-mark";
+import { CogneraMark } from "@/components/cognera-mark";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { SettingsDialogProvider, useSettingsDialog } from "@/components/settings/settings-dialog.tsx";
@@ -666,8 +666,8 @@ function SessionsSidebar() {
 							aria-label="Home"
 							className="lh-no-drag flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-accent"
 						>
-							<LhMark className="size-6 text-foreground" />
-							<span className="font-medium text-sm tracking-tight text-foreground">LearnHarness</span>
+							<CogneraMark className="size-6 text-foreground" />
+							<span className="font-medium text-sm tracking-tight text-foreground">Cognera</span>
 						</Link>
 					</Hint>
 					<Hint label="Close sidebar" action="toggle-sidebar">

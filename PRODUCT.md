@@ -6,7 +6,7 @@
 web
 
 ## Product Purpose
-LearnHarness supports adaptive teaching, practice, and a persistent knowledge graph. Learners start from a topic or their own learning materials.
+Cognera supports adaptive teaching, practice, and a persistent knowledge graph. Learners start from a topic or their own learning materials.
 
 ## Capabilities and Constraints
 Preserve existing learning, chat, graph, plugin, and settings workflows during the visual redesign. The app uses Next.js and React, with an Electron desktop shell. Provider setup is required for model-driven sessions.

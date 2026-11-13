@@ -66,11 +66,11 @@ The draft must contain **exactly 11 uploaded, nonempty assets**:
 
 | Assets | Purpose |
 | --- | --- |
-| `LearnHarness-<v>-arm64.dmg` + `.blockmap` | macOS installer |
-| `LearnHarness-<v>-arm64-mac.zip` + `.blockmap` | macOS updater |
-| `LearnHarness-<v>-x64-setup.exe` + `.blockmap` | Windows installer/updater |
-| `LearnHarness-<v>-x86_64.AppImage` | Linux AppImage |
-| `LearnHarness-<v>-amd64.deb` | Debian package |
+| `Cognera-<v>-arm64.dmg` + `.blockmap` | macOS installer |
+| `Cognera-<v>-arm64-mac.zip` + `.blockmap` | macOS updater |
+| `Cognera-<v>-x64-setup.exe` + `.blockmap` | Windows installer/updater |
+| `Cognera-<v>-x86_64.AppImage` | Linux AppImage |
+| `Cognera-<v>-amd64.deb` | Debian package |
 | `latest-mac.yml`, `latest.yml`, `latest-linux.yml` | Updater feeds |
 
 Feed versions, exact referenced asset sets, bare filenames, sizes, and legacy path/hash fields must agree; macOS's ZIP must be first. Missing/stale extra assets, path traversal/URLs, or builder naming drift fail validation. The validator does not download/hash every installer; it checks draft metadata and downloaded feeds.
