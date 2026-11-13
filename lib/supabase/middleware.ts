@@ -36,7 +36,7 @@ export async function updateSession(request: NextRequest) {
 	} = await supabase.auth.getUser();
 
 	const path = request.nextUrl.pathname;
-	const isAuthRoute = path === "/login" || path.startsWith("/auth/");
+	const isAuthRoute = path === "/login" || path.startsWith("/auth/") || (path === "/api/auth/providers" && request.method === "GET");
 	const respond = (response: NextResponse) => {
 		for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
 		return response;

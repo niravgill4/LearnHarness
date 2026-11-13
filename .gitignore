@@ -29,3 +29,6 @@ xai-credentials.json*
 
 # dev-fresh launcher scratch (fresh-user sim): disposable per launch
 .fresh-data/
+
+# Local visual review captures; source and design notes remain versioned.
+.impeccable/review/

@@ -7,6 +7,8 @@ import { PauseIcon, PlayIcon } from "lucide-react";
 export function LearningRibbon({ phase = 0, compact = false }: { phase?: number; compact?: boolean }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const phaseRef = useRef(phase);
+	const timeRef = useRef(0);
+	const currentPhaseRef = useRef(phase);
 	const [paused, setPaused] = useState(false);
 	const id = useId();
 	useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -14,37 +16,60 @@ export function LearningRibbon({ phase = 0, compact = false }: { phase?: number;
 		const canvas = canvasRef.current, context = canvas?.getContext("2d");
 		if (!canvas || !context) return;
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-		let width = 1, height = 1, frame = 0, time = 0, last = 0, visible = true;
-		let pointerX = 0, pointerY = 0, x = 0, y = 0, currentPhase = phaseRef.current;
+		let width = 1, height = 1, frame = 0, last = 0, visible = true;
+		let pointerX = 0, pointerY = 0, x = 0, y = 0;
 		const draw = (stamp = 0) => {
 			const moving = !paused && !reduced.matches;
-			if (last && moving) time += Math.min(stamp - last, 40) / 1000;
+			if (last && moving && stamp - last < 24) { frame = requestAnimationFrame(draw); return; }
+			if (last && moving) timeRef.current += Math.min(stamp - last, 50) / 1000;
 			last = stamp;
-			x += (pointerX - x) * .035; y += (pointerY - y) * .035;
-			currentPhase += (phaseRef.current - currentPhase) * .025;
+			x += (pointerX - x) * .05; y += (pointerY - y) * .05;
+			currentPhaseRef.current = moving ? currentPhaseRef.current + (phaseRef.current - currentPhaseRef.current) * .035 : phaseRef.current;
+			const time = timeRef.current, currentPhase = currentPhaseRef.current;
 			context.clearRect(0, 0, width, height);
-			const scale = Math.min(width / 600, height / 440);
-			const cx = width * .5 + x * 14, cy = height * .5 + y * 10;
-			for (let band = 0; band < 60; band++) {
-				const v = band / 59;
+			const scale = Math.min(width / 520, height / 390);
+			const cx = width * .5 + x * 18, cy = height * .48 + y * 12;
+			const light = context.createRadialGradient(cx, cy, 8, cx, cy, 195 * scale);
+			light.addColorStop(0, "rgba(104,133,181,.09)"); light.addColorStop(.6, "rgba(100,98,158,.035)"); light.addColorStop(1, "rgba(100,98,158,0)");
+			context.fillStyle = light; context.fillRect(0, 0, width, height);
+			const pointAt = (angle: number, band: number) => {
+				const tube = (band - .5) * 45;
+				const twist = angle * 3 + currentPhase * .55;
+				const radius = 96 + Math.cos(twist) * 35 + tube;
+				const px = Math.cos(angle * 2) * radius;
+				const py = Math.sin(angle * 2) * radius;
+				const pz = Math.sin(twist) * 55 + tube * Math.cos(twist);
+				const yaw = time * .115 + x * .5 + currentPhase * .23;
+				const tilt = -.57 + Math.sin(time * .12) * .11 + y * .4;
+				const rx = px * Math.cos(yaw) + pz * Math.sin(yaw);
+				const rz = -px * Math.sin(yaw) + pz * Math.cos(yaw);
+				const ry = py * Math.cos(tilt) - rz * Math.sin(tilt);
+				const depth = py * Math.sin(tilt) + rz * Math.cos(tilt);
+				const perspective = 580 / (580 - depth);
+				return { x: cx + rx * scale * perspective, y: cy + ry * scale * perspective, depth };
+			};
+			const bands = width < 400 ? 36 : 58;
+			for (let band = 0; band < bands; band++) {
+				const v = band / (bands - 1);
 				context.beginPath();
-				for (let point = 0; point <= 120; point++) {
-					const angle = point / 120 * Math.PI * 2;
-					const twist = angle * 2 + time * .21 + v * .68 + currentPhase * .38;
-					const radius = 138 + (v - .5) * 60;
-					const px = Math.cos(angle) * (radius + Math.sin(twist) * 22);
-					const py = Math.sin(angle) * (72 + Math.cos(twist) * 48) + (v - .5) * 76;
-					const rotation = -.48 + Math.sin(time * .12) * .06;
-					const dx = (px * Math.cos(rotation) - py * Math.sin(rotation)) * scale;
-					const dy = (px * Math.sin(rotation) + py * Math.cos(rotation)) * scale;
-					if (point === 0) context.moveTo(cx + dx, cy + dy); else context.lineTo(cx + dx, cy + dy);
+				for (let point = 0; point <= 180; point++) {
+					const pos = pointAt(point / 180 * Math.PI * 2, v);
+					if (point === 0) context.moveTo(pos.x, pos.y); else context.lineTo(pos.x, pos.y);
 				}
-				const ink = context.createLinearGradient(cx - 190 * scale, cy - 100 * scale, cx + 180 * scale, cy + 100 * scale);
-				ink.addColorStop(0, `rgba(137,180,214,${.15 + v * .29})`);
-				ink.addColorStop(.43, `rgba(212,206,241,${.22 + v * .5})`);
-				ink.addColorStop(.72, `rgba(180,220,212,${.16 + v * .35})`);
-				ink.addColorStop(1, `rgba(117,160,196,${.1 + v * .2})`);
-				context.strokeStyle = ink; context.lineWidth = .65 * scale; context.stroke();
+				const ink = context.createLinearGradient(cx - 145 * scale, cy - 130 * scale, cx + 160 * scale, cy + 130 * scale);
+				ink.addColorStop(0, `rgba(128,174,237,${.22 + v * .35})`);
+				ink.addColorStop(.38, `rgba(223,216,255,${.3 + v * .5})`);
+				ink.addColorStop(.7, `rgba(190,231,223,${.25 + v * .45})`);
+				ink.addColorStop(1, `rgba(106,146,205,${.12 + v * .25})`);
+				context.strokeStyle = ink; context.lineWidth = .75 * scale; context.stroke();
+			}
+			// Moving signals follow the actual contours rather than a decorative starfield.
+			for (let signal = 0; signal < 18; signal++) {
+				const angle = signal / 18 * Math.PI * 2 + time * (.1 + signal % 3 * .025);
+				const band = .15 + (signal % 5) * .16;
+				const pos = pointAt(angle, band);
+				context.beginPath(); context.arc(pos.x, pos.y, (.9 + (pos.depth + 140) / 230) * scale, 0, Math.PI * 2);
+				context.fillStyle = `rgba(226,238,255,${.3 + (pos.depth + 140) / 500})`; context.fill();
 			}
 			if (moving && visible && !document.hidden) frame = requestAnimationFrame(draw);
 		};
