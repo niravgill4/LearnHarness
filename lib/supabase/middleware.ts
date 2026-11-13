@@ -35,9 +35,12 @@ export async function updateSession(request: NextRequest) {
 		data: { user },
 	} = await supabase.auth.getUser();
 
-	const isAuthRoute =
-		request.nextUrl.pathname.startsWith("/login") ||
-		request.nextUrl.pathname.startsWith("/auth");
+	const path = request.nextUrl.pathname;
+	const isAuthRoute = path === "/login" || path.startsWith("/auth/");
+	const respond = (response: NextResponse) => {
+		for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
+		return response;
+	};
 
 	const isPublicStatic =
 		request.nextUrl.pathname.startsWith("/_next") ||
@@ -46,16 +49,19 @@ export async function updateSession(request: NextRequest) {
 
 	// Enforce authentication on all protected routes
 	if (!user && !isAuthRoute && !isPublicStatic) {
+		if (path === "/api" || path.startsWith("/api/")) return respond(NextResponse.json({ error: "Sign in to continue." }, { status: 401, headers: { "Cache-Control": "no-store" } }));
 		const redirectUrl = request.nextUrl.clone();
 		redirectUrl.pathname = "/login";
-		return NextResponse.redirect(redirectUrl);
+		redirectUrl.search = "";
+		return respond(NextResponse.redirect(redirectUrl));
 	}
 
 	// Redirect authenticated users away from /login back to app
 	if (user && isAuthRoute && request.nextUrl.pathname === "/login") {
 		const redirectUrl = request.nextUrl.clone();
-		redirectUrl.pathname = "/";
-		return NextResponse.redirect(redirectUrl);
+		redirectUrl.pathname = "/onboarding";
+		redirectUrl.search = "";
+		return respond(NextResponse.redirect(redirectUrl));
 	}
 
 	return supabaseResponse;

@@ -4,9 +4,9 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 function getKey(): Buffer {
-	const secret = process.env.ENCRYPTION_SECRET || "default-secret-must-be-32-chars-long!";
-	// Ensure key is exactly 32 bytes
-	return Buffer.from(secret.padEnd(32, "0").slice(0, 32), "utf8");
+	const secret = process.env.ENCRYPTION_SECRET;
+	if (!secret || Buffer.byteLength(secret, "utf8") < 32) throw new Error("Encrypted key storage is not configured.");
+	return Buffer.from(secret.slice(0, 32), "utf8").subarray(0, 32);
 }
 
 export function encryptData(text: string): string {
@@ -21,7 +21,7 @@ export function encryptData(text: string): string {
 export function decryptData(cipherText: string): string {
 	try {
 		const parts = cipherText.split(":");
-		if (parts.length !== 3) return "{}";
+		if (parts.length !== 3) throw new Error("Invalid encrypted key record.");
 		const iv = Buffer.from(parts[0]!, "hex");
 		const tag = Buffer.from(parts[1]!, "hex");
 		const encrypted = parts[2]!;
@@ -31,7 +31,7 @@ export function decryptData(cipherText: string): string {
 		decrypted += decipher.final("utf8");
 		return decrypted;
 	} catch {
-		return "{}";
+		throw new Error("The saved key record could not be read.");
 	}
 }
 

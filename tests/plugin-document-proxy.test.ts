@@ -39,7 +39,8 @@ it("Proxy retains API roots, siblings, endpoint lookalikes and all other API rou
 		"/api/plugins/document-one/other/documents/markdown", "/api/plugins/documents/markdown",
 		"/api/graph/import", "/api/events", "/api/chat", "/api/settings/models", "/api/chats/scratch/markdown",
 	]) assert.equal(proxyMatches(path), true, path);
-	for (const path of ["/", "/chat/new", "/apix", "/api-other/plugins/document-one/documents/markdown"]) {
+	for (const path of ["/", "/chat/new", "/login", "/onboarding"]) assert.equal(proxyMatches(path), true, path);
+	for (const path of ["/apix", "/api-other/plugins/document-one/documents/markdown"]) {
 		assert.equal(proxyMatches(path), false, path);
 	}
 });
@@ -99,7 +100,7 @@ it("current Proxy config leaves a valid no-Content-Length multipart document con
 const methods = ["POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;
 const secret = "a".repeat(64);
 const capabilityHeader = "x-learnharness-desktop";
-const forbidden = { error: "Desktop API access requires the trusted LearnHarness window." };
+const forbidden = { error: "Desktop API access requires the trusted Cognera window." };
 
 async function withDesktopEnvironment(marker: string | undefined, capability: string | undefined, run: () => Promise<void>) {
 	const beforeMarker = process.env.LH_DESKTOP_SERVER, beforeCapability = process.env.LH_DESKTOP_API_SECRET;
@@ -157,7 +158,7 @@ it("document route authenticates ALL methods before params, transport/getHost, o
 			assert.equal(response.status, 403, method);
 			assert.equal(response.headers.get("Cache-Control"), "no-store", method);
 			assert.deepEqual(await response.json(), forbidden, method);
-			const proxyRefusal = proxy(new NextRequest(new URL("/api/settings", origin), { method, headers }));
+			const proxyRefusal = await proxy(new NextRequest(new URL("/api/settings", origin), { method, headers }));
 			assert.equal(response.status, proxyRefusal.status, `${method}: same existing Proxy policy`);
 			assert.deepEqual(await proxyRefusal.json(), forbidden, method);
 			assert.equal(paramsAccesses, 0, method);

@@ -17,40 +17,29 @@
  * file, and `shadowedByEnv` explains why a saved key is not the live one
  * (env always wins).
  */
-import { keyStatuses, providerKeyList } from "@/src/server";
-import { resolveKeyStatuses } from "@/src/server/keys";
-import { authStore } from "@/src/store/auth";
-import { authEnvRecord as boot } from "@/src/core/auth-env";
-import { AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER } from "@/src/core/auth-keys";
+import { keyStatuses, providerKeyList, resolveKeyStatuses } from "@/src/server";
+import { AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
-import { decryptData } from "@/lib/crypto";
+import { readProfileKeys } from "@/lib/supabase/profile-keys";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-	let keys = keyStatuses();
 	const supabase = await createClient();
 	if (supabase) {
 		const { data: { user } } = await supabase.auth.getUser();
-		if (user) {
+		if (!user) return Response.json({ error: "Sign in to continue." }, { status: 401 });
+		try {
 			const { data: profile } = await supabase
 				.from("profiles")
 				.select("encrypted_keys")
 				.eq("id", user.id)
 				.maybeSingle();
-			if (profile?.encrypted_keys) {
-				try {
-					const userKeys = JSON.parse(decryptData(profile.encrypted_keys)) as Record<string, string>;
-					const mergedFileVars = { ...authStore.authVars(), ...userKeys };
-					keys = resolveKeyStatuses(
-						mergedFileVars,
-						{ ...process.env, ...userKeys },
-						boot().realEnv,
-						new Set([...AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER.envVar]),
-					);
-				} catch {}
-			}
-		}
+			if (!profile) throw new Error("Profile unavailable");
+			const userKeys = readProfileKeys(profile.encrypted_keys);
+			const keys = resolveKeyStatuses(userKeys, {}, new Set(), new Set([...AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER.envVar]));
+			return Response.json({ keys, providers: providerKeyList() }, { headers: { "Cache-Control": "no-store" } });
+		} catch { return Response.json({ error: "Your saved keys could not be loaded." }, { status: 503 }); }
 	}
-	return Response.json({ keys, providers: providerKeyList() });
+	return Response.json({ keys: keyStatuses(), providers: providerKeyList() });
 }
