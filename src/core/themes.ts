@@ -148,8 +148,8 @@ export const BUILTIN_THEMES: readonly Theme[] = [
 		mode: "dark",
 		builtin: true,
 		colors: {
-			background: "#000000", surface: "#1c1c1e", border: "#38383a", text: "#f5f5f7", textMuted: "#8e8e93",
-			accent: "#007aff", bold: "#007aff", italic: "#f5f5f7", code: "#f5f5f7",
+			background: "#1a1a1e", surface: "#24242a", border: "#3b3b43", text: "#f2f1f5", textMuted: "#b0adbd",
+			accent: "#007aff", bold: "#f2f1f5", italic: "#f2f1f5", code: "#f2f1f5",
 			error: "#ff453a", success: "#34c759", warning: "#ff9f0a",
 		},
 	},

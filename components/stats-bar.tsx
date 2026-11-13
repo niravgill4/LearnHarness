@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CLAUDE_CODE_PROVIDER, sessionCacheHitRate, subscriptionLabels, subscriptionLabel, type cliContextWindowOf, type SessionPricing, type TurnUsage } from "@/src/core";
 import { formatTokens, formatUsd, planCostLabel, prettyModel } from "@/components/usage-format";
 import { ModelControl, catalogLimits, useModelCatalog } from "@/components/model-picker";
 import { usePopoverDismiss } from "@/components/popover-dismiss";
+import { createPortal } from "react-dom";
+import { useInteractionLayers } from "./interaction-layers";
 import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
 
 export function formatContextMeasurement(tokens: number | null, limit: number | null): string {
@@ -81,6 +83,22 @@ export function StatsBar({
 	const barRef = useRef<HTMLDivElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
 	const popupLayer = usePopoverDismiss(barRef, open && !!(chatId || turns.length), () => setOpen(false), { layerRootRef: panelRef });
+    const layers = useInteractionLayers();
+    const [panelPosition, setPanelPosition] = useState<{ left: number; bottom: number; maxHeight: number } | null>(null);
+    useLayoutEffect(() => {
+        if (!open) return;
+        const place = () => {
+            const rect = barRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            setPanelPosition({ left: Math.max(8, Math.min(window.innerWidth - 296, rect.left + rect.width / 2 - 144)), bottom: window.innerHeight - rect.top + 8, maxHeight: Math.max(96, Math.min(448, rect.top - 16)) });
+        };
+        place();
+        window.addEventListener("resize", place);
+        window.addEventListener("scroll", place, true);
+        return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+    }, [open]);
+    const panelHost = open && typeof document !== "undefined" ? layers.getPortalContainer(barRef.current) : null;
+
 	// The picker reports its effective selection. CLI windows are session-
 	// scoped; unknown metadata always means usage-only, never a guessed maximum.
 	const { catalog } = useModelCatalog();
@@ -103,7 +121,7 @@ export function StatsBar({
 			// (so its transparent gradient area never blocks scrolling) — this row
 			// must re-enable events or every control on it is dead (the model-
 			// control wave caught this live: buttons rendered, clicks never landed).
-			className="pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground"
+			className="composer-stats pointer-events-auto relative flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
 		>
 			{/* The summary button + its popover: the popover anchors to this
 			    wrapper, CENTERED over the button itself (owner, stats round 2)
@@ -133,12 +151,12 @@ export function StatsBar({
 				<span aria-hidden>·</span>
 				<span data-testid="stats-cost">{costLabel}</span>
 			</button>
-				{open && (
+				{open && panelPosition && panelHost && createPortal(
 					<div
 						ref={panelRef}
 						data-testid="stats-detail"
-						style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
-						className="absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl"
+						style={{ position: "fixed", zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order, ...panelPosition }}
+						className="w-72 max-w-[calc(100vw-16px)] overflow-y-auto rounded-2xl border bg-card p-4 text-xs shadow-xl"
 					>
 						<div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Session stats
@@ -195,14 +213,14 @@ export function StatsBar({
 							</>
 						)}
 					</div>
-				)}
+                    , panelHost)}
 			</div>
 			)}
 			{/* The middle slot: dictation (owner, 2026-09-17). flex-1 lets the
 			    meter expand into the row's free width; justify-center keeps the
 			    lone idle mic button visually centered. */}
 			{dictationSlot && (
-				<div className="flex min-w-0 flex-1 items-center justify-center">{dictationSlot}</div>
+				<div className="dictation-slot ml-auto flex min-w-0 items-center justify-center">{dictationSlot}</div>
 			)}
 			{/* The model + thinking control — one controller for the conversation
 			    agents (prober/teacher); the record's `turns` above still folds

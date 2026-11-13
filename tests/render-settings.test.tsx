@@ -65,7 +65,7 @@ describe("SettingsDialog (the designed surface, SSR)", () => {
 			["plugins", "Community plugins", "puzzle"],
 		];
 		assert.ok(document.querySelector('[data-testid="settings-nav"]')!.classList.contains("w-48"), "approved 192px sidebar leaves room for the icon and Community plugins label");
-		assert.ok(document.querySelector('[data-testid="settings-dialog"]')!.classList.contains("w-[920px]"), "overall dialog width is unchanged");
+		assert.ok(document.querySelector('[data-testid="settings-dialog"]')!.classList.contains("w-[960px]"), "dialog uses the approved wider reading surface");
 		const buttons = [...document.querySelectorAll('[data-testid="settings-nav"] button')];
 		assert.deepEqual(buttons.map(button => button.textContent), expected.map(([, label]) => label));
 		for (const [id, label, iconName] of expected) {
@@ -105,7 +105,7 @@ describe("SettingsDialog (the designed surface, SSR)", () => {
 });
 
 describe("the shared settings dropdown trigger", () => {
-	it("Agent, Appearance and dictation use the same compact dark mono trigger", () => {
+	it("Agent, Appearance and dictation share the redesigned rounded trigger", () => {
 		const surfaces = [
 			[renderToStaticMarkup(<AgentSection agent={undefined} models={undefined} graph={undefined} onSectionChange={() => true} onModelsChange={() => {}} />), "slot-model-strong"],
 			[renderToStaticMarkup(<AppearanceSection appearance={undefined} onSectionChange={() => true} />), "font-trigger"],
@@ -114,7 +114,7 @@ describe("the shared settings dropdown trigger", () => {
 		for (const [html, id] of surfaces) {
 			const tag = tagOf(html, id);
 			const classes = tag.match(/class="([^"]+)"/)![1]!.split(" ");
-			for (const token of ["h-7", "rounded-sm", "border", "border-border", "bg-background", "px-1.5", "font-ui", "text-xs", "hover:border-muted-foreground/50"]) {
+			for (const token of ["h-8", "rounded-xl", "border", "border-border/60", "bg-background", "px-3", "font-ui", "text-xs", "hover:border-muted-foreground/50"]) {
 				assert.ok(classes.includes(token), `${id}: ${token}`);
 			}
 			assert.ok(html.includes("▾"), `${id}: shared dropdown indicator`);

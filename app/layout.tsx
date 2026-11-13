@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Source_Sans_3 } from "next/font/google";
+import localFont from "next/font/local";
 import { connection } from "next/server";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -11,10 +11,10 @@ import UpdateBanner from "@/components/update-banner";
 import { PluginsProvider } from "@/components/plugins";
 import { readThemeBoot } from "@/src/server";
 
-// Chrome = JetBrains Mono, teaching prose = Source Sans 3, titles = CMU
-// Serif (the bundled lh-cmu @font-face in globals.css — no CDN).
-const ui = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
-const prose = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans3" });
+// Inter is the locally bundled interface face (globals.css). Existing reading
+// and code font choices stay available without build-time network downloads.
+const ui = localFont({ src: "../public/fonts/jetbrains-mono-variable.woff2", weight: "100 800", variable: "--font-jetbrains", display: "swap", preload: false });
+const prose = localFont({ src: "../public/fonts/source-sans-variable.woff2", weight: "200 900", variable: "--font-sans3", display: "swap", preload: false });
 
 export const metadata: Metadata = {
 	title: "Learning Harness",
@@ -35,7 +35,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			style={vars as React.CSSProperties}
 			suppressHydrationWarning
 		>
-			<body className="min-h-dvh antialiased">
+			<head><link rel="preload" href="/fonts/inter-variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" /></head>
+            <body className="min-h-dvh antialiased">
 			{/* The notification channel rides OUTSIDE everything: sidebar, dock,
 				 and pages all subscribe as the polls retire (push S3, 2026-10-02). */}
 			<ServerEventsProvider>

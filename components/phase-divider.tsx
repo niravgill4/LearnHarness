@@ -44,9 +44,9 @@ export function PhaseChip({ phase }: { phase: Phase3 }) {
 			data-testid="phase-chip"
 			data-phase={phase}
 			aria-hidden="true"
-			className="pointer-events-none flex shrink-0 select-none items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tracking-tight apple-glass text-[#007aff] border border-white/10 shadow-sm"
+			className="learning-island pointer-events-none flex shrink-0 select-none items-center gap-2 rounded-full px-4 py-2.5 text-xs font-medium"
 		>
-			<span className="size-1.5 rounded-full bg-[#007aff]" />
+			<span className="size-1.5 rounded-full bg-current" />
 			{CHIP_LABEL[phase]}
 		</span>
 	);
@@ -61,7 +61,7 @@ export function PhaseDivider({ phase, nodeCount }: { phase: Phase3; nodeCount?: 
 	return (
 		<div className="my-6 flex w-full items-center gap-3" data-testid={`phase-divider-${phase}`}>
 			<span className="h-px flex-1 bg-white/10" aria-hidden />
-			<span className="apple-glass rounded-full px-3 py-1 text-xs font-medium tracking-tight text-muted-foreground border border-white/10 shadow-sm">
+			<span className="rounded-full px-3 py-1 text-xs font-medium text-muted-foreground">
 				{label}
 			</span>
 			<span className="h-px flex-1 bg-white/10" aria-hidden />

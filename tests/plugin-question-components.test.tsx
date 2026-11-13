@@ -514,7 +514,7 @@ for (const check of [false, true]) test(`healthy ${check ? "teach" : "probe"} th
 	for (const token of ["border-t", "border-border/60", "p-1.5"]) assert.ok(frame.parentElement?.classList.contains(token), token);
 	const label = frame.firstElementChild!;
 	assert.equal(label.textContent?.toLowerCase(), "your thinking");
-	for (const token of ["px-2.5", "pt-2", "text-xs", "font-medium", "uppercase"]) assert.ok(label.classList.contains(token), token);
+	for (const token of ["px-2.5", "pt-2", "text-xs", "font-medium", "tracking-normal"]) assert.ok(label.classList.contains(token), token);
 	const input = frame.querySelector<HTMLElement>("[data-file-path-input]")!;
 	assert.ok(input);
 	assert.equal(input.getAttribute("data-placeholder"), "Your thinking");

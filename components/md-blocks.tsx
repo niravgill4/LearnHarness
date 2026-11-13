@@ -351,14 +351,12 @@ export function MarkdownBlockquote(props: ComponentProps<"blockquote"> & ExtraPr
 	const { children, node, ...rest } = props;
 	const alert = parseAlertMarker(children);
 	if (!alert) {
-		// Plain quote — Streamdown's own styling, restored by hand: overriding
-		// `blockquote` displaced its styled component (the classes below are
-		// its verbatim defaults), and bare <blockquote> rendered unstyled
-		// (owner report, 2026-10-07).
+		// Plain quotes retain the muted italic register with the redesigned
+		// one-pixel rail. Alerts continue through the dedicated callout path.
 		return (
 			<blockquote
 				{...rest}
-				className="my-4 border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground italic"
+				className="my-5 border-l border-muted-foreground/40 pl-5 text-muted-foreground italic"
 				data-streamdown="blockquote"
 			>
 				{children}

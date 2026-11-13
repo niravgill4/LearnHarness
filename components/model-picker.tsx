@@ -281,7 +281,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 					data-testid="stats-model"
 					onClick={() => openMenu("model")}
 					aria-expanded={open === "model"}
-				>{effectiveId ? prettyModel(effectiveId) : "—"}</ModelPickerPill>
+				>{effectiveId ? prettyModel(effectiveId) : "Model"}</ModelPickerPill>
 			</Hint>
 			<Hint
 				// "Thinking" + its real shortcut via the registry (owner interlude
@@ -298,7 +298,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						openMenu("thinking");
 					}}
 					aria-expanded={open === "thinking"}
-				>{effectiveLevel === undefined ? "—" : (THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
+				>{effectiveLevel === undefined ? "Thinking" : (THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
 			</Hint>
 
 			{/* The shared dropdown body (extracted 2026-09-20): the agent

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T19:18:44.192203+00:00",
+  "title": "Design System: LearnHarness",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "composer-depth",
+        "value": "0 10px 30px rgb(0 0 0 / 20%)",
+        "purpose": "Separate the active composer from the reading surface."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-ease",
+        "value": "cubic-bezier(.2,.8,.2,1)",
+        "purpose": "Brief state transitions; respect reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "540px"
+      },
+      {
+        "name": "sidebar-collapse",
+        "value": "928px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "Keep the learning in focus.",
+    "overview": "Sculpted surfaces around a continuous reading canvas.",
+    "keyCharacteristics": [
+      "Floating monochrome navigation",
+      "One unified composer",
+      "Unboxed assistant responses",
+      "Theme-aware edge light"
+    ],
+    "rules": [],
+    "dos": [
+      "Use actual learning records and truthful empty states."
+    ],
+    "donts": [
+      "Do not replace accessible focus with visual subtlety."
+    ]
+  }
+}

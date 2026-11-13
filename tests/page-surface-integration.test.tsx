@@ -101,8 +101,8 @@ for (const page of pages) it(`${page.name}: covers page content but not native c
 	assert.doesNotMatch(body.className, /\bisolate\b|\bz-\d+\b|\btransform\b/);
 	assert.doesNotMatch(boundary.stack.className, /\bisolate\b|\bz-\d+\b|\btransform\b/);
 	if (page.name.startsWith("Home")) {
-		assert.equal(body.className, "absolute inset-0");
-		assert.ok(body.querySelector('main.absolute.inset-0'));
+		assert.equal(body.className, "studio-content");
+		assert.ok(body.querySelector('main.studio-atlas'));
 		assert.ok(body.querySelector('[data-testid="home-mode-switch"]'), "graph and composer share coverage");
 	} else if (page.floating) assert.equal(body.className, "relative flex min-h-0 flex-1");
 	else {

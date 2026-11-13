@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MenuShell } from "@/components/menu-shell";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
 import type { ChatDeleteMode, ThemeMode } from "@/src/core";
-import { DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import { DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, WaypointsIcon, SearchIcon, SettingsIcon } from "lucide-react";
 import { ActivitySection } from "@/components/activity-dock";
 import { CoverageMenuBlock } from "@/components/extraction-coverage";
 import { LhMark } from "@/components/lh-mark";
@@ -115,6 +115,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	// mismatch); the stored value is applied after mount.
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
+    const [narrowOpen, setNarrowOpen] = useState(false);
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
@@ -150,7 +151,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	// Both this and the mount effect land before the first paint, so a
 	// narrow window never flashes the open sidebar on load.
 	useEffect(() => {
-		if (!IS_ELECTRON) return; // plain-browser tabs open freely
+		// A narrow browser uses the same auto-collapse while keeping its own reopen control.
 		const onResize = () => setNarrow(window.innerWidth < SIDEBAR_AUTOCLOSE);
 		onResize();
 		window.addEventListener("resize", onResize);
@@ -158,6 +159,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const toggle = useCallback(() => {
+        if (narrow && !IS_ELECTRON) { setNarrowOpen(v => !v); return; }
 		// Opening while narrow (auto-closed, or the user's own closed-at-
 		// narrow): ask the shell to widen to the threshold — the resize
 		// listener flips `narrow` and the sidebar appears. The preference
@@ -189,7 +191,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [toggle]);
 
 	return (
-		<SidebarContext.Provider value={{ open: open && !narrow, toggle }}>
+		<SidebarContext.Provider value={{ open: narrow && !IS_ELECTRON ? narrowOpen : open && !narrow, toggle }}>
 			{/* transitions gated on mount: no slide-in flash on page load */}
 			<div className={cn("flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
 		</SidebarContext.Provider>
@@ -225,7 +227,7 @@ export function SidebarToggle() {
 				aria-hidden={open}
 				tabIndex={open ? -1 : 0}
 				onClick={toggle}
-				className={cn("sidebar-motion duration-200 rounded-xl apple-glass border border-white/10 hover:bg-white/10 text-muted-foreground hover:text-foreground shadow-sm transition-all apple-btn-tactile cursor-pointer", open ? "pointer-events-none opacity-0" : "opacity-100")}
+				className={cn("sidebar-motion duration-200 rounded-xl apple-glass border border-border hover:bg-accent text-muted-foreground hover:text-foreground shadow-sm transition-colors apple-btn-tactile cursor-pointer", open ? "pointer-events-none opacity-0" : "opacity-100")}
 			>
 				{/* Owner, round 6: size-4, SAME as the close glyph — the toggle
 				    must not grow when the sidebar is closed (it did: size-5 here).
@@ -318,20 +320,20 @@ export function SessionRow({
 			onContextMenu={onContextMenu}
 			data-testid={kbdSelected ? "session-row-kbd" : "session-row"}
 			className={cn(
-				"relative mb-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all apple-btn-tactile",
+				"relative mb-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors apple-btn-tactile",
 				active
-					? "bg-[#007aff] text-white shadow-sm font-medium"
-					: "hover:bg-white/10 text-foreground/90",
+					? "bg-accent text-foreground"
+					: "hover:bg-accent text-foreground/90",
 				kbdSelected && !active && "bg-white/15 ring-1 ring-white/20",
 			)}
 		>
 			<SessionStatus busy={chat.busy || chat.compacting} />
 			<span className="min-w-0 flex-1">
-				<span className={cn("block truncate text-sm font-normal", active ? "text-white font-medium" : "text-foreground")}>{chat.title}</span>
-				<span className={cn("block text-xs mt-0.5", active ? "text-white/80" : "text-muted-foreground")}>{sessionMeta(chat)}</span>
+				<span className={cn("block truncate text-sm font-normal", active ? "text-foreground" : "text-foreground")}>{chat.title}</span>
+				<span className={cn("block text-xs mt-0.5", active ? "text-muted-foreground" : "text-muted-foreground")}>{sessionMeta(chat)}</span>
 			</span>
 			{(chat.kind ?? "teach") === "practice" && (
-				<DumbbellIcon className={cn("size-3.5 shrink-0", active ? "text-white" : "text-muted-foreground/70")} aria-label="Practice session" />
+				<DumbbellIcon className={cn("size-3.5 shrink-0", active ? "text-foreground" : "text-muted-foreground/70")} aria-label="Practice session" />
 			)}
 		</button>
 	);
@@ -355,7 +357,7 @@ export function RenameRow({ chat, onCommit, onCancel }: { chat: ChatListItem; on
 	return (
 		<div
 			data-testid="session-rename-row"
-			className="relative mb-0.5 flex w-full items-center rounded-lg bg-accent px-3 py-2"
+			className="relative mb-0.5 flex w-full items-center rounded-xl bg-accent px-3 py-2"
 		>
 			{/* NOTHING MOVES (owner, polish round): an idle row renders no
 			    status spacer (SessionStatus is null when not busy), so the
@@ -647,12 +649,13 @@ function SessionsSidebar() {
 
 	return (
 		<aside
-			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			className={cn("sidebar-motion workspace-sidebar-slot shrink-0 overflow-hidden duration-200", open ? "w-60" : "w-0")}
 			aria-hidden={!open}
+            inert={!open}
 		>
-			<div className="flex h-full w-72 flex-col border-r border-white/10 apple-glass">
+			<div className="workspace-sidebar flex h-full w-60 flex-col">
 				{/* Apple macOS / iPadOS Window Chrome Header */}
-				<div className="lh-drag lh-lights-gutter flex items-center justify-between px-4 py-3.5 border-b border-white/5">
+				<div className="lh-drag lh-lights-gutter flex items-center justify-between sidebar-brand px-3 py-5">
 					<Hint
 						label="Home"
 						action="jump-graph"
@@ -661,10 +664,10 @@ function SessionsSidebar() {
 						<Link
 							href="/"
 							aria-label="Home"
-							className="lh-no-drag flex items-center gap-2.5 rounded-xl px-2 py-1 transition-all hover:bg-white/10"
+							className="lh-no-drag flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-accent"
 						>
-							<LhMark className="size-5 text-[#007aff]" />
-							<span className="font-semibold text-sm tracking-tight text-foreground">LearnHarness</span>
+							<LhMark className="size-6 text-foreground" />
+							<span className="font-medium text-sm tracking-tight text-foreground">LearnHarness</span>
 						</Link>
 					</Hint>
 					<Hint label="Close sidebar" action="toggle-sidebar">
@@ -673,7 +676,7 @@ function SessionsSidebar() {
 							size="icon"
 							aria-label="Close sidebar"
 							onClick={toggle}
-							className="lh-no-drag size-8 rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all"
+							className="lh-no-drag size-8 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
 						>
 							<PanelLeftCloseIcon className="size-4" />
 						</Button>
@@ -681,23 +684,23 @@ function SessionsSidebar() {
 				</div>
 
 				{/* Apple prominent action buttons */}
-				<div className="p-3 pb-2 flex gap-2">
+				<div className="sidebar-actions px-3 pb-3 flex flex-col gap-2">
 					<button
 						type="button"
 						data-testid="new-session"
 						title="Teaching"
 						onClick={() => void newSession()}
-						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#007aff] hover:bg-[#0071eb] text-white py-2 px-3 shadow-sm font-medium text-xs transition-all apple-btn-tactile cursor-pointer"
+						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer"
 					>
 						<PlusIcon className="size-3.5 shrink-0 stroke-[2.5]" />
-						<span className="truncate">Teach</span>
+						<span className="truncate">New session</span>
 					</button>
 					<button
 						type="button"
 						data-testid="new-session-practice"
 						title="Practice"
 						onClick={() => router.push("/chat/new?mode=practice")}
-						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-foreground py-2 px-3 shadow-sm font-medium text-xs transition-all apple-btn-tactile cursor-pointer"
+						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-transparent hover:bg-accent text-muted-foreground py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer"
 					>
 						<DumbbellIcon className="size-3.5 shrink-0" />
 						<span className="truncate">Practice</span>
@@ -705,7 +708,9 @@ function SessionsSidebar() {
 				</div>
 
 				{/* Apple Native Search Field */}
-				<div className="px-3 mb-2">
+                <Link href="/" className="mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><WaypointsIcon aria-hidden="true" className="size-4" />Knowledge</Link>
+
+				<div className="sidebar-search px-3 mb-3">
 					<Hint label="Search sessions" action="sessions-search" side="bottom">
 					<span className="relative flex w-full">
 						<Input
@@ -746,7 +751,7 @@ function SessionsSidebar() {
 							}}
 							placeholder="Search sessions…"
 							aria-label="Search sessions"
-							className="h-8 rounded-xl border-white/10 bg-black/25 pl-8 text-xs placeholder:text-muted-foreground/70 transition-all focus-visible:ring-2 focus-visible:ring-[#007aff]"
+							className="h-8 rounded-xl border-border bg-black/25 pl-8 text-xs placeholder:text-muted-foreground/70 transition-colors focus-visible:ring-2 focus-visible:ring-[#007aff]"
 						/>
 						<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
 					</span>
@@ -754,7 +759,7 @@ function SessionsSidebar() {
 				</div>
 
 				{/* Apple Native Segmented Control */}
-				<div className="mx-3 mb-2 flex items-center p-0.5 rounded-xl bg-black/30 border border-white/10" data-testid="session-kind-filter">
+				<div className="mx-3 mb-2 flex items-center p-0.5 rounded-xl bg-black/30 border border-border" data-testid="session-kind-filter">
 					{(["teach", "practice", "all"] as const).map((f) => (
 						<button
 							key={f}
@@ -762,9 +767,9 @@ function SessionsSidebar() {
 							data-testid={`kind-filter-${f}`}
 							onClick={() => setFilter(f)}
 							className={cn(
-								"flex-1 rounded-lg py-1 text-xs font-medium transition-all apple-btn-tactile",
+								"flex-1 rounded-xl py-1 text-xs font-medium transition-colors apple-btn-tactile",
 								kindFilter === f
-									? "bg-[#007aff] text-white shadow-sm"
+									? "bg-accent text-foreground"
 									: "text-muted-foreground hover:text-foreground",
 							)}
 						>
@@ -773,7 +778,8 @@ function SessionsSidebar() {
 					))}
 				</div>
 
-				<div ref={listRef} className="flex-1 overflow-y-auto p-2">
+				<div className="px-5 pb-2 pt-3 text-xs text-muted-foreground">Sessions</div>
+                <div ref={listRef} className="sidebar-history flex-1 overflow-y-auto p-2">
 					{shown === null ? (
 						<div className="px-2 py-4 text-xs text-muted-foreground">Loading…</div>
 					) : shown.length === 0 ? (
@@ -814,13 +820,13 @@ function SessionsSidebar() {
 					<ActivitySection />
 
 					{/* Settings entry: Apple System Settings capsule */}
-					<div className="px-3 pb-3 pt-1 border-t border-white/5">
+					<div className="sidebar-settings px-3 pb-3 pt-2">
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
 								onClick={() => openSettings()}
 								data-testid="settings-entry"
-								className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground apple-btn-tactile cursor-pointer"
+								className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground apple-btn-tactile cursor-pointer"
 							>
 								<SettingsIcon className="size-4" />
 								<span>Settings</span>
@@ -853,7 +859,7 @@ function SessionsSidebar() {
 								setRenamingId(ctxChatId);
 								setCtxChatId(null);
 							}}
-							className="flex items-center rounded-lg px-2.5 py-1.5 text-left text-foreground transition-colors hover:bg-accent"
+							className="flex items-center rounded-xl px-2.5 py-1.5 text-left text-foreground transition-colors hover:bg-accent"
 						>
 							Rename
 						</button>
@@ -875,7 +881,7 @@ function SessionsSidebar() {
 								a.click();
 								a.remove();
 							}}
-							className="flex items-center rounded-lg px-2.5 py-1.5 text-left text-foreground transition-colors hover:bg-accent"
+							className="flex items-center rounded-xl px-2.5 py-1.5 text-left text-foreground transition-colors hover:bg-accent"
 						>
 							Export as Markdown…
 						</button>
@@ -887,7 +893,7 @@ function SessionsSidebar() {
 								if (target) setDeleting(target);
 								setCtxChatId(null);
 							}}
-							className="flex items-center rounded-lg px-2.5 py-1.5 text-left text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+							className="flex items-center rounded-xl px-2.5 py-1.5 text-left text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
 						>
 							Delete…
 						</button>
@@ -915,14 +921,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 		<HostRouteLifetimeProvider pathname={pathname}>
 		<HostContentRootContext.Provider value={contentRoot}>
 			<InteractionLayersProvider><SettingsDialogProvider>
+                <div className="workspace-frame">
 				<SessionsSidebar />
-				<FilePathDropZone className="relative isolate min-w-0 flex-1" onContentRoot={setContentRoot}>{children}</FilePathDropZone>
+				<FilePathDropZone className="workspace-content relative isolate min-w-0 flex-1" onContentRoot={setContentRoot}>{children}</FilePathDropZone>
 				{/* The single document-level keydown listener (keyboard wave A) —
 				    after the content in the tree, but it's window-level so order only
 				    matters for the events it dispatches, never for DOM priority. */}
 				<KeyboardShortcuts />
 				<PluginWidgets />
-			</SettingsDialogProvider></InteractionLayersProvider>
+			</div>
+            </SettingsDialogProvider></InteractionLayersProvider>
 		</HostContentRootContext.Provider>
 		</HostRouteLifetimeProvider>
 	);

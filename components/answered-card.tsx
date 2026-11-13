@@ -62,10 +62,10 @@ export function AnsweredCard({ answer: savedAnswer, input }: { answer: QuestionA
 		    p-4 into a 28px void below (12px above); the card's own padding is
 		    the bottom rhythm when a row ends the card. */}
 		<div
-			className="rounded-2xl border border-white/10 apple-glass p-5 text-card-foreground shadow-lg [&>*:last-child]:mb-0 my-3 transition-all"
+			className="answer-surface rounded-2xl border border-border/60 bg-card/40 p-5 text-card-foreground [&>*:last-child]:mb-0 my-3 transition-colors"
 			data-testid="answered-card"
 		>
-			<div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+			<div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
 				{/* The tool's OWN name first (owner 2026-10-09): probe-phase
 			    cards label Probe/Recall — the phase boundary visible in the
 			    transcript. No `tool` on old records: kind labels as before. */}

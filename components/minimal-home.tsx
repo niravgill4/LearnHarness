@@ -1,5 +1,7 @@
 "use client";
 
+
+
 /**
  * THE MINIMAL HOME (owner, 2026-10-06 — the no-graph home, take two):
  * when GRAPH RENDERING is off (graph.rendering in settings), the home's
@@ -19,7 +21,7 @@
  * lifts the pick set; the chip opens the overlay in select mode).
  */
 import { useCallback, useEffect, useState } from "react";
-import { BookOpenIcon, DumbbellIcon, FileTextIcon, ListTreeIcon, SparklesIcon } from "lucide-react";
+import { ListTreeIcon } from "lucide-react";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { GraphCostControl } from "@/components/graph-view.tsx";
 import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImport } from "@/components/notes-import.tsx";
@@ -43,69 +45,19 @@ export function KnowledgeSummary({
 	const empty =
 		propositions === 0 && chains === 0 && teachSessions === 0 && practiceSessions === 0 && importedNotes === 0;
 
-	return (
-		<div data-testid="knowledge-summary" className="flex flex-col items-center text-center max-w-xl w-full px-6 pointer-events-auto">
-			{/* Apple Headline */}
-			<div className="mb-6 flex flex-col items-center">
-				<div className="size-12 rounded-2xl bg-gradient-to-br from-[#007aff] to-[#5856d6] flex items-center justify-center text-white shadow-lg mb-3">
-					<SparklesIcon className="size-6" />
-				</div>
-				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Welcome to LearnHarness</h1>
-				<p className="text-sm text-muted-foreground mt-1">An adaptive agent harness for deliberate learning</p>
-			</div>
+    return (
+        <div data-testid="knowledge-summary" className="knowledge-summary pointer-events-auto w-full max-w-[44rem] px-6 text-left">
 
-			{/* Apple Bento Grid */}
-			<div className="grid grid-cols-3 gap-3 w-full mb-4">
-				{/* Bento 1: Knowledge Graph */}
-				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
-					<div className="size-8 rounded-xl bg-[#007aff]/15 flex items-center justify-center text-[#007aff] mb-2">
-						<BookOpenIcon className="size-4" />
-					</div>
-					<span className="text-xl font-bold tracking-tight text-foreground">{propositions}</span>
-					<p className="font-ui text-xs text-muted-foreground mt-0.5">
-						{propositions} {propositions === 1 ? "proposition" : "propositions"}
-					</p>
-					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
-						{chains} {chains === 1 ? "chain" : "chains"}
-					</span>
-				</div>
-
-				{/* Bento 2: Study Sessions */}
-				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
-					<div className="size-8 rounded-xl bg-[#34c759]/15 flex items-center justify-center text-[#34c759] mb-2">
-						<DumbbellIcon className="size-4" />
-					</div>
-					<span className="text-xl font-bold tracking-tight text-foreground">{teachSessions + practiceSessions}</span>
-					<p className="font-ui text-xs text-muted-foreground mt-0.5">
-						{teachSessions} {teachSessions === 1 ? "teaching session" : "teaching sessions"}
-					</p>
-					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
-						{practiceSessions} {practiceSessions === 1 ? "practice session" : "practice sessions"}
-					</span>
-				</div>
-
-				{/* Bento 3: Sources & Notes */}
-				<div className="apple-glass rounded-2xl p-4 flex flex-col items-center justify-center border border-white/10 shadow-lg text-center">
-					<div className="size-8 rounded-xl bg-[#af52de]/15 flex items-center justify-center text-[#af52de] mb-2">
-						<FileTextIcon className="size-4" />
-					</div>
-					<span className="text-xl font-bold tracking-tight text-foreground">{importedNotes}</span>
-					<p className="font-ui text-xs text-muted-foreground mt-0.5">
-						{importedNotes} {importedNotes === 1 ? "imported note" : "imported notes"}
-					</p>
-					<span className="text-[11px] text-muted-foreground/75 mt-1 font-mono">
-						sources
-					</span>
-				</div>
-			</div>
-
-			{empty && (
-				<div className="apple-glass-pill rounded-full px-4 py-2 border border-white/10 text-xs text-muted-foreground">
-					<span>Start a session below to begin learning • Attach material with the paperclip</span>
-				</div>
-			)}
-		</div>
-	);
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Your understanding,<br />taking shape.</h1>
+            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">A place for the ideas you learn and the connections you discover.</p>
+            <dl className="mt-8 grid grid-cols-3 gap-5 border-y border-border py-5">
+                <div><dt className="text-sm text-muted-foreground">Propositions</dt><dd className="mt-2 text-2xl font-medium tabular-nums">{propositions}</dd><p className="mt-1 text-xs text-muted-foreground">{chains} {chains === 1 ? "chain" : "chains"}</p></div>
+                <div><dt className="text-sm text-muted-foreground">Sessions</dt><dd className="mt-2 text-2xl font-medium tabular-nums">{teachSessions + practiceSessions}</dd><p className="mt-1 text-xs text-muted-foreground">{practiceSessions} practice</p></div>
+                <div><dt className="text-sm text-muted-foreground">Imported notes</dt><dd className="mt-2 text-2xl font-medium tabular-nums">{importedNotes}</dd></div>
+            </dl>
+            {empty && <p className="mt-5 text-sm text-muted-foreground">Start a session below, or bring your own material.</p>}
+        </div>
+    );
 }
 
 export function MinimalHome({

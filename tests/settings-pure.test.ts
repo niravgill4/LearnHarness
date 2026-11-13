@@ -37,7 +37,7 @@ describe("resolveAppearance — delta over factory", () => {
 		assert.equal(a.fontFamily, null);
 		assert.equal(a.proseFontSize, 16);
 		assert.equal(a.sessionNameSerif, true);
-		assert.deepEqual(a.mdRendering, { headingWeight: 900, boldColor: null, italicColor: null });
+		assert.deepEqual(a.mdRendering, { headingWeight: 600, boldColor: null, italicColor: null });
 	});
 
 	it("explicit deltas win field-by-field", () => {
@@ -52,11 +52,11 @@ describe("resolveAppearance — delta over factory", () => {
 describe("appearanceVars — the mapping the provider applies", () => {
 	it("factory appearance on Default: the Default palette plus the type tokens", () => {
 		const vars = appearanceVars(resolveAppearance(undefined), DEFAULT_THEME);
-		assert.equal(vars["--background"], "#141414");
-		assert.equal(vars["--accent"], "#2a2a2a", "the hover surface keeps its hand-picked value");
-		assert.equal(vars["--lh-ink-strong"], "#e6e6e6", "emphasis = text on Default");
+		assert.equal(vars["--background"], "#1a1a1e");
+		assert.equal(vars["--accent"], "#323238", "the hover surface keeps its hand-picked value");
+		assert.equal(vars["--lh-ink-strong"], "#f2f1f5", "emphasis = text on Default");
 		assert.equal(vars["--lh-prose-size"], "16px");
-		assert.equal(vars["--lh-heading-weight"], "900");
+		assert.equal(vars["--lh-heading-weight"], "600");
 		assert.equal(vars["--font-prose"], undefined, "no font override at factory");
 		assert.equal(vars["--font-title"], undefined, "CMU stays");
 	});
@@ -65,7 +65,7 @@ describe("appearanceVars — the mapping the provider applies", () => {
 		const vars = appearanceVars(resolveAppearance({ fontFamily: "JetBrains Mono" }), mocha);
 		assert.equal(
 			vars["--font-prose"],
-			`"JetBrains Mono", var(--font-jetbrains), var(--font-sans3), ui-sans-serif, system-ui, sans-serif`,
+			`"JetBrains Mono", var(--font-jetbrains), -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans3), ui-sans-serif, system-ui, sans-serif`,
 		);
 	});
 
@@ -84,7 +84,7 @@ describe("appearanceVars — the mapping the provider applies", () => {
 		assert.equal(vars["--background"], "#101820");
 		assert.equal(vars["--card"], mocha.colors.surface, "un-overridden colors stay the theme's");
 		assert.equal(vars["--lh-warning"], "#fab387");
-		assert.equal(vars["--font-prose"], `"Georgia", var(--font-sans3), ui-sans-serif, system-ui, sans-serif`);
+		assert.equal(vars["--font-prose"], `"Georgia", -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans3), ui-sans-serif, system-ui, sans-serif`);
 		assert.equal(vars["--lh-prose-size"], "18px");
 		assert.equal(vars["--font-title"], "var(--font-prose)", "serif off → titles follow the prose font");
 		assert.equal(vars["--lh-heading-weight"], "700");
@@ -116,7 +116,7 @@ describe("staleVarNames — the removal half of application (owner repro: resets
 		assert.ok(stale.includes("--font-prose"));
 		assert.ok(stale.includes("--font-title"), "serif toggle back ON must clear the title override");
 		assert.ok(!stale.includes("--background"), "a theme always sets every color");
-		assert.equal(factory["--background"], "#141414", "an emptied background is the theme's again");
+		assert.equal(factory["--background"], "#1a1a1e", "an emptied background is the theme's again");
 		assert.ok(!stale.includes("--lh-prose-size"), "always-applied tokens never go stale");
 	});
 

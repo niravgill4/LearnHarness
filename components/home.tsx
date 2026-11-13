@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SurfaceRegion, usePageSurfaceBoundary, useSurfaceChromeStyle } from "./plugin-surfaces";
-import { CornerDownLeftIcon, DumbbellIcon } from "lucide-react";
+import { DumbbellIcon } from "lucide-react";
 import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
 import { SetupDialog } from "@/components/setup-dialog";
@@ -16,8 +16,7 @@ import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { SidebarToggle } from "@/components/sidebar";
 import { StatsBar } from "@/components/stats-bar";
 import { OPENING_PROMPT_FAILURE } from "@/components/opening-prompt";
-import { PathInput } from "@/components/path-input";
-import { AttachFilesButton } from "@/components/attach-files-button";
+import { Composer } from "@/components/composer";
 import { SessionStarter } from "@/components/start-session";
 import type { TurnUsage } from "@/src/core";
 
@@ -166,7 +165,7 @@ export function Home({
 	};
 
 	return (
-		<div className="relative h-dvh apple-canvas-bg">
+		<div className="home-page learning-studio relative h-dvh apple-canvas-bg">
 			{/* Window-drag strip (merged chrome, owner 2026-09-17): a dedicated
 			    mask element, deliberately FIRST in the DOM. Electron's app-region
 			    mask resolves by DOM order — a no-drag element subtracts only drag
@@ -178,6 +177,11 @@ export function Home({
 			    never needs to receive events — the mask routes the pixels. */}
 			<div className="lh-drag absolute inset-x-0 top-0 h-13" aria-hidden="true" />
 
+            <section className="studio-heading" aria-label="Learning studio">
+                <h1>Your learning studio</h1>
+                <p>Explore, practise, and connect what you learn.</p>
+            </section>
+
 			{/* The main view — full-bleed (owner, graph-view round 1): no
 			    padding on any side; it runs from the sidebar to the right edge
 			    and from the bottom to the top, under everything else. With
@@ -185,8 +189,8 @@ export function Home({
 			    MINIMAL HOME — a quiet knowledge-base summary + the graph
 			    chrome's survivors; data, extraction, and the pick flow are
 			    untouched, and the chain table stays behind its button. */}
-			<div ref={bodyRef} className="absolute inset-0">
-			<main className="absolute inset-0">
+			<div ref={bodyRef} className="studio-content">
+			<main className="studio-atlas">
 				{rendering ? (
 					<GraphView
 						chainSelectOpen={chainSelectOpen}
@@ -209,8 +213,8 @@ export function Home({
 			    OVER the graph (no gradient: the graph runs clean under it to the
 			    bottom edge). Matches chat.tsx's DOCK geometry (max-w-[46rem]
 			    px-4) so nothing shifts when a session starts (owner). */}
-			<div className="pointer-events-none absolute inset-x-0 bottom-0 pb-5">
-				<div className="pointer-events-auto mx-auto w-full max-w-[46rem] px-4">
+			<div className="pointer-events-none home-composer-dock studio-desk">
+				<div className="pointer-events-auto mx-auto w-full max-w-[48rem] px-5">
 					{/* The pick bar (owner vision, 2026-10-04): the chain
 					    table's selection is PERSISTENT — picked
 					    propositions show here as a count + Clear in EITHER
@@ -218,7 +222,8 @@ export function Home({
 					    send consumes it). Practice mode with nothing picked
 					    shows the pick HINT so the affordance is discoverable;
 					    teaching mode with nothing picked renders nothing. */}
-					<ComposerActions
+					<div className="studio-editor-heading"><span>{mode === "practice" ? "Practice desk" : "A new learning thread"}</span><h2>{mode === "practice" ? "Practise an idea." : "Start a learning thread."}</h2><p>{mode === "practice" ? "Revisit an idea until you can reason through it." : "Pick a question. We’ll work through it together."}</p></div>
+                    <ComposerActions
 						picker={(practiceProps.length > 0 || mode === "practice") && (
 							<NodePickerControl
 								count={practiceProps.length}
@@ -242,8 +247,51 @@ export function Home({
 						)}
 					/>
 					{startError && <p role="alert" className="mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
+
+
+                    <div className="composer-surface home-composer" data-attachment-composer="">
+                        <Composer
+                            busy={busy}
+                            value={topic}
+                            onChange={(value) => { topicRef.current = value; setTopic(value); }}
+                            onSend={() => { void start(); }}
+                            onStop={() => {}}
+                            canSend={!!topic.trim() || dictation.active}
+                            inputRef={topicInputRef}
+                            onEscape={dictation.active ? dictation.cancel : undefined}
+                            sendLabel="Start session"
+                            placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
+                            toolbar={
+					<StatsBar
+						dictationSlot={<DictationBar dictation={dictation} />}
+						turns={[] as TurnUsage[]}
+						leadingSlot={
+							<div className="flex items-center p-1 rounded-full bg-transparent" data-testid="home-mode-switch">
+								{(["teach", "practice"] as const).map((m) => (
+									<button
+										key={m}
+										type="button"
+										data-testid={`home-mode-${m}`}
+										onClick={() => setMode(m)}
+                                        aria-pressed={mode === m}
+										className={
+											"flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors apple-btn-tactile cursor-pointer " +
+											(mode === m
+												? "bg-accent text-foreground "
+												: "text-muted-foreground hover:text-foreground")
+										}
+									>
+										{m === "practice" ? <DumbbellIcon aria-hidden="true" className="size-3" /> : null}
+										{m === "teach" ? "Teach" : "Practice"}
+									</button>
+								))}
+							</div>
+						}
+					/>}
+                        />
+                    </div>
 					{!topic.trim() && !dictation.active && (
-						<div className="mb-2.5 flex items-center justify-center gap-2 overflow-x-auto py-1 scrollbar-none">
+						<div className="mt-5 flex items-center justify-start sm:justify-center gap-3 overflow-x-auto py-1 scrollbar-none">
 							{[
 								{ label: "Quantum Computing", icon: "⚡" },
 								{ label: "Transformer Attention", icon: "🧠" },
@@ -258,91 +306,14 @@ export function Home({
 										setTopic(item.label);
 										topicInputRef.current?.focus();
 									}}
-									className="flex items-center gap-1.5 rounded-full border border-white/10 apple-glass-pill px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-all apple-btn-tactile cursor-pointer shrink-0 shadow-sm"
+									className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors apple-btn-tactile cursor-pointer shrink-0"
 								>
-									<span className="text-xs">{item.icon}</span>
+
 									<span>{item.label}</span>
 								</button>
 							))}
 						</div>
 					)}
-					<form
-						data-attachment-composer=""
-						className="flex items-end gap-2 rounded-[24px] apple-glass p-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/15 transition-all"
-					onSubmit={(e) => {
-						e.preventDefault();
-						void start();
-					}}
-				>
-					<PathInput
-						ref={topicInputRef}
-						value={topic}
-						onValueChange={(value) => {
-							topicRef.current = value;
-							setTopic(value);
-						}}
-						defaultDropTarget
-						onKeyDown={(e) => {
-							if (!isInteractionScopeEligible(e.currentTarget, controller)) return;
-							// Esc ends dictation (the dictate decisions: click-again or
-							// Esc) — stopPropagation claims it (keyboard wave A) so
-							// the window chain doesn't also abort a turn.
-							if (e.key === "Escape" && dictation.active) {
-								controller?.claimEscape(e);
-								e.preventDefault();
-								e.stopPropagation();
-								dictation.cancel();
-								return;
-							}
-							if (e.key === "Enter" && !e.shiftKey) {
-								e.preventDefault();
-								void start();
-							}
-						}}
-						placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
-						autoFocus
-						className="field-sizing-content lh-input max-h-48 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 outline-none placeholder:text-muted-foreground text-base"
-					/>
-					<AttachFilesButton editorRef={topicInputRef} />
-					{/* Apple 44pt touch target and tactile press */}
-					<button
-						type="submit"
-						aria-label="Start session"
-						disabled={(!topic.trim() && !dictation.active) || busy}
-						className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#007aff] text-white shadow-[0_4px_14px_rgba(0,122,255,0.4)] transition-all hover:bg-[#0071eb] apple-btn-tactile disabled:opacity-30 cursor-pointer"
-					>
-						<CornerDownLeftIcon className="size-5" />
-					</button>
-					</form>
-					{/* Same as the chat view's under-composer stats bar (owner) — no
-					    session yet, so the LEFT side renders nothing (wave 7 sweep)
-					    while the RIGHT keeps the strong-slot control (fix wave: the
-					    pills write /api/settings/models). */}
-					<StatsBar
-						dictationSlot={<DictationBar dictation={dictation} />}
-						turns={[] as TurnUsage[]}
-						leadingSlot={
-							<div className="flex items-center p-1 rounded-full border border-white/10 bg-black/40 apple-glass" data-testid="home-mode-switch">
-								{(["teach", "practice"] as const).map((m) => (
-									<button
-										key={m}
-										type="button"
-										data-testid={`home-mode-${m}`}
-										onClick={() => setMode(m)}
-										className={
-											"flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all apple-btn-tactile cursor-pointer " +
-											(mode === m
-												? "bg-[#007aff] text-white shadow-[0_2px_8px_rgba(0,122,255,0.35)]"
-												: "text-muted-foreground hover:text-foreground")
-										}
-									>
-										{m === "practice" ? <DumbbellIcon aria-hidden="true" className="size-3" /> : null}
-										{m === "teach" ? "Teach" : "Practice"}
-									</button>
-								))}
-							</div>
-						}
-					/>
 				</div>
 			</div>
 
@@ -351,7 +322,8 @@ export function Home({
 			{/* Floating host chrome stays outside page-content coverage, after
 			    the region at the same owned-surface rank. The drag mask remains
 			    first so later controls retain their Electron no-drag carve-outs. */}
-			<header style={chromeStyle} className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 px-3 py-2">
+
+            <header style={chromeStyle} className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 px-3 py-2">
 				<div className="pointer-events-auto">
 					<SidebarToggle />
 				</div>

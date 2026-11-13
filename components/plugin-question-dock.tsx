@@ -148,7 +148,7 @@ export function PluginQuestionDockContent({ viewReader, snapshot, chatId, draft,
 		{!expanded && <QuestionDockBar toolName="explain" question={snapshot.input.question} toolLabel={snapshot.label} variant={reveal ? "reveal" : "collapsed"} onExpand={() => { void finishDictation().then(onExpand); }} />}
 		<div className={expanded ? "dock-variant" : "invisible h-0 overflow-hidden"}>
 			<div className="space-y-3 px-4 py-3">
-				<div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{snapshot.input.type === "predict" ? "Prediction" : snapshot.label}</div>
+				<div className="text-xs font-medium tracking-normal text-muted-foreground">{snapshot.input.type === "predict" ? "Prediction" : snapshot.label}</div>
 				<PluginQuestionPresentation snapshot={snapshot} chatId={chatId} registration={mountRegistration} failed={() => { setFailed(true); lease.current?.dispose(); }} />
 				{reconciliation === "syncing" && <p role="status" className="text-sm text-muted-foreground">Preparing question…</p>}
 				{unavailable && <p role="status" className="text-sm text-muted-foreground">Question unavailable</p>}
@@ -159,7 +159,7 @@ export function PluginQuestionDockContent({ viewReader, snapshot, chatId, draft,
 				<div data-testid={snapshot.showThinking ? "thinking-field" : undefined}
 					className={snapshot.showThinking ? "rounded-[10px] border border-border/70 bg-background/60 transition-colors focus-within:border-primary/50" : undefined}>
 					{snapshot.showThinking && <>
-						<div className="px-2.5 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Your thinking</div>
+						<div className="px-2.5 pt-2 text-xs font-medium tracking-normal text-muted-foreground">Your thinking</div>
 						<PathInput ref={thinking} value={draft.thinking} onValueChange={value => { draft.thinking = value; render(); }} onKeyDown={event => {
 							if (composingQuestionKey(event) || pluginQuestionKeySuppressed(event)) return;
 							if (!isInteractionScopeEligible(event.currentTarget, controller)) return;

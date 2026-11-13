@@ -286,11 +286,11 @@ describe("parseAlertMarker (pure)", () => {
 });
 
 describe("md-blocks — the restored plain blockquote (owner round, 2026-10-07)", () => {
-	it("a plain quote carries Streamdown's own styling (the override displaced it)", () => {
+	it("a plain quote keeps the muted italic register with the redesigned rail", () => {
 		const html = renderToStaticMarkup(
 			<MessageResponse mode="static">{"Before.\n\n> An ordinary quote.\n\nAfter."}</MessageResponse>,
 		);
-		assert.ok(html.includes("border-l-4"), "the left border is back");
+		assert.ok(html.includes("border-l "), "the quote uses a one-pixel rail");
 		assert.ok(html.includes("text-muted-foreground italic"), "muted italic — the quote register");
 		assert.ok(!html.includes("md-callout"), "a plain quote is not a callout box");
 	});

@@ -263,7 +263,7 @@ export function MenuShell({
 				data-testid={testid}
 				data-lh-menu=""
 				style={{ position: "fixed", left: 0, top: 0, visibility: "hidden" }}
-				className={menuClass}
+				className={`lh-menu ${menuClass}`}
 			>
 				{children}
 			</div></InteractionLayerOwner.Provider>,
@@ -283,7 +283,7 @@ export function MenuShell({
 			// default blue ring around it must not draw (owner, polish
 			// round). Arrow cycling moves DOM focus to the buttons, which
 			// carry their own hover/highlight; the ring is pure noise.
-			className={`${menuClass} outline-none`}
+			className={`lh-menu ${menuClass} outline-none`}
 		>
 			{children}
 		</div></InteractionLayerOwner.Provider>,

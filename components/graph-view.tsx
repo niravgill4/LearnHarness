@@ -1,5 +1,9 @@
 "use client";
 
+import { AtlasEmptyState } from "@/components/learning-studio";
+
+
+
 /**
  * The home knowledge-graph view (W4; vision §1 "Rendering (DECIDED)").
  *
@@ -68,7 +72,7 @@ import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImpo
 import { PluginGraphActions } from "@/components/plugin-chrome";
 import { SettingsSlider as SettingSlider } from "@/components/settings/controls";
 import Link from "next/link";
-import { BookOpenIcon, DumbbellIcon, FileTextIcon, ListTreeIcon, Loader2Icon, SearchIcon, SettingsIcon, SparklesIcon, WaypointsIcon } from "lucide-react";
+import { FileTextIcon, ListTreeIcon, Loader2Icon, SearchIcon, SettingsIcon } from "lucide-react";
 import { incrementalLayout, propositionSessionHref, type GraphCostSummary, type GraphNode, type GraphSnapshot } from "@/src/core";
 import { planCostLabel } from "@/components/usage-format";
 import { CLUSTER_LIGHTNESS, GraphCanvasRenderer, type GraphRenderSettings } from "./graph-canvas.ts";
@@ -834,7 +838,7 @@ export function GraphChromeRow({
 	return (
 		<>
 			{!isEmpty && (
-				<div className="graph-chrome-fade-in w-56 min-w-0 shrink rounded-full border border-white/10 apple-glass-pill px-2 py-1 shadow-lg backdrop-blur">
+				<div className="graph-chrome-fade-in w-56 min-w-0 shrink rounded-full border border-border apple-glass-pill px-2 py-1 shadow-lg backdrop-blur">
 					<Hint
 						// ⌘F focuses node search (surface-scoped registry action).
 						label="Search nodes"
@@ -850,7 +854,7 @@ export function GraphChromeRow({
 							placeholder="Search nodes…"
 							aria-label="Search nodes"
 							spellCheck={false}
-							className="h-7 w-full rounded-full border border-white/5 bg-black/25 pl-8 text-xs outline-none placeholder:text-muted-foreground focus:border-[#007aff]"
+							className="h-7 w-full rounded-full border border-border/60 bg-black/25 pl-8 text-xs outline-none placeholder:text-muted-foreground focus:border-[#007aff]"
 						/>
 					</div>
 					</Hint>
@@ -861,13 +865,13 @@ export function GraphChromeRow({
 			)}
 			{/* The chain table (chains overlay, owner plan 2026-09-29). Own
 			    container (36px band), between the search and Import. */}
-			<div className="graph-chrome-fade-in shrink-0 rounded-full border border-white/10 apple-glass-pill px-1.5 py-1 shadow-lg backdrop-blur">
+			<div className="graph-chrome-fade-in shrink-0 rounded-full border border-border apple-glass-pill px-1.5 py-1 shadow-lg backdrop-blur">
 					<Hint label="Every reasoning chain" side="bottom">
 						<button
 							type="button"
 							onClick={onOpenChains}
 							data-testid="open-chain-table"
-							className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-all hover:text-foreground hover:bg-white/10 apple-btn-tactile cursor-pointer"
+							className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-accent apple-btn-tactile cursor-pointer"
 						>
 							<ListTreeIcon className="size-3" />
 							Chains
@@ -1468,69 +1472,10 @@ export function GraphView({
 	}, [selected, isEmpty]);
 
 	return (
-		<div className="relative h-full w-full">
+		<div className="relative h-full w-full" data-graph-empty={isEmpty}>
+            <div className="atlas-caption"><span>Your learning atlas</span><span>{snapshot ? `${snapshot.nodes.length} ideas · ${snapshot.edges.length} connections` : "Opening atlas…"}</span></div>
 			{isEmpty ? (
-				// Apple Intelligence / Spatial Knowledge Canvas Hero
-				<div className="flex h-full w-full flex-col items-center justify-center px-4 pb-28 select-none pointer-events-none">
-					<div className="flex flex-col items-center text-center max-w-xl pointer-events-auto">
-						{/* Glowing Apple Intelligence / Sequoia Icon Badge */}
-						<div className="relative mb-5 flex items-center justify-center">
-							<div className="absolute -inset-2.5 rounded-3xl bg-gradient-to-tr from-[#007aff] to-[#5856d6] opacity-30 blur-xl animate-pulse" />
-							<div className="relative size-16 rounded-[22px] bg-gradient-to-b from-[#007aff] via-[#0071eb] to-[#5856d6] flex items-center justify-center text-white shadow-[0_12px_32px_rgba(0,122,255,0.4),inset_0_1px_1.5px_rgba(255,255,255,0.45)] ring-1 ring-white/20">
-								<SparklesIcon className="size-8 stroke-[2]" />
-							</div>
-						</div>
-
-						{/* Apple Headline & Subtitle */}
-						<div className="text-xs font-semibold tracking-wider uppercase text-[#007aff] mb-1 font-mono">Knowledge Graph</div>
-						<h1 className="text-3xl font-bold tracking-tight text-foreground font-title sm:text-4xl">
-							Knowledge Canvas
-						</h1>
-						<div className="mt-2 text-sm text-muted-foreground/90 max-w-md leading-relaxed font-sans">
-							<p>Start a session to begin learning.</p>
-							<p className="mt-1 text-xs text-muted-foreground/75">Attach your material with the paperclip or drag and drop.</p>
-						</div>
-
-						{/* Apple Bento Quick Action Cards */}
-						<div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-							<div
-								className="apple-glass rounded-2xl p-4 flex flex-col items-start text-left border border-white/10 hover:border-[#007aff]/40 transition-all apple-btn-tactile group cursor-default shadow-lg"
-							>
-								<div className="size-8 rounded-xl bg-[#007aff]/15 flex items-center justify-center text-[#007aff] mb-2.5 group-hover:scale-105 transition-transform">
-									<BookOpenIcon className="size-4" />
-								</div>
-								<span className="font-semibold text-xs text-foreground tracking-tight">Explore Concepts</span>
-								<span className="text-[11px] text-muted-foreground mt-0.5 leading-normal">
-									Break down complex theories into first principles
-								</span>
-							</div>
-
-							<div
-								className="apple-glass rounded-2xl p-4 flex flex-col items-start text-left border border-white/10 hover:border-[#34c759]/40 transition-all apple-btn-tactile group cursor-default shadow-lg"
-							>
-								<div className="size-8 rounded-xl bg-[#34c759]/15 flex items-center justify-center text-[#34c759] mb-2.5 group-hover:scale-105 transition-transform">
-									<DumbbellIcon className="size-4" />
-								</div>
-								<span className="font-semibold text-xs text-foreground tracking-tight">Active Recall</span>
-								<span className="text-[11px] text-muted-foreground mt-0.5 leading-normal">
-									Test your retention with targeted Socratic challenges
-								</span>
-							</div>
-
-							<div
-								className="apple-glass rounded-2xl p-4 flex flex-col items-start text-left border border-white/10 hover:border-[#af52de]/40 transition-all apple-btn-tactile group cursor-default shadow-lg"
-							>
-								<div className="size-8 rounded-xl bg-[#af52de]/15 flex items-center justify-center text-[#af52de] mb-2.5 group-hover:scale-105 transition-transform">
-									<FileTextIcon className="size-4" />
-								</div>
-								<span className="font-semibold text-xs text-foreground tracking-tight">Synthesize Notes</span>
-								<span className="text-[11px] text-muted-foreground mt-0.5 leading-normal">
-									Import papers, slides, or notes to build reasoning graphs
-								</span>
-							</div>
-						</div>
-					</div>
-				</div>
+                <div className="knowledge-welcome atlas-empty-wrap"><AtlasEmptyState /></div>
 			) : (
 				<div ref={containerRef} className="relative h-full w-full">
 					{/* THE single canvas: every layer (hulls, edges, nodes, both

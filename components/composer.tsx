@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { ArrowRightIcon, CornerDownLeftIcon, SquareIcon } from "lucide-react";
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowRightIcon, ArrowUpIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PathInput } from "@/components/path-input";
 import { AttachFilesButton } from "@/components/attach-files-button";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
+
+/** Keeps the chat's controller-owned toolbar in its existing data scope. */
+export const ComposerToolbarContext = createContext<ReactNode>(null);
 
 /**
  * The chat composer — content row ONLY (the persistent rounded shell lives in
@@ -119,6 +122,8 @@ export function Composer({
 	onNext,
 	defaultDropTarget = true,
 	fileInsertion = true,
+    toolbar,
+    sendLabel,
 }: {
 	busy: boolean;
 	value: string;
@@ -147,8 +152,11 @@ export function Composer({
 	/** Neutral plugin composers opt out without changing core defaults. */
 	defaultDropTarget?: boolean;
 	fileInsertion?: boolean;
+    toolbar?: ReactNode;
+    sendLabel?: string;
 }) {
 	const controller = useOptionalInteractionLayers();
+    const inheritedToolbar = useContext(ComposerToolbarContext);
 	const act = () => {
 		const action = enterAction({ busy, canSend, nextProblem });
 		if (action === "stop") onStop();
@@ -160,7 +168,7 @@ export function Composer({
 	return (
 		<form
 			data-testid="composer"
-			className="flex items-end gap-1.5 p-1.5"
+			className="session-composer flex flex-col gap-2 p-4"
 			onSubmit={(e) => {
 				e.preventDefault();
 				act();
@@ -195,9 +203,11 @@ export function Composer({
 				}}
 				placeholder={placeholder}
 				autoFocus={autoFocus}
-				className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
+				className="field-sizing-content lh-input max-h-48 min-h-12 w-full resize-none bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
 			/>
-			<AttachFilesButton editorRef={editorRef} />
+			<div className="composer-toolbar flex w-full items-end gap-2">
+            <AttachFilesButton editorRef={editorRef} />
+            <div className="min-w-0 flex-1">{toolbar ?? inheritedToolbar}</div>
 			{/* The button follows the text (owner report 2026-10-03): while
 				 a turn runs WITH text typed it stays the SEND affordance
 				 (click = steer — steering must be clickable, not Enter-only);
@@ -217,7 +227,7 @@ export function Composer({
 						type="submit"
 						data-testid="next-problem-button"
 						aria-label="Next problem"
-						className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#34c759] px-4 font-sans text-xs font-semibold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-[#30b753] apple-btn-tactile cursor-pointer"
+						className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 font-sans text-xs font-medium tracking-normal text-primary-foreground transition-colors hover:bg-primary/90 apple-btn-tactile cursor-pointer"
 					>
 						Next problem
 						<ArrowRightIcon className="size-4" />
@@ -225,18 +235,19 @@ export function Composer({
 				) : (
 					<button
 						type="submit"
-						aria-label={busy && !canSend ? "Stop" : "Send"}
+						aria-label={busy && !canSend ? "Stop" : (sendLabel ?? "Send")}
 						disabled={!busy && !canSend}
 						className={cn(
-							"flex size-11 shrink-0 items-center justify-center rounded-xl transition-all shadow-sm apple-btn-tactile cursor-pointer",
+							"flex size-11 shrink-0 items-center justify-center rounded-full transition-colors apple-btn-tactile cursor-pointer",
 							busy && !canSend
 								? "bg-[#2c2c2e] text-foreground hover:bg-[#3a3a3c]"
-								: "bg-[#007aff] text-white hover:bg-[#0071eb] disabled:opacity-40",
+								: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-35",
 						)}
 					>
-						{busy && !canSend ? <SquareIcon className="size-4" /> : <CornerDownLeftIcon className="size-5" />}
+						{busy && !canSend ? <SquareIcon className="size-4" /> : <ArrowUpIcon className="size-5" />}
 					</button>
 				)}
+            </div>
 		</form>
 	);
 }

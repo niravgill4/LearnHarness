@@ -197,28 +197,21 @@ export function DraftShell({
 									setup={setupCta}
 								/>
 								{startError && <p role="alert" className="pointer-events-auto mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
-								<div data-attachment-composer="" className="pointer-events-auto overflow-hidden rounded-[24px] apple-glass shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/15">
-									<Composer
-										busy={busy}
-										value={text}
-										onChange={onChange}
-										onSend={handleSend}
-										onStop={() => {}}
-										canSend={canSend}
-										inputRef={composerInputRef}
-										autoFocus
-										onEscape={dictation.active ? dictation.cancel : undefined}
-										// The opening question, same as the graph view's new-session
-										// input (owner refinement round, 2026-09-24) — no lesson has
-										// started yet, so the composer must not read like one is in
-										// flight.
-										placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
-									/>
-								</div>
-								<StatsBar
-									dictationSlot={<DictationBar dictation={dictation} />}
-									turns={[]}
-								/>
+								<div data-attachment-composer="" className="composer-surface pointer-events-auto overflow-hidden">
+                                        <Composer
+                                            busy={busy}
+                                            value={text}
+                                            onChange={onChange}
+                                            onSend={handleSend}
+                                            onStop={() => {}}
+                                            canSend={canSend}
+                                            inputRef={composerInputRef}
+                                            autoFocus
+                                            toolbar={<StatsBar dictationSlot={<DictationBar dictation={dictation} />} turns={[]} />}
+                                            onEscape={dictation.active ? dictation.cancel : undefined}
+                                            placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
+                                        />
+                                    </div>
 							</div>
 						</div>
 					</div>
