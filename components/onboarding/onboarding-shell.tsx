@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, MoveUpRightIcon } from "lucide-react";
@@ -20,6 +20,7 @@ const ease = [.22, 1, .36, 1] as const;
 
 export function OnboardingFrame({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
+	const neuralCanopy = useRef<HTMLDivElement>(null);
 	const [step, setStep] = useState(pathname === "/onboarding" ? 1 : 0);
 	const controller = useMemo(() => ({ setStep }), []);
 	const reduced = useReducedMotionPreference();
@@ -32,7 +33,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 			<section className="onboarding-story" aria-label="Welcome to Cognera">
 				<div className="onboarding-story-backdrop" aria-hidden="true" />
 				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 12, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: .65, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
-				<div className="onboarding-art"><NeuralField phase={step} /></div>
+				<div className="onboarding-art"><NeuralField phase={step} extensionRoot={neuralCanopy} /></div>
 				<div className="onboarding-thought"><span className="onboarding-thought-mark" aria-hidden="true"><MoveUpRightIcon /></span><p key={step}>{content.thought}</p><span className="onboarding-thought-dots" aria-hidden="true">{story.map((_, i) => <i key={i} data-active={step === i} />)}</span></div>
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
@@ -45,6 +46,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 				<div className="onboarding-bottom"><p className="onboarding-footnote">Good things start with a question.</p><span aria-hidden="true">{step + 1} / 4</span></div>
 				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (step + 1) / 4 }} transition={{ duration: reduced ? 0 : .8, ease }} /></div>
 			</section>
+			<div ref={neuralCanopy} className="onboarding-neural-canopy" aria-hidden="true" />
 		</div>
 	</main></SceneContext.Provider>;
 }

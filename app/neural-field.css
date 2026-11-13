@@ -10,6 +10,18 @@
 .neural-field-pause svg { width:12px; height:12px; }
 .neural-field-pause:hover:not(:disabled) { background:#ffffff0d; }
 .neural-field-pause:disabled { opacity:.45; cursor:default; }
+.onboarding-layout { position:relative; isolation:isolate; }
+.onboarding-neural-canopy { position:absolute; inset:0; z-index:1; pointer-events:none; }
+.onboarding-story,.neural-field { isolation:auto; }
+.onboarding-story-copy,.onboarding-thought,.onboarding-story-footer { position:relative; z-index:2; }
+.neural-field > figcaption { z-index:2; }
+.neural-field-pause { z-index:3; }
+.neural-bridge,.neural-bridge canvas,.neural-bridge-static { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
+.neural-bridge canvas { visibility:hidden; }
+.neural-bridge[data-engine="canvas"] canvas { visibility:visible; }
+.neural-bridge[data-engine="canvas"] .neural-bridge-static { visibility:hidden; }
+.onboarding-form-area > .onboarding-progress,.onboarding-form-area > .onboarding-form-content,.onboarding-form-area > .onboarding-bottom { position:relative; z-index:2; }
+.onboarding-form-area > .onboarding-bottom-track { z-index:2; }
 @media(max-width:950px) { .neural-field { min-height:350px; } .neural-field-stage { inset:-12px -12px 42px; } .neural-field > figcaption { left:20px; font-size:10px; max-width:calc(100% - 85px); } }
 @media(max-width:520px) { .neural-field { min-height:320px; } .neural-field-stage { inset:-8px -20px 40px; } .neural-field > figcaption { left:10px; font-size:10px; } .neural-field-pause { right:5px; } }
 @media(prefers-reduced-motion:reduce) { .neural-field * { transition:none !important; } }
