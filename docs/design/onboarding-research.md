@@ -1,6 +1,6 @@
-# Cognera onboarding research — November 2026
+# Earlier product-flow onboarding research — November 2026
 
-This pass refines the approved dark, abstract neural onboarding. It keeps the account → provider → model → first question workflow and adds a continuous visual scene rather than a separate decorative landing page.
+These notes informed the account → provider → model → first question workflow. The current abstract animation and its live-site visual research are documented in [abstract-motion-research.md](abstract-motion-research.md). The visual decisions below describe an earlier treatment, not the current artwork.
 
 ## First-party references inspected
 

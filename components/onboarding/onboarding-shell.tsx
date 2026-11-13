@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutGroup, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, MoveUpRightIcon } from "lucide-react";
 import { CogneraMark } from "@/components/cognera-mark";
-import { LearningPreview } from "@/components/learning-preview";
+import { ClarityField } from "@/components/clarity-field";
 import { useReducedMotionPreference } from "@/lib/use-reduced-motion";
 
 const story = [
@@ -32,7 +32,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 			<section className="onboarding-story" aria-label="Welcome to Cognera">
 				<div className="onboarding-story-backdrop" aria-hidden="true" />
 				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 12, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: .65, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
-				<div className="onboarding-art"><LearningPreview phase={step} /></div>
+				<div className="onboarding-art"><ClarityField phase={step} /></div>
 				<div className="onboarding-thought"><span className="onboarding-thought-mark" aria-hidden="true"><MoveUpRightIcon /></span><p key={step}>{content.thought}</p><span className="onboarding-thought-dots" aria-hidden="true">{story.map((_, i) => <i key={i} data-active={step === i} />)}</span></div>
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
