@@ -1,4 +1,4 @@
-/* The Observatory: a persistent thought sculpture, a calm place to begin. */
+/* A continuous learning welcome, with a calm place to begin. */
 .onboarding-page {
  --ob-ground:#0c0e12; --ob-surface:#1c1f27; --ob-line:#353a46;
  --ob-ink:#f4f5fa; --ob-muted:#b3b9c8; --ob-accent:#d6e8e0;
@@ -11,21 +11,15 @@
 .onboarding-brand { display:flex; align-items:center; gap:10px; font-size:21px; font-weight:550; letter-spacing:-.035em; }
 .onboarding-brand svg { width:30px; height:30px; }
 .onboarding-topline-note { color:var(--ob-muted); font-size:11px; }
+.onboarding-mobile-start { display:none; }
+.onboarding-form-content:focus { outline:none; }
 .onboarding-layout { max-width:1440px; margin:auto; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:20px; min-height:calc(100dvh - 105px); }
 .onboarding-story { position:relative; isolation:isolate; overflow:hidden; min-width:0; display:flex; flex-direction:column; border-radius:28px; padding:48px 46px 25px; }
 .onboarding-story-backdrop { position:absolute; inset:0; z-index:-1; background:radial-gradient(ellipse at 50% 57%,#28324866,transparent 66%),linear-gradient(155deg,#1e2231 0%,#151922 38%,#10171b 100%); border:1px solid #ffffff0a; border-radius:inherit; }
 .onboarding-story-copy { z-index:1; position:relative; }
 .onboarding-story h1 { font-size:62px; font-weight:430; line-height:1.06; letter-spacing:-.04em; white-space:pre-line; text-wrap:balance; }
 .onboarding-story p { max-width:340px; font-size:14px; line-height:1.8; color:#bac4d8; margin-top:21px; }
-.onboarding-art { flex:1; position:relative; min-height:310px; margin:-15px -35px 0; }
-.learning-ribbon { position:relative; isolation:isolate; width:100%; height:100%; min-height:280px; }
-.learning-ribbon canvas { display:block; width:100%; height:100%; min-height:inherit; touch-action:pan-y; }
-.ribbon-pause { position:absolute; bottom:18px; right:18px; width:34px; height:34px; display:grid; place-items:center; border:1px solid #ffffff26; border-radius:50%; color:var(--ob-muted,var(--muted-foreground)); background:transparent; cursor:pointer; transition:background .2s,color .2s; }
-.ribbon-pause svg { width:12px; height:12px; }
-.ribbon-pause:hover { background:#ffffff12; color:var(--ob-ink,var(--foreground)); }
-.ribbon-pause:focus-visible { outline:2px solid var(--ob-accent,var(--foreground)); outline-offset:4px; }
-.onboarding-art-label { position:absolute; left:36px; bottom:28px; display:flex; align-items:center; gap:9px; font-size:10px; color:#b6c6df; pointer-events:none; }
-.onboarding-art-label > span { width:5px; height:5px; background:#b9d2f3; border-radius:50%; }
+.onboarding-art { flex:1; position:relative; display:flex; align-items:center; min-height:340px; margin:-6px -18px 0; }
 .onboarding-thought { position:relative; display:flex; align-items:center; gap:15px; padding:18px 0; border-top:1px solid #ffffff20; }
 .onboarding-thought .onboarding-thought-mark { width:31px; height:31px; display:grid; place-items:center; border:1px solid #94b3d14a; border-radius:50%; flex-shrink:0; color:#c3d7ed; }
 .onboarding-thought-mark svg { width:14px; height:14px; }
@@ -130,9 +124,8 @@
 @keyframes ob-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:no-preference) { .onboarding-spinner { animation:ob-spin 1s linear infinite; } .learning-studio .atlas-link { stroke-dasharray:650; animation:atlas-connect 1.9s cubic-bezier(.16,1,.3,1) both; } @keyframes atlas-connect { from { stroke-dashoffset:650; } to { stroke-dashoffset:0; } } }
 .atlas-motion-stage { height:300px; position:relative; }
-.atlas-motion-stage > .learning-ribbon { position:absolute; inset:0; opacity:.55; }
 .atlas-motion-stage > svg { position:relative; pointer-events:none; width:100%; height:100%; max-height:none; }
-.atlas-motion-stage .ribbon-pause { z-index:2; right:0; bottom:0; }
 @media(max-width:1200px) { .onboarding-page { padding:24px; } .onboarding-story { padding:40px 30px 24px; } .onboarding-story h1 { font-size:51px; } .onboarding-form-area { padding:24px 28px 19px; } .onboarding-progress-label { font-size:9px; } }
-@media(max-width:950px) { .onboarding-layout { gap:16px; grid-template-columns:1fr; } .onboarding-topline-note { font-size:10px; } .onboarding-story { min-height:300px; padding:30px; } .onboarding-story-copy { max-width:54%; } .onboarding-story h1 { font-size:42px; } .onboarding-story p { font-size:12px; max-width:300px; margin-top:15px; } .onboarding-art { position:absolute; top:5px; right:-15px; bottom:15px; width:50%; margin:0; min-height:0; } .onboarding-art .learning-ribbon,.onboarding-art canvas { min-height:270px; } .onboarding-art-label { bottom:13px; left:25%; font-size:9px; } .onboarding-thought { margin-top:25px; max-width:52%; padding:12px 0; gap:10px; } .onboarding-thought p { font-size:10px; } .onboarding-thought-dots,.onboarding-story-footer { display:none; } .onboarding-form-area { padding:23px 30px 18px; min-height:640px; } .onboarding-form-content { max-width:430px; padding:30px 0; } .onboarding-progress { max-width:430px; width:100%; margin:auto; } .onboarding-progress-label { font-size:10px; } .onboarding-bottom { max-width:430px; width:100%; margin:auto; } }
-@media(max-width:520px) { .onboarding-page { padding:19px 14px 14px; } .onboarding-topline { padding:0 5px; margin-bottom:18px; } .onboarding-brand { font-size:19px; } .onboarding-topline-note { display:none; } .onboarding-story { min-height:215px; padding:25px 20px 20px; border-radius:21px; } .onboarding-story-copy { max-width:69%; } .onboarding-story h1 { font-size:31px; } .onboarding-story p { font-size:11px; max-width:200px; margin-top:12px; } .onboarding-art { right:-42px; top:18px; bottom:0; width:55%; opacity:.75; } .onboarding-art .learning-ribbon,.onboarding-art canvas { min-height:170px; } .onboarding-art-label,.onboarding-thought { display:none; } .onboarding-art .ribbon-pause { bottom:0; right:55px; width:27px; height:27px; } .onboarding-form-area { padding:18px 20px 17px; min-height:640px; border-radius:21px; } .onboarding-progress li { gap:5px; padding:9px 3px; } .onboarding-progress-label { font-size:8px; } .onboarding-progress-number { font-size:8px; } .onboarding-step h2 { font-size:30px; } .onboarding-form input,.onboarding-form textarea,.onboarding-search { font-size:16px; } .onboarding-form-content { padding:29px 0; } }
+@media(max-width:950px) { .onboarding-layout { gap:16px; grid-template-columns:1fr; } .onboarding-topline-note { font-size:10px; } .onboarding-story { min-height:380px; padding:30px; } .onboarding-story-copy { max-width:49%; } .onboarding-story h1 { font-size:42px; } .onboarding-story p { font-size:12px; max-width:300px; margin-top:15px; } .onboarding-art { position:absolute; top:0; right:0; bottom:0; width:51%; margin:0; min-height:0; } .onboarding-thought { margin-top:25px; max-width:47%; padding:12px 0; gap:10px; } .onboarding-thought p { font-size:10px; } .onboarding-thought-dots,.onboarding-story-footer { display:none; } .onboarding-form-area { padding:23px 30px 18px; min-height:640px; } .onboarding-form-content { max-width:430px; padding:30px 0; } .onboarding-progress { max-width:430px; width:100%; margin:auto; } .onboarding-progress-label { font-size:10px; } .onboarding-bottom { max-width:430px; width:100%; margin:auto; } }
+@media(max-width:520px) { .onboarding-page { padding:19px 14px 14px; } .onboarding-topline { padding:0 5px; margin-bottom:18px; } .onboarding-brand { font-size:19px; } .onboarding-topline-note { display:none; } .onboarding-story { min-height:0; padding:25px 20px 20px; border-radius:21px; } .onboarding-story-copy { max-width:none; } .onboarding-story h1 { font-size:31px; } .onboarding-story p { font-size:11px; max-width:265px; margin-top:12px; } .onboarding-art { position:relative; inset:auto; width:auto; min-height:0; margin:12px -12px 0; } .onboarding-thought { display:none; } .onboarding-form-area { padding:18px 20px 17px; min-height:640px; border-radius:21px; } .onboarding-progress li { gap:5px; padding:9px 3px; } .onboarding-progress-label { font-size:8px; } .onboarding-progress-number { font-size:8px; } .onboarding-step h2 { font-size:30px; } .onboarding-form input,.onboarding-form textarea,.onboarding-search { font-size:16px; } .onboarding-form-content { padding:29px 0; } }
+@media(max-width:520px) { .onboarding-mobile-start { display:flex; align-items:center; gap:7px; min-height:44px; font-size:11px; color:var(--ob-accent); } .onboarding-mobile-start svg { width:13px; height:13px; } }

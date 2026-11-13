@@ -8,7 +8,7 @@ This pass refines the approved dark, abstract neural onboarding. It keeps the ac
 | --- | --- | --- |
 | [Cursor quickstart](https://cursor.com/docs/get-started/quickstart) | Sign in, open a folder, make one useful change, then review it. | Setup ends at the learner's own first question; no extra product tour. |
 | [Perplexity getting started](https://www.perplexity.ai/help-center/en/articles/10354975-getting-started-with-perplexity) | Plain-language example questions precede optional personalization. | Topic is optional and phrased as a question, with a clear next action. |
-| [Replit get started](https://docs.replit.com/home/get-started) | A coherent project carries the getting-started journey. | One evolving thought sculpture carries all steps, including route navigation. |
+| [Replit get started](https://docs.replit.com/home/get-started) | A coherent project carries the getting-started journey. | One illustrative learning example carries the onboarding steps, including route navigation. |
 | [Granola](https://www.granola.ai/) | A visible raw-notes → enhanced-notes demonstration explains the benefit. | Animation represents ideas becoming connected; the home atlas continues the same visual language. |
 | [Notion AI](https://www.notion.com/product/ai) | Concrete activities explain the product before model and administration details. | Learning purpose leads the welcome; provider cost and model details appear at their relevant steps. |
 | [OpenAI sign-in troubleshooting](https://help.openai.com/en/articles/6613629-why-cant-i-log-in-to-chatgpt) | The retrieved article concerns API Platform sign-in and stresses using the original authentication method. | Account creation and login share one stable form, with explicit provider choices, pending states and recovery messages. |
@@ -17,11 +17,11 @@ Research used publicly accessible first-party page content and help documentatio
 
 ## Visual and motion decisions
 
-- A quiet two-panel composition: one expressive thought sculpture and one readable task area. No dashboard controls appear before setup completes.
-- A single persistent canvas in the shared welcome layout. Contours rotate in depth, signals travel along them, pointer movement shifts the view, and each step changes the sculpture's shape and orientation.
+- A quiet two-panel composition: one illustrative learning preview and one readable task area. No dashboard controls appear before setup completes.
+- A persistent SVG map in the shared welcome layout. A question connects to related ideas, then becomes a recall prompt. Signals follow concept links, with a working answer reveal and retry. This demonstrates the learning purpose without presenting sample data as the user's records.
 - Headline and form transitions, a shared moving progress selection, and a continuous bottom track explain movement through the journey. Controls never wait for animation to finish.
 - Phone and tablet layouts retain a smaller artwork above the form. Inputs remain readable and scrollable, with no horizontal overflow.
-- Pause, Reduce Motion, document visibility and intersection handling bound animation. Density and frame rate are capped; drawing does not rerender React each frame.
+- Pause, live Reduce Motion changes, document visibility and intersection handling bound animation. The SVG clock runs independently; React updates once per chapter instead of per frame. Manual chapter selection and recall remain available without autoplay.
 
 ## Authentication boundaries
 

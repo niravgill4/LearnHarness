@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import "./onboarding.css";
+import "./learning-preview.css";
 import { WorkspaceFrame } from "@/components/workspace-frame";
 import { readThemeBoot } from "@/src/server";
 

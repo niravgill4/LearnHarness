@@ -1,10 +1,9 @@
 import { CompassIcon, RouteIcon, ScanLineIcon } from "lucide-react";
-import { LearningRibbon } from "./learning-ribbon";
 
 /** An explanatory empty state, never presented as a learner's saved knowledge. */
 export function AtlasEmptyState() {
 	return <figure className="atlas-empty">
-		<div className="atlas-motion-stage"><LearningRibbon compact />
+		<div className="atlas-motion-stage">
 		<svg viewBox="0 0 600 330" fill="none" role="img" aria-label="A question leads to exploration, understanding, and new connections">
 			<path className="atlas-orbit" d="M90 180C90 55 470 38 505 165S170 320 125 210" />
 			<path className="atlas-link" d="M145 175C210 175 215 119 296 119S374 210 459 210M296 119V265" />

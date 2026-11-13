@@ -2,7 +2,7 @@
 
 ## Approved experience
 
-The user approved a sculpted dark account surface with an interactive neural ribbon, followed by account, provider key, model choice, and optional learning direction. The existing Cognera workspace remains the visual foundation. Account and setup pages are outside workspace providers, so plugins, session lists, keyboard shortcuts, and activity feeds do not mount during setup.
+The user requested the sculpted dark account surface with an animated preview of learning: a question, connected understanding, and active recall. The flow is account, provider key, model choice, and optional learning direction. The existing Cognera workspace remains the visual foundation. Account and setup pages are outside workspace providers, so plugins, session lists, keyboard shortcuts, and activity feeds do not mount during setup.
 
 ## Routes and persistence
 
@@ -16,9 +16,11 @@ API-key entry uses the existing format validation. Saving a key is not a provide
 
 ## Motion
 
-One bounded Canvas sculpture responds to pointer movement and morphs between setup stages. A shared welcome route layout keeps it mounted between login and setup. It reappears behind the explanatory empty atlas, where the connection lines draw on arrival. Animation uses no React state per frame, caps frame rate and pixel density, and stops offscreen, while the document is hidden, or when paused. Reduce Motion produces a static composition and removes spatial step transitions. Forms remain available during the effect. Small screens prioritize forms and retain a smaller welcome illustration above them.
+A persistent SVG concept map shows a sample memory lesson through Explore, Connect, and Recall. Threads draw between named concepts, signals follow their actual paths, and the central question becomes a recall prompt with a working reveal/retry interaction. This is explicitly an illustrative learning example, never saved activity. It makes no model requests. A shared welcome layout preserves it through account navigation; setup stages advance its context.
 
-The scoped onboarding palette is ground `#0c0e12`, form surface `#1c1f27`, edge `#353a46`, text `#f4f5fa`, secondary text `#b3b9c8`, and accent `#d6e8e0` with dark `#14241f` action text. Display sizes range from 62px on wide screens to 31px on phones, with 34/30px form headings and 16px mobile fields. The sculpture's silver, mist-blue, lilac, and green inks belong to the illustration. Existing workspace theme tokens still govern home. These are scoped onboarding refinements; they do not replace the workspace's design system. First-party sources and the resulting decisions are recorded in [onboarding-research.md](onboarding-research.md).
+The 6.5-second chapter timer and SVG animation clock stop when paused, offscreen, or while the document is hidden. Selecting a chapter or revealing an answer pauses autoplay; focusing the recall control also prevents its prompt from advancing. React updates once per chapter rather than per frame. Reduce Motion is subscribed to as a live OS preference: it stops autoplay and particle motion, removes spatial transitions, and keeps manual exploration usable. Phone layouts retain a readable example and add a direct link to account setup. The home atlas retains its connection animation without an abstract background sculpture.
+
+The scoped onboarding palette is ground `#0c0e12`, form surface `#1c1f27`, edge `#353a46`, text `#f4f5fa`, secondary text `#b3b9c8`, and accent `#d6e8e0` with dark `#14241f` action text. Display sizes range from 62px on wide screens to 31px on phones, with 34/30px form headings and 16px mobile fields. The learning example adds pale paper `#dfe8e1` with dark `#20302c` text and muted blue concept lines. Existing workspace theme tokens still govern home. These are scoped onboarding refinements; they do not replace the workspace's design system. First-party sources and the resulting decisions are recorded in [onboarding-research.md](onboarding-research.md).
 
 ## Verification and deployment limits
 
