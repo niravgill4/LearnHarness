@@ -2,15 +2,42 @@ import { chainsForSelection, formatChainLine } from "@/src/core";
 import { newGraphContextMessage, type GraphContextPick } from "@/src/core";
 import { compactionInFlight, createChat, isTurnRunning, listChats, readSettingsRecord, stores, titleFromPrompt } from "@/src/server";
 import type { ChatListItem } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
 
 /** The session picker's list: record-derived summaries (phase, pending
  *  question) + live liveness — a running turn marks the session busy
  *  (contracts.ts ChatListItem; the store can't see liveness, the route is
- *  the merge point). Owner, minimal-color round: background jobs NO LONGER
- *  count — the sidebar's Background agents section is their channel now
- *  (a running spinner per row would double-signal them), so busy means
- *  exactly "a teach turn is in flight". */
+ *  the merge point). */
 export async function GET() {
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const { data, error } = await supabase
+				.from("chats")
+				.select("id, title, kind, created_at, updated_at")
+				.eq("user_id", user.id)
+				.order("updated_at", { ascending: false });
+
+			if (!error && data) {
+				const chats: ChatListItem[] = data.map((c) => ({
+					id: c.id,
+					title: c.title,
+					kind: c.kind === "practice" ? "practice" : "teach",
+					createdAt: c.created_at,
+					updatedAt: c.updated_at,
+					messageCount: 0,
+					phase: "teach",
+					pendingQuestion: false,
+					pendingProblem: false,
+					busy: isTurnRunning(c.id),
+					compacting: compactionInFlight(c.id),
+				}));
+				return Response.json({ chats });
+			}
+		}
+	}
+
 	const chats: ChatListItem[] = listChats().map((c) => ({
 		...c,
 		busy: isTurnRunning(c.id),
@@ -26,6 +53,21 @@ export async function POST(req: Request) {
 	// record — the practice agent + its tools from turn 1, no extraction.
 	const kind = body.kind === "practice" ? ("practice" as const) : undefined;
 	const chat = createChat(titleFromPrompt(title || "Untitled session"), kind);
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			await supabase.from("chats").insert({
+				id: chat.id,
+				user_id: user.id,
+				title: chat.title,
+				kind: chat.kind ?? "teach",
+				created_at: chat.createdAt,
+				updated_at: chat.updatedAt,
+			});
+		}
+	}
 	// PER-SESSION MODELS (owner, 2026-09-28): a session owns its model +
 	// thinking level from birth — stamped verbatim from the STRONG slot,
 	// the new-session default. From here the strong slot never reaches

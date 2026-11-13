@@ -1,8 +1,17 @@
 import { compactionInFlight, deleteChatSession, getChat, isTurnRunning, sessionCoverage, sessionCost, stores, turnFailure, type ChatDeleteMode, pluginQuestionAvailabilityOf, reconcilePluginQuestionCompatibility, type QuestionTypeResolver, getPluginQuestionTypeResolver, getPluginHost, pluginProblemAvailabilityOf, type ProblemTypeResolver } from "@/src/server";
 import { pendingPluginQuestionOf, activeProblemOf } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const { data: chatRow } = await supabase.from("chats").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+			if (!chatRow) return Response.json({ error: "Not found" }, { status: 404 });
+		}
+	}
 	await reconcilePluginQuestionCompatibility(stores.chatStore, id);
 	let chat = getChat(id);
 	if (!chat) return Response.json({ error: "Not found" }, { status: 404 });
@@ -61,6 +70,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 	}
 	const title = body.title.trim();
 	const record = stores.chatStore.renameChat(id, title);
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			await supabase.from("chats").update({ title, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
+		}
+	}
+
 	return Response.json({ title: record.title });
 }
 
@@ -106,6 +124,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 		},
 			{ status: outcome.status },
 		);
+	}
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			await supabase.from("chats").delete().eq("id", id).eq("user_id", user.id);
+		}
 	}
 	return Response.json({
 		ok: true,

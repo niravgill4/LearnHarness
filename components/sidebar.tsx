@@ -27,6 +27,7 @@ import { PluginSidebarActions } from "@/components/plugin-chrome";
 import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/host-content-root";
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 /**
  * Toggleable sidebar — NOT a modal drawer: no backdrop, no focus theft. It
@@ -404,6 +405,28 @@ function SessionsSidebar() {
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<SessionKindFilter>("all");
+	const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
+
+	useEffect(() => {
+		const supabase = createSupabaseClient();
+		if (!supabase) return;
+		void supabase.auth.getUser().then(({ data }) => {
+			if (data.user) setAuthUser({ email: data.user.email });
+		});
+		const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+			setAuthUser(session?.user ? { email: session.user.email } : null);
+		});
+		return () => subscription.unsubscribe();
+	}, []);
+
+	const handleSignOut = async () => {
+		const supabase = createSupabaseClient();
+		if (supabase) {
+			await supabase.auth.signOut();
+			router.push("/login");
+			router.refresh();
+		}
+	};
 	useEffect(() => {
 		const stored = window.localStorage.getItem(KIND_FILTER_KEY);
 		if (stored === "teach" || stored === "all" || stored === "practice") setKindFilter(stored);
@@ -819,8 +842,8 @@ function SessionsSidebar() {
 					    learner opted out (no ambient signal, user decision). */}
 					<ActivitySection />
 
-					{/* Settings entry: Apple System Settings capsule */}
-					<div className="sidebar-settings px-3 pb-3 pt-2">
+					{/* Settings & Auth entry */}
+					<div className="sidebar-settings px-3 pb-3 pt-2 space-y-1">
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
@@ -832,6 +855,24 @@ function SessionsSidebar() {
 								<span>Settings</span>
 							</button>
 						</Hint>
+						{authUser && (
+							<div className="pt-2 border-t border-white/5 flex items-center justify-between px-1">
+								<div className="flex items-center gap-2 min-w-0">
+									<div className="size-6 rounded-full bg-[#007aff]/20 flex items-center justify-center text-[#007aff] text-xs font-bold uppercase shrink-0">
+										{authUser.email?.[0] ?? "U"}
+									</div>
+									<span className="truncate text-[11px] text-muted-foreground font-medium">{authUser.email}</span>
+								</div>
+								<button
+									type="button"
+									onClick={handleSignOut}
+									title="Sign Out"
+									className="text-[11px] text-muted-foreground hover:text-[#ff453a] transition-colors px-1.5 py-0.5 rounded hover:bg-white/5 cursor-pointer shrink-0"
+								>
+									Sign Out
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 

@@ -17,6 +17,8 @@
  */
 import { isWritableAuthKey } from "@/src/server";
 import { deleteKey, saveKey } from "@/src/server";
+import { createClient } from "@/lib/supabase/server";
+import { encryptData, decryptData } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,27 @@ export async function PUT(req: Request, { params }: Params) {
 	}
 	const result = saveKey(id, (body as { value: string }).value);
 	if (!result.ok) return Response.json({ error: result.error }, { status: 400 });
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const { data: profile } = await supabase.from("profiles").select("encrypted_keys").eq("id", user.id).single();
+			let currentKeys: Record<string, string> = {};
+			if (profile?.encrypted_keys) {
+				try {
+					currentKeys = JSON.parse(decryptData(profile.encrypted_keys));
+				} catch {}
+			}
+			currentKeys[id] = (body as { value: string }).value;
+			await supabase.from("profiles").upsert({
+				id: user.id,
+				encrypted_keys: encryptData(JSON.stringify(currentKeys)),
+				updated_at: new Date().toISOString(),
+			});
+		}
+	}
+
 	return Response.json({ status: result.status });
 }
 
@@ -46,5 +69,26 @@ export async function DELETE(_req: Request, { params }: Params) {
 	if (!isWritableAuthKey(id)) {
 		return Response.json({ error: `unknown key "${id}"` }, { status: 404 });
 	}
-	return Response.json({ status: deleteKey(id) });
+	const status = deleteKey(id);
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const { data: profile } = await supabase.from("profiles").select("encrypted_keys").eq("id", user.id).single();
+			if (profile?.encrypted_keys) {
+				try {
+					const currentKeys: Record<string, string> = JSON.parse(decryptData(profile.encrypted_keys));
+					delete currentKeys[id];
+					await supabase.from("profiles").upsert({
+						id: user.id,
+						encrypted_keys: encryptData(JSON.stringify(currentKeys)),
+						updated_at: new Date().toISOString(),
+					});
+				} catch {}
+			}
+		}
+	}
+
+	return Response.json({ status });
 }

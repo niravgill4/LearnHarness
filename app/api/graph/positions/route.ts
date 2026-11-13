@@ -10,6 +10,7 @@
  *         (empty object = nothing written).
  */
 import { commitPositions } from "@/src/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,19 @@ export async function PUT(request: Request) {
 	} catch {
 		return Response.json({ error: "invalid JSON body" }, { status: 400 });
 	}
-	return Response.json({ positions: commitPositions(body) });
+	const positions = commitPositions(body);
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			await supabase.from("graph_positions").upsert({
+				user_id: user.id,
+				positions,
+				updated_at: new Date().toISOString(),
+			});
+		}
+	}
+
+	return Response.json({ positions });
 }

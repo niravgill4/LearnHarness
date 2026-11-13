@@ -18,9 +18,39 @@
  * (env always wins).
  */
 import { keyStatuses, providerKeyList } from "@/src/server";
+import { resolveKeyStatuses } from "@/src/server/keys";
+import { authStore } from "@/src/store/auth";
+import { authEnvRecord as boot } from "@/src/core/auth-env";
+import { AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER } from "@/src/core/auth-keys";
+import { createClient } from "@/lib/supabase/server";
+import { decryptData } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-	return Response.json({ keys: keyStatuses(), providers: providerKeyList() });
+	let keys = keyStatuses();
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const { data: profile } = await supabase
+				.from("profiles")
+				.select("encrypted_keys")
+				.eq("id", user.id)
+				.maybeSingle();
+			if (profile?.encrypted_keys) {
+				try {
+					const userKeys = JSON.parse(decryptData(profile.encrypted_keys)) as Record<string, string>;
+					const mergedFileVars = { ...authStore.authVars(), ...userKeys };
+					keys = resolveKeyStatuses(
+						mergedFileVars,
+						{ ...process.env, ...userKeys },
+						boot().realEnv,
+						new Set([...AUTH_PROVIDER_ENV_VARS, CUSTOM_PROVIDER.envVar]),
+					);
+				} catch {}
+			}
+		}
+	}
+	return Response.json({ keys, providers: providerKeyList() });
 }
