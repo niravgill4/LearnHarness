@@ -689,8 +689,8 @@ function SessionsSidebar() {
 							aria-label="Home"
 							className="lh-no-drag flex items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-accent"
 						>
-							<CogneraMark className="size-6 text-foreground" />
-							<span className="font-medium text-sm tracking-tight text-foreground">Cognera</span>
+							<CogneraMark className="size-[26px] text-foreground" />
+							<span className="font-[550] text-[20px] tracking-[-0.035em] text-foreground leading-none">Cognera</span>
 						</Link>
 					</Hint>
 					<Hint label="Close sidebar" action="toggle-sidebar">
