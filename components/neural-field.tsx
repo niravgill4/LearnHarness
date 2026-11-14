@@ -79,7 +79,7 @@ export function NeuralField({ phase = 0, extensionRoot }: { phase?: number; exte
 		resize.observe(element); intersection.observe(element);
 		if (extensionTarget) resize.observe(extensionTarget);
 		const content = extensionTarget?.parentElement?.querySelector(".onboarding-form-content");
-		if (content) { resize.observe(content); changes.observe(content, { childList: true, subtree: true }); }
+		if (content) { resize.observe(content); }
 		if (extended) { intersection.observe(extended); extended.addEventListener("contextlost", contextLost); extended.addEventListener("contextrestored", contextRestored); }
 		element.addEventListener("pointermove", pointer); element.addEventListener("pointerleave", leave);
 		element.addEventListener("contextlost", contextLost); element.addEventListener("contextrestored", contextRestored);

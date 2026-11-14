@@ -32,19 +32,19 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 		<div className="onboarding-layout">
 			<section className="onboarding-story" aria-label="Welcome to Cognera">
 				<div className="onboarding-story-backdrop" aria-hidden="true" />
-				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 12, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: .65, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
+				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .22, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
 				<div className="onboarding-art"><NeuralField phase={step} extensionRoot={neuralCanopy} /></div>
 				<div className="onboarding-thought"><span className="onboarding-thought-mark" aria-hidden="true"><MoveUpRightIcon /></span><p key={step}>{content.thought}</p><span className="onboarding-thought-dots" aria-hidden="true">{story.map((_, i) => <i key={i} data-active={step === i} />)}</span></div>
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
 			<section className="onboarding-form-area" aria-label="Set up your workspace">
 				<LayoutGroup id="cognera-onboarding-progress"><nav aria-label="Setup progress" className="onboarding-progress"><ol>{stages.map((label, index) => <li key={label} aria-current={current === index ? "step" : undefined} data-complete={current > index}>
-					{current === index && <motion.span className="onboarding-progress-selection" layoutId="current-step" transition={reduced ? { type: "tween", duration: 0 } : { type: "spring", stiffness: 340, damping: 35 }} />}
+					{current === index && <motion.span className="onboarding-progress-selection" layoutId="current-step" transition={reduced ? { type: "tween", duration: 0 } : { type: "spring", stiffness: 450, damping: 30 }} />}
 					<span className="onboarding-progress-number">{current > index ? <CheckIcon aria-hidden="true" /> : `0${index + 1}`}</span><span className="onboarding-progress-label">{label}</span>
 				</li>)}</ol></nav></LayoutGroup>
 				<div className="onboarding-form-content" id="onboarding-form" tabIndex={-1}>{children}</div>
 				<div className="onboarding-bottom"><p className="onboarding-footnote">Good things start with a question.</p><span aria-hidden="true">{step + 1} / 4</span></div>
-				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (step + 1) / 4 }} transition={{ duration: reduced ? 0 : .8, ease }} /></div>
+				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (step + 1) / 4 }} transition={{ duration: reduced ? 0 : .25, ease }} /></div>
 			</section>
 			<div ref={neuralCanopy} className="onboarding-neural-canopy" aria-hidden="true" />
 		</div>
@@ -56,5 +56,5 @@ export function OnboardingShell({ step, children }: { step: number; children: Re
 	const controller = useContext(SceneContext);
 	const reduced = useReducedMotionPreference();
 	useEffect(() => { controller?.setStep(step); }, [controller, step]);
-	return <motion.div className="onboarding-scene-content" key={step} initial={reduced ? false : { opacity: 0, x: 18, filter: "blur(5px)" }} animate={{ opacity: 1, x: 0, filter: "blur(0px)" }} transition={{ duration: reduced ? 0 : .5, ease }}>{children}</motion.div>;
+	return <motion.div className="onboarding-scene-content" key={step} initial={reduced ? false : { opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : .2, ease }}>{children}</motion.div>;
 }
