@@ -1,4 +1,4 @@
-import { onboardingProviderModels, readSettingsRecord, writeSettingsRecord } from "@/src/server";
+import { modelCatalog, onboardingProviderModels, readSettingsRecord, writeSettingsRecord, refreshConnectionCatalog } from "@/src/server";
 import { createClient } from "@/lib/supabase/server";
 import { mutateProfileKey, readProfileKeys } from "@/lib/supabase/profile-keys";
 import { ONBOARDING_PROVIDERS, type LearningSetup, type OnboardingProvider } from "@/lib/onboarding";
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
 export async function GET() {
+	await refreshConnectionCatalog("chatgpt").catch(() => {});
 	const client = await createClient();
 	if (!client) return json({ error: "Account setup is not available yet. Please try again later." }, 503);
 	const { data: { user } } = await client.auth.getUser();
@@ -24,7 +25,22 @@ export async function GET() {
 			const authKey = AUTH_PROVIDER_KEYS.find(k => k.id === p.id);
 			return authKey ? !!keys[authKey.envVar] : false;
 		}).map(p => p.id);
-		const models = ONBOARDING_PROVIDERS.flatMap(p => onboardingProviderModels(p.id).map(m => ({ ...m, provider: p.id })));
+
+		let liveCatalogModels: { id: string; name: string; provider: string; input: readonly string[] }[] = [];
+		try {
+			liveCatalogModels = modelCatalog().models;
+		} catch {
+			liveCatalogModels = [];
+		}
+
+		const models = ONBOARDING_PROVIDERS.flatMap(p => {
+			const catalogForProvider = liveCatalogModels.filter(m => m.provider === p.id);
+			if (catalogForProvider.length > 0) {
+				return catalogForProvider.map(m => ({ id: m.id, name: m.name, provider: p.id, vision: m.input.includes("image") }));
+			}
+			return onboardingProviderModels(p.id).map(m => ({ ...m, provider: p.id }));
+		});
+
 		return json({ email: user.email, setup: profile.model_settings?.onboarding ?? null, connected, models });
 	} catch { return json({ error: "Your saved connection could not be loaded. Please try again." }, 503); }
 }
@@ -75,7 +91,18 @@ export async function POST(request: Request) {
 
 		if (body.action !== "complete") return json({ error: "Unknown setup action." }, 400);
 
-		const model = onboardingProviderModels(provider.id).find(m => m.id === body.modelId);
+		let liveCatalogModels: { id: string; name: string; provider: string; input: readonly string[] }[] = [];
+		try {
+			liveCatalogModels = modelCatalog().models;
+		} catch {
+			liveCatalogModels = [];
+		}
+
+		const availableModels = [
+			...liveCatalogModels.filter(m => m.provider === provider.id).map(m => ({ id: m.id, name: m.name, vision: m.input.includes("image") })),
+			...onboardingProviderModels(provider.id),
+		];
+		const model = availableModels.find(m => m.id === body.modelId);
 		if (!model) return json({ error: "Choose a model from your provider." }, 400);
 		if (body.topic !== undefined && (typeof body.topic !== "string" || body.topic.length > 500)) return json({ error: "Keep your topic under 500 characters." }, 400);
 		if (!["understand", "exam", "explore"].includes(body.intent)) return json({ error: "Choose a learning goal." }, 400);

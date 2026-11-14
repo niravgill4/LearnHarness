@@ -122,9 +122,22 @@ export async function refreshChatGPTModels(supported: Model<"openai-responses">[
   acceptStatus(state, value);
   if (value.epoch !== state.stamp.epoch || value.authorityRevision !== state.stamp.authorityRevision || value.accountId !== state.status.activeId || !chatGPTConnected()) return;
   state.catalogAccount = value.accountId;
-  state.models = value.models.flatMap((entry) => {
+  state.models = value.models.map((entry) => {
    const known = supported.find((m) => m.id === entry.id && m.api === "openai-responses");
-   return known ? [{ ...known, provider: "chatgpt", name: entry.name, headers: undefined, samplingParams: undefined, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] : [];
+   if (known) {
+    return { ...known, provider: "chatgpt", name: entry.name, headers: undefined, samplingParams: undefined, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
+   }
+   return {
+    id: entry.id,
+    name: entry.name || entry.id,
+    provider: "chatgpt",
+    api: "openai-responses",
+    reasoning: entry.id.toLowerCase().includes("o1") || entry.id.toLowerCase().includes("o3") || entry.id.toLowerCase().includes("reason"),
+    input: ["text", "image"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 16384,
+   } as Model<"openai-responses">;
   });
  } catch { if (sequence === state.catalogRequest) clearCatalog(state); }
 }

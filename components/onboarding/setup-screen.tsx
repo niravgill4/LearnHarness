@@ -38,6 +38,12 @@ export function SetupScreen() {
 	const activeChatgptAccount = chatgptUI.status.accounts.find(a => a.id === chatgptUI.status.activeId && a.connected);
 
 	useEffect(() => {
+		if (isChatgptConnected) {
+			setLoadAttempt(n => n + 1);
+		}
+	}, [isChatgptConnected]);
+
+	useEffect(() => {
 		const controller = new AbortController();
 		setError("");
 		void setupRequest(undefined, controller.signal).then(result => {
