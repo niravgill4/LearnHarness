@@ -24,6 +24,9 @@
 .onboarding-account-connect:hover { border-color:var(--ob-accent); }
 .onboarding-keyless-card { padding:14px 16px; border:1px solid var(--ob-line); background:var(--ob-surface); border-radius:12px; margin:12px 0 16px; }
 .onboarding-keyless-note { margin:0; font-size:12px; line-height:1.6; color:var(--ob-muted); }
+.onboarding-native-block { display:flex; flex-direction:column; gap:16px; padding:16px; border:1px solid var(--ob-line); background:var(--ob-surface); border-radius:14px; margin-bottom:20px; }
+.onboarding-native-section { display:flex; flex-direction:column; gap:8px; }
+.onboarding-section-title { font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ob-muted); margin:0 0 4px; font-weight:600; }
 @media(max-width:600px) { .onboarding-account-actions { grid-template-columns:1fr; } }
 .account-settings { padding:28px; width:100%; min-width:0; max-width:600px; color:var(--foreground); box-sizing:border-box; }
 .account-settings h2 { font-size:24px; font-weight:500; letter-spacing:-.025em; }

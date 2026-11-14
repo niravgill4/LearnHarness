@@ -41,6 +41,10 @@ const Context = createContext({
 	dismissWarning: () => {},
 });
 
+export function useChatGPTUI() {
+	return useContext(Context);
+}
+
 /** UI lifetime spans setup's keys → models transition. Only existing safe controls
  * are used; account IDs remain control values, never displayed account labels. */
 export function ChatGPTUIProvider({ children }: { children: React.ReactNode }) {

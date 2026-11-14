@@ -15,6 +15,9 @@ export function subscriptionNotice(label: string, web = false): string { return 
 export function subscriptionDisconnectCopy(label: string, web = false): string { return `Disconnect ${label} from Cognera? This stops work using this connection and removes its saved credentials from ${web ? "the machine running Cognera" : "this device"}. It does not cancel your subscription or revoke access at the provider. Saved model choices will remain unavailable until you reconnect or change them.`; }
 export function emptySubscriptionStatus(providerId: NativeSubscriptionProviderId): NativeSubscriptionStatus { return { providerId, available: false, connected: false, pending: false, allowBackgroundUse: true, connectionId: null, epoch: 0, authorityRevision: 0, revision: 0 }; }
 const Context = createContext({ statuses: [] as NativeSubscriptionStatus[], busy: false, open: (_providerId: NativeSubscriptionProviderId) => {} });
+export function useNativeSubscriptionUI() {
+	return useContext(Context);
+}
 const CONTROL_ERROR = "The connection could not be changed. Try again.";
 
 export function NativeSubscriptionUIProvider({ children }: { children: React.ReactNode }) {

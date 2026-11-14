@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LoaderCircleIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LoaderCircleIcon, SparklesIcon } from "lucide-react";
 import { ONBOARDING_PROVIDERS, type LearningIntent, type OnboardingProvider, type SetupSnapshot } from "@/lib/onboarding";
 import { OnboardingShell } from "./onboarding-shell";
 import { ProviderLogo } from "@/components/provider-logo";
+import { useChatGPTUI, ChatGPTConnection } from "@/components/settings/chatgpt-connection";
+import { SubscriptionConnections } from "@/components/settings/subscription-connections";
+import { ClaudeCodeInstallationStatus } from "@/components/settings/claude-code-status";
 
 async function setupRequest(body?: unknown, signal?: AbortSignal): Promise<SetupSnapshot & { saved?: boolean }> {
 	const response = await fetch("/api/onboarding", { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal });
@@ -16,9 +19,10 @@ async function setupRequest(body?: unknown, signal?: AbortSignal): Promise<Setup
 
 export function SetupScreen() {
 	const router = useRouter();
+	const chatgptUI = useChatGPTUI();
 	const [snapshot, setSnapshot] = useState<SetupSnapshot | null>(null);
 	const [step, setStep] = useState(1);
-	const [provider, setProvider] = useState<OnboardingProvider>("claude-code");
+	const [provider, setProvider] = useState<OnboardingProvider>("chatgpt");
 	const [key, setKey] = useState("");
 	const [showKey, setShowKey] = useState(false);
 	const [modelId, setModelId] = useState("");
@@ -29,6 +33,9 @@ export function SetupScreen() {
 	const [error, setError] = useState("");
 	const [loadAttempt, setLoadAttempt] = useState(0);
 	const heading = useRef<HTMLHeadingElement>(null);
+
+	const isChatgptConnected = chatgptUI.status.accounts.some(a => a.id === chatgptUI.status.activeId && a.connected);
+	const activeChatgptAccount = chatgptUI.status.accounts.find(a => a.id === chatgptUI.status.activeId && a.connected);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -50,17 +57,17 @@ export function SetupScreen() {
 	useEffect(() => { if (snapshot) heading.current?.focus(); }, [step, snapshot]);
 
 	const fallbackProvider: (typeof ONBOARDING_PROVIDERS)[number] = ONBOARDING_PROVIDERS[0] ?? {
-		id: "claude-code",
-		name: "Claude Code",
-		detail: "Local CLI installation",
-		url: "https://code.claude.com",
+		id: "chatgpt",
+		name: "Codex / ChatGPT",
+		detail: "ChatGPT subscription",
+		url: "https://chatgpt.com",
 		keyless: true,
 	};
 	const providerInfo = ONBOARDING_PROVIDERS.find(p => p.id === provider) ?? fallbackProvider;
 	const models = snapshot?.models.filter(m => m.provider === provider) ?? [];
 	const filteredModels = models.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(search.toLowerCase()));
 	const selectedModel = models.find(m => m.id === modelId) ?? models[0];
-	const alreadyConnected = !!snapshot?.connected.includes(provider);
+	const alreadyConnected = isChatgptConnected || !!snapshot?.connected.includes(provider);
 
 	useEffect(() => {
 		if (step === 2 && models.length && (!modelId || !models.some(m => m.id === modelId))) {
@@ -121,20 +128,8 @@ export function SetupScreen() {
 
 	const back = () => { setError(""); setStep(value => Math.max(1, value - 1)); };
 
-	async function fastConnect(target: "claude-code" | "chatgpt") {
-		setBusy(true); setError("");
-		try {
-			await setupRequest({ action: "connect", provider: target });
-			setProvider(target);
-			setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, target])] } : previous);
-			const targetModels = snapshot?.models.filter(m => m.provider === target) ?? [];
-			if (targetModels[0]) setModelId(targetModels[0].id);
-			setStep(2);
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not connect to provider.");
-		} finally {
-			setBusy(false);
-		}
+	function triggerCodexConnect() {
+		chatgptUI.connect();
 	}
 
 	return <OnboardingShell step={step}><div className="onboarding-step" key={snapshot ? step : "loading"}>
@@ -145,24 +140,47 @@ export function SetupScreen() {
 			{step > 1 && <button className="onboarding-back" type="button" disabled={busy} onClick={back}><ArrowLeftIcon />Back</button>}
 			{step === 1 && <>
 				<h2 ref={heading} tabIndex={-1}>Bring your<br />own intelligence.</h2>
-				<p className="onboarding-intro">Connect directly via local CLI or subscription, or paste a provider API key.</p>
+				<p className="onboarding-intro">Connect your subscription or CLI account directly, or bring a provider API key.</p>
 				
 				<div className="onboarding-account-actions">
-					<button type="button" className="onboarding-account-connect" disabled={busy} onClick={() => void fastConnect("claude-code")}>
-						<ProviderLogo provider="anthropic" />
-						<span>Use Claude Code<small>Local CLI (No API key needed)</small></span>
-						<ArrowRightIcon />
-					</button>
-					<button type="button" className="onboarding-account-connect" disabled={busy} onClick={() => void fastConnect("chatgpt")}>
+					<button type="button" className="onboarding-account-connect" disabled={busy || chatgptUI.busy} onClick={triggerCodexConnect}>
 						<ProviderLogo provider="openai" />
-						<span>Use Codex / ChatGPT<small>Subscription (No API key needed)</small></span>
+						<span>
+							{isChatgptConnected ? `Codex / ChatGPT Connected (${activeChatgptAccount?.email || "Account"})` : "Connect to Codex / ChatGPT"}
+							<small>{isChatgptConnected ? "Click to manage accounts or reconnect" : "Opens ChatGPT connection popup"}</small>
+						</span>
 						<ArrowRightIcon />
 					</button>
 				</div>
 
+				<div className="onboarding-native-block">
+					<div className="onboarding-native-section">
+						<h3 className="onboarding-section-title">Subscriptions</h3>
+						<SubscriptionConnections setup />
+					</div>
+					<div className="onboarding-native-section">
+						<h3 className="onboarding-section-title">External CLI</h3>
+						<ClaudeCodeInstallationStatus />
+					</div>
+				</div>
+
+				{isChatgptConnected && (
+					<div className="onboarding-keyless-card">
+						<p className="onboarding-keyless-note">
+							<CheckIcon className="inline-block w-4 h-4 mr-1 text-emerald-400" />
+							Connected to <strong>{activeChatgptAccount?.email || "ChatGPT"}</strong>. You can now proceed to model selection.
+						</p>
+						<button type="button" className="onboarding-primary mt-3" onClick={() => { setProvider("chatgpt"); setStep(2); }}>
+							Choose your ChatGPT models <ArrowRightIcon />
+						</button>
+					</div>
+				)}
+
+				<div className="onboarding-divider"><span>or use an API key</span></div>
+
 				<form onSubmit={connect} className="onboarding-form" aria-busy={busy}>
 					<div className="onboarding-providers" role="group" aria-label="Model provider">
-						{ONBOARDING_PROVIDERS.map(p => (
+						{ONBOARDING_PROVIDERS.filter(p => !p.keyless).map(p => (
 							<button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id as OnboardingProvider); setKey(""); setModelId(""); setError(""); }}>
 								<span className="provider-monogram" aria-hidden="true"><ProviderLogo provider={p.id} /></span>
 								<span><strong>{p.name}</strong><small>{p.detail}</small></span>
@@ -171,31 +189,19 @@ export function SetupScreen() {
 						))}
 					</div>
 
-					{providerInfo.keyless ? (
-						<div className="onboarding-keyless-card">
-							<p className="onboarding-keyless-note">
-								{provider === "claude-code"
-									? "Connects to your local Claude Code CLI installation. No API key required."
-									: "Connects to your ChatGPT account connection. No API key required."}
-							</p>
-						</div>
-					) : (
-						<>
-							<div className="onboarding-label-row">
-								<label htmlFor="provider-key">{providerInfo.name} API key</label>
-								<a href={providerInfo.url} target="_blank" rel="noopener noreferrer">Get a key<ExternalLinkIcon /></a>
-							</div>
-							<div className="onboarding-secret-field">
-								<input id="provider-key" name="provider-key" autoComplete="off" autoCorrect="off" spellCheck={false} type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} placeholder={alreadyConnected ? "A key is already saved" : "Paste your API key"} required={!alreadyConnected} disabled={busy} />
-								<button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} aria-pressed={showKey} onClick={() => setShowKey(value => !value)}>{showKey ? <EyeOffIcon /> : <EyeIcon />}</button>
-							</div>
-							<p className="onboarding-key-note"><KeyRoundIcon />Encrypted in your account. Never stored in this browser.</p>
-						</>
-					)}
+					<div className="onboarding-label-row">
+						<label htmlFor="provider-key">{providerInfo.name} API key</label>
+						<a href={providerInfo.url} target="_blank" rel="noopener noreferrer">Get a key<ExternalLinkIcon /></a>
+					</div>
+					<div className="onboarding-secret-field">
+						<input id="provider-key" name="provider-key" autoComplete="off" autoCorrect="off" spellCheck={false} type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} placeholder={alreadyConnected ? "A key is already saved" : "Paste your API key"} required={!alreadyConnected} disabled={busy} />
+						<button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} aria-pressed={showKey} onClick={() => setShowKey(value => !value)}>{showKey ? <EyeOffIcon /> : <EyeIcon />}</button>
+					</div>
+					<p className="onboarding-key-note"><KeyRoundIcon />Encrypted in your account. Never stored in this browser.</p>
 
 					{error && <p role="alert" className="onboarding-error">{error}</p>}
 					<button type="submit" className="onboarding-primary" disabled={busy}>
-						{busy ? <><LoaderCircleIcon className="onboarding-spinner" />Connecting…</> : <>{providerInfo.keyless ? "Connect and choose model" : alreadyConnected && !key ? "Use saved connection" : "Save and continue"}<ArrowRightIcon /></>}
+						{busy ? <><LoaderCircleIcon className="onboarding-spinner" />Connecting…</> : <>{alreadyConnected && !key ? "Use saved connection" : "Save and continue"}<ArrowRightIcon /></>}
 					</button>
 				</form>
 				<p className="onboarding-small">Connected intelligence is saved to your account profile so you can resume anywhere.</p>
