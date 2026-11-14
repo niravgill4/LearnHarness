@@ -14,3 +14,4 @@ ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 
 -- 4. Create index on chats record for fast searches if needed
 CREATE INDEX IF NOT EXISTS idx_chats_user_id ON public.chats(user_id);
+

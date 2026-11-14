@@ -78,14 +78,28 @@ export function AuthScreen() {
 	}
 	async function oauth(provider: "google" | "github") {
 		if (!client) { setError("Account access is not available yet. Please try again later."); return; }
-		if (!authOptions?.providers[provider]) { setError("This sign-in option is not available yet. Use email to continue."); return; }
 		setBusy(true); setOauthBusy(provider); setError("");
 		try {
-			const result = await client.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback`, skipBrowserRedirect: true } });
+			const result = await client.auth.signInWithOAuth({
+				provider,
+				options: {
+					redirectTo: `${window.location.origin}/auth/callback`,
+				},
+			});
 			if (result.error) throw result.error;
-			if (!result.data.url) throw new Error("No sign-in URL was returned");
-			window.location.assign(result.data.url);
-		} catch { setError("We couldn’t open that sign-in provider. Please try email instead."); setBusy(false); setOauthBusy(null); }
+			if (result.data?.url) {
+				window.location.assign(result.data.url);
+			}
+		} catch (cause) {
+			const msg = cause instanceof Error ? cause.message : "";
+			if (msg.toLowerCase().includes("not enabled") || msg.toLowerCase().includes("unsupported provider") || authOptions?.providers[provider] === false) {
+				setError(`${provider === "google" ? "Google" : "GitHub"} sign-in is not turned on in your Supabase project yet. In your Supabase Dashboard -> Authentication -> Providers, turn on ${provider === "google" ? "Google" : "GitHub"}.`);
+			} else {
+				setError(msg || "We couldn’t open that sign-in provider. Please try email instead.");
+			}
+			setBusy(false);
+			setOauthBusy(null);
+		}
 	}
 	async function resend() {
 		if (!client) return;
@@ -119,8 +133,17 @@ export function AuthScreen() {
 				<button className="onboarding-primary" disabled={busy} type="submit">{busy ? <><LoaderCircleIcon className="onboarding-spinner" />One moment…</> : <>{mode === "signup" ? "Create your space" : "Log in"}<ArrowRightIcon /></>}</button>
 			</form>
 			<div className="onboarding-divider"><span>or continue with</span></div>
-			<div className="onboarding-social"><button type="button" disabled={busy || !authOptions?.providers.google} onClick={() => void oauth("google")} aria-describedby="social-availability">{oauthBusy === "google" ? <LoaderCircleIcon className="onboarding-spinner" /> : <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2.1H12v4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.8 3-4.3 3-7.4ZM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 .9-3.4.9a6 6 0 0 1-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22ZM6.4 13.9a6 6 0 0 1 0-3.8V7.5H3.1a10 10 0 0 0 0 9l3.3-2.6ZM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.9 5.5l3.3 2.6A6 6 0 0 1 12 6Z" /></svg>}Google</button><button type="button" disabled={busy || !authOptions?.providers.github} onClick={() => void oauth("github")} aria-describedby="social-availability">{oauthBusy === "github" ? <LoaderCircleIcon className="onboarding-spinner" /> : <GithubMark />}GitHub</button></div>
-			<p id="social-availability" className="onboarding-auth-availability" role="status">{!authOptions ? "Checking sign-in options…" : !authOptions.configured ? "Account sign-in is temporarily unavailable." : authOptions.unavailable ? "Social sign-in couldn’t be checked. You can continue with email." : !authOptions.providers.google && !authOptions.providers.github ? "Google and GitHub aren’t enabled yet. Continue with email." : ""}</p>
+			<div className="onboarding-social">
+				<button type="button" disabled={busy} onClick={() => void oauth("google")} aria-label={mode === "signup" ? "Sign up with Google" : "Sign in with Google"}>
+					{oauthBusy === "google" ? <LoaderCircleIcon className="onboarding-spinner" /> : <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2.1H12v4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.8 3-4.3 3-7.4ZM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 .9-3.4.9a6 6 0 0 1-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22ZM6.4 13.9a6 6 0 0 1 0-3.8V7.5H3.1a10 10 0 0 0 0 9l3.3-2.6ZM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.9 5.5l3.3 2.6A6 6 0 0 1 12 6Z" /></svg>}
+					Google
+				</button>
+				<button type="button" disabled={busy} onClick={() => void oauth("github")} aria-label={mode === "signup" ? "Sign up with GitHub" : "Sign in with GitHub"}>
+					{oauthBusy === "github" ? <LoaderCircleIcon className="onboarding-spinner" /> : <GithubMark />}
+					GitHub
+				</button>
+			</div>
+			<p id="social-availability" className="onboarding-auth-availability" role="status">{!authOptions ? "Checking sign-in options…" : !authOptions.configured ? "Account sign-in is temporarily unavailable." : ""}</p>
 			<p className="onboarding-small">Your learning, connected to your account.</p>
 		</>}
 	</div></OnboardingShell>;
