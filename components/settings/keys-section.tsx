@@ -361,6 +361,10 @@ function AddProviderRow({
 	);
 }
 
+let cachedKeyStatuses: AuthKeyStatus[] | null = null;
+let cachedKeyProviders: ProviderKeyInfo[] | undefined = undefined;
+let cachedCustomStatus: CustomStatus | null = null;
+
 export function KeysSection({
 	/** A deep-linked row to unfold on arrival (zero-keys wave): the
 	 *  dictation error's click lands here on DEEPGRAM_API_KEY. Followed
@@ -370,9 +374,9 @@ export function KeysSection({
 }: {
 	initialRow?: string;
 }) {
-	const [statuses, setStatuses] = useState<AuthKeyStatus[] | null>(null);
-	const [providers, setProviders] = useState<ProviderKeyInfo[] | undefined>(undefined);
-	const [loading, setLoading] = useState(true);
+	const [statuses, setStatuses] = useState<AuthKeyStatus[] | null>(cachedKeyStatuses);
+	const [providers, setProviders] = useState<ProviderKeyInfo[] | undefined>(cachedKeyProviders);
+	const [loading, setLoading] = useState(!cachedKeyStatuses);
 	/** The unfolded row (its id), null = all folded. Seeded by the
 	 *  deep-link (initialRow) and re-followed when it retargets. */
 	const [openRow, setOpenRow] = useState<string | null>(initialRow ?? null);
@@ -383,7 +387,7 @@ export function KeysSection({
 	const [addingEditors, setAddingEditors] = useState<ProviderKeyInfo[]>([]);
 	const [addError, setAddError] = useState<string | null>(null);
 	/** The custom endpoint's status + whether its connect editor is open. */
-	const [custom, setCustom] = useState<CustomStatus | null>(null);
+	const [custom, setCustom] = useState<CustomStatus | null>(cachedCustomStatus);
 	const [addingCustom, setAddingCustom] = useState(false);
 	const [customEditorMounted, setCustomEditorMounted] = useState(false);
 	const editorScopeRef = useRef<HTMLDivElement>(null);
@@ -406,17 +410,23 @@ export function KeysSection({
 	const reload = async () => {
 		try {
 			const body = (await fetch("/api/keys").then((r) => r.json())) as KeysResponse;
-			setStatuses(body.keys ?? []);
-			if (body.providers) setProviders(body.providers);
+			cachedKeyStatuses = body.keys ?? [];
+			setStatuses(cachedKeyStatuses);
+			if (body.providers) {
+				cachedKeyProviders = body.providers;
+				setProviders(cachedKeyProviders);
+			}
 		} catch {
-			setStatuses([]);
+			if (!cachedKeyStatuses) setStatuses([]);
 		} finally {
 			setLoading(false);
 		}
 		// Best-effort and independent: the custom endpoint's status must never
 		// blank the provider-key list above if its fetch fails.
 		try {
-			setCustom(await readCustomStatus());
+			const c = await readCustomStatus();
+			cachedCustomStatus = c;
+			setCustom(c);
 		} catch {
 			/* custom status unavailable — leave it unset */
 		}

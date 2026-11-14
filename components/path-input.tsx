@@ -13,6 +13,7 @@ import {
 } from "./path-input-dom";
 
 export const INSERT_FILE_PATHS_EVENT = "lh:insert-file-paths";
+export const INSERT_TEXT_EVENT = "lh:insert-text";
 /** detail: { link, onInserted?(range) } — insert a citation link at the saved caret. */
 export const INSERT_CITATION_EVENT = "lh:insert-citation";
 /** detail: { start, end, previous, source, spaceBefore?, spaceAfter? } —
@@ -148,6 +149,13 @@ export const PathInput = React.forwardRef<HTMLDivElement, PathInputProps>(functi
 			if (!callbacks.current.fileInsertion) return;
 			const paths: unknown = (event as CustomEvent<unknown>).detail;
 			if (Array.isArray(paths) && paths.every((path) => typeof path === "string")) stage(paths);
+		}
+		function insertTextEvent(event: Event) {
+			const text: unknown = (event as CustomEvent<unknown>).detail;
+			if (typeof text === "string" && text.length > 0) {
+				if (composing.current) pendingPaste.push(text);
+				else replace(text);
+			}
 		}
 		function beforeInput(event: InputEvent) {
 			if (composing.current || event.isComposing) return;
@@ -285,6 +293,7 @@ export const PathInput = React.forwardRef<HTMLDivElement, PathInputProps>(functi
 		paint(saved, false);
 		if (initial.current.autoFocus) { root.focus(); restorePathSelection(root, saved); }
 		root.addEventListener(INSERT_FILE_PATHS_EVENT, insertEvent);
+		root.addEventListener(INSERT_TEXT_EVENT, insertTextEvent);
 		root.addEventListener(INSERT_CITATION_EVENT, insertCitationEvent);
 		root.addEventListener(UPDATE_CITATION_EVENT, updateCitationEvent);
 		root.addEventListener("beforeinput", beforeInput);
@@ -301,6 +310,7 @@ export const PathInput = React.forwardRef<HTMLDivElement, PathInputProps>(functi
 			composing.current = false;
 			controllerRef.current = null;
 			root.removeEventListener(INSERT_FILE_PATHS_EVENT, insertEvent);
+			root.removeEventListener(INSERT_TEXT_EVENT, insertTextEvent);
 			root.removeEventListener(INSERT_CITATION_EVENT, insertCitationEvent);
 			root.removeEventListener(UPDATE_CITATION_EVENT, updateCitationEvent);
 			root.removeEventListener("beforeinput", beforeInput);

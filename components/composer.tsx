@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRightIcon, ArrowUpIcon, SquareIcon } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowRightIcon, ArrowUpIcon, SquareIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PathInput } from "@/components/path-input";
 import { AttachFilesButton } from "@/components/attach-files-button";
+import { ATTACH_IMAGE_EVENT, type AttachedImage } from "@/lib/file-attachments";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 
@@ -15,28 +16,12 @@ export const ComposerToolbarContext = createContext<ReactNode>(null);
  * The chat composer — content row ONLY (the persistent rounded shell lives in
  * the chat view's overlay, so the shell can later morph chat → question
  * without remounting).
- *
- * Corner-radius math (concentric with the shell): shell rounded-2xl (16px) −
- * row padding p-1.5 (6px) = button rounded-[10px] = 25% of the 40px button.
  */
-/** What one Enter press does, in precedence order: stop a busy stream,
- *  otherwise send the message, otherwise — practice sessions only — fire
- *  the next-problem signal while the between-problems pause is live
- *  (owner round 16: Enter on an EMPTY composer is the go-ahead; typing
- *  anything makes Enter a send again). Pure so the static-render harness
- *  can pin the decision (key events can't be simulated in
- *  renderToStaticMarkup). */
 export function enterAction(state: {
 	busy: boolean;
 	canSend: boolean;
-	/** The between-problems pause is live: practice session, nothing
-	 *  active, no turn/compaction in flight (the caller's fold). */
 	nextProblem?: boolean;
 }): "stop" | "send" | "next" | "none" {
-	// Composer steering (owner arc 2026-10-03): while a turn runs, typed
-	// text makes Enter a STEER (the queue-and-redirect send); Enter with
-	// an empty composer stays the stop shortcut. The button itself keeps
-	// the square — Stop stays one click away at all times.
 	if (state.busy) return state.canSend ? "send" : "stop";
 	if (state.canSend) return "send";
 	if (state.nextProblem) return "next";
@@ -64,6 +49,8 @@ export function ChatSessionComposer({
 	nextProblem,
 	onNext,
 	pendingInput = false,
+	attachedImages,
+	onAttachedImagesChange,
 }: {
 	busy: boolean;
 	value: string;
@@ -80,10 +67,12 @@ export function ChatSessionComposer({
 	nextProblem?: boolean;
 	onNext?: () => void;
 	pendingInput?: boolean;
+	attachedImages?: AttachedImage[];
+	onAttachedImagesChange?: (images: AttachedImage[] | ((prev: AttachedImage[]) => AttachedImage[])) => void;
 }) {
 	const [draft, setDraft] = useState(value);
 	useLayoutEffect(() => { setDraft(value); }, [revision, value]);
-	const canSend = sendAllowed && (draft.trim().length > 0 || dictationActive || pendingInput);
+	const canSend = sendAllowed && (draft.trim().length > 0 || dictationActive || pendingInput || Boolean(attachedImages && attachedImages.length > 0));
 	const applyDraft = useCallback((next: string) => {
 		setDraft(next);
 		onChange(next);
@@ -103,6 +92,8 @@ export function ChatSessionComposer({
 			placeholder={placeholder}
 			nextProblem={nextProblem}
 			onNext={onNext}
+			attachedImages={attachedImages}
+			onAttachedImagesChange={onAttachedImagesChange}
 		/>
 	);
 }
@@ -122,8 +113,10 @@ export function Composer({
 	onNext,
 	defaultDropTarget = true,
 	fileInsertion = true,
-    toolbar,
-    sendLabel,
+	toolbar,
+	sendLabel,
+	attachedImages,
+	onAttachedImagesChange,
 }: {
 	busy: boolean;
 	value: string;
@@ -132,39 +125,66 @@ export function Composer({
 	onStop: () => void;
 	canSend: boolean;
 	autoFocus?: boolean;
-	/** The page's handle to the textarea — the dictation-end focus (owner,
-	 *  2026-10-01): a run ending hands the cursor to the bare composer. */
 	inputRef?: React.RefObject<HTMLDivElement | null>;
-	/** Escape while a dictation runs stops it (STT wave, 2026-09-17). No-op
-	 *  when absent — Esc otherwise means nothing in the composer. */
 	onEscape?: () => void;
-	/** The textarea's placeholder (owner refinement round, 2026-09-24):
-	 *  active sessions read "Ask, answer, or steer the lesson…"; the fresh
-	 *  new-session page asks the graph view's opening question instead. */
 	placeholder?: string;
-	/** The practice pause is live (owner round 16): Enter on the empty
-	 *  composer fires the next-problem signal instead of doing nothing —
-	 *  the keyboard-first move-on. */
 	nextProblem?: boolean;
-	/** The signal's dispatcher (send({type:"next"})) — the chip and the
-	 *  empty-Enter share it. */
 	onNext?: () => void;
-	/** Neutral plugin composers opt out without changing core defaults. */
 	defaultDropTarget?: boolean;
 	fileInsertion?: boolean;
-    toolbar?: ReactNode;
-    sendLabel?: string;
+	toolbar?: ReactNode;
+	sendLabel?: string;
+	attachedImages?: AttachedImage[];
+	onAttachedImagesChange?: (images: AttachedImage[] | ((prev: AttachedImage[]) => AttachedImage[])) => void;
 }) {
 	const controller = useOptionalInteractionLayers();
-    const inheritedToolbar = useContext(ComposerToolbarContext);
+	const inheritedToolbar = useContext(ComposerToolbarContext);
+	const [localImages, setLocalImages] = useState<AttachedImage[]>([]);
+	const effectiveImages = attachedImages ?? localImages;
+
 	const act = () => {
 		const action = enterAction({ busy, canSend, nextProblem });
 		if (action === "stop") onStop();
 		else if (action === "send") onSend();
 		else if (action === "next") onNext?.();
 	};
+
 	const ownInputRef = useRef<HTMLDivElement>(null);
 	const editorRef = inputRef ?? ownInputRef;
+
+	useEffect(() => {
+		const el = editorRef.current;
+		if (!el) return;
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent<AttachedImage[]>).detail;
+			if (Array.isArray(detail)) {
+				if (onAttachedImagesChange) {
+					onAttachedImagesChange((prev) => [...prev, ...detail]);
+				} else {
+					setLocalImages((prev) => [...prev, ...detail]);
+				}
+			}
+		};
+		el.addEventListener(ATTACH_IMAGE_EVENT, handler);
+		return () => el.removeEventListener(ATTACH_IMAGE_EVENT, handler);
+	}, [editorRef, onAttachedImagesChange]);
+
+	const removeImage = (id: string) => {
+		if (onAttachedImagesChange) {
+			onAttachedImagesChange((prev) => prev.filter((img) => img.id !== id));
+		} else {
+			setLocalImages((prev) => prev.filter((img) => img.id !== id));
+		}
+	};
+
+	const handleAttachImages = (newImages: AttachedImage[]) => {
+		if (onAttachedImagesChange) {
+			onAttachedImagesChange((prev) => [...prev, ...newImages]);
+		} else {
+			setLocalImages((prev) => [...prev, ...newImages]);
+		}
+	};
+
 	return (
 		<form
 			data-testid="composer"
@@ -174,6 +194,33 @@ export function Composer({
 				act();
 			}}
 		>
+			{/* Attached image preview chips */}
+			{effectiveImages.length > 0 && (
+				<div className="flex flex-wrap gap-2 px-1 pt-1 pb-1">
+					{effectiveImages.map((img) => (
+						<div
+							key={img.id}
+							className="group relative flex items-center gap-2 rounded-xl border border-border bg-card/90 px-2 py-1.5 shadow-sm"
+						>
+							<img
+								src={`data:${img.mimeType};base64,${img.data}`}
+								alt={img.name}
+								className="size-8 rounded-lg object-cover border border-border/40"
+							/>
+							<span className="max-w-[120px] truncate text-xs text-foreground font-medium">{img.name}</span>
+							<button
+								type="button"
+								onClick={() => removeImage(img.id)}
+								aria-label={`Remove ${img.name}`}
+								className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+							>
+								<XIcon className="size-3" />
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+
 			<PathInput
 				ref={editorRef}
 				value={value}
@@ -182,10 +229,6 @@ export function Composer({
 				fileInsertion={fileInsertion}
 				onKeyDown={(e) => {
 					if (!isInteractionScopeEligible(e.currentTarget, controller)) return;
-					// Esc ends dictation before anything else Esc might someday mean
-					// here (the dictate decisions: click-again or Esc to stop).
-					// stopPropagation claims the Esc (keyboard wave A): the
-					// window-level chain must not also abort a turn under us.
 					if (e.key === "Escape" && onEscape) {
 						controller?.claimEscape(e);
 						e.preventDefault();
@@ -193,9 +236,6 @@ export function Composer({
 						onEscape();
 						return;
 					}
-					// Chat convention: Enter sends, Shift+Enter is a newline.
-					// ⌘/Ctrl+Enter also sends — the universal submit shortcut
-					// across every input in the app (thinking field, answers).
 					if (e.key === "Enter" && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
 						e.preventDefault();
 						act();
@@ -206,22 +246,8 @@ export function Composer({
 				className="field-sizing-content lh-input max-h-48 min-h-12 w-full resize-none bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
 			/>
 			<div className="composer-toolbar flex w-full items-end gap-2">
-            <AttachFilesButton editorRef={editorRef} />
-            <div className="min-w-0 flex-1">{toolbar ?? inheritedToolbar}</div>
-			{/* The button follows the text (owner report 2026-10-03): while
-				 a turn runs WITH text typed it stays the SEND affordance
-				 (click = steer — steering must be clickable, not Enter-only);
-				 only an empty composer morphs it to Stop. ESC keeps its
-				 confirm-popup abort in every state, so stop is never
-				 unreachable. No tooltip — the ↵ glyph is the affordance
-				 (owner, subtlety round 2026-09-25).
-
-				 THE NEXT MORPH (owner round 16 refinement, 2026-10-06): an
-				 empty composer in the practice pause morphs the button into
-				 a wide green NEXT PROBLEM — the affordance IS the button
-				 (click and Enter share one lane), and typing anything
-				 returns the regular send. The green is the app's correct-
-				 answer register (answered-card's success token). */}
+				<AttachFilesButton editorRef={editorRef} onAttachImages={handleAttachImages} />
+				<div className="min-w-0 flex-1">{toolbar ?? inheritedToolbar}</div>
 				{nextProblem && !busy && !canSend ? (
 					<button
 						type="submit"
@@ -247,7 +273,7 @@ export function Composer({
 						{busy && !canSend ? <SquareIcon className="size-4" /> : <ArrowUpIcon className="size-5" />}
 					</button>
 				)}
-            </div>
+			</div>
 		</form>
 	);
 }
