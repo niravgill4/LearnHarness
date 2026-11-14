@@ -55,9 +55,9 @@ export function makeNeuralFibres(cells: readonly Cell[] = NEURAL_CELLS, seed = 7
 }
 export const NEURAL_FIBRES = makeNeuralFibres();
 export const NEURAL_AXONS = [
-	{ start: .6, duration: 3.4, points: curve({ x: 321, y: 365 }, { x: 433, y: 401 }, { x: 455, y: 208 }, { x: 568, y: 193 }, 140) },
-	{ start: 4.8, duration: 3.2, points: curve({ x: 559, y: 192 }, { x: 428, y: 285 }, { x: 287, y: 111 }, { x: 126, y: 176 }, 160) },
-	{ start: 9, duration: 5, points: curve({ x: 127, y: 188 }, { x: 151, y: 319 }, { x: 251, y: 258 }, { x: 308, y: 345 }, 130) },
+	{ start: .18, duration: 3.74, points: curve({ x: 321, y: 365 }, { x: 433, y: 401 }, { x: 455, y: 208 }, { x: 568, y: 193 }, 140) },
+	{ start: 4.18, duration: 3.74, points: curve({ x: 559, y: 192 }, { x: 428, y: 285 }, { x: 287, y: 111 }, { x: 126, y: 176 }, 160) },
+	{ start: 8.18, duration: 5.74, points: curve({ x: 127, y: 188 }, { x: 151, y: 319 }, { x: 251, y: 258 }, { x: 308, y: 345 }, 130) },
 ];
 export function neuralPath(points: Point[]) { return points.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(""); }
 function localPoint(cell: Cell, x: number, y: number) {
@@ -110,6 +110,7 @@ export function createNeuralRenderer(canvas: HTMLCanvasElement, scene: Partial<N
 	const bodies = cells.map(cell => new Path2D(neuralCellPath(cell)));
 	const structures = cells.map((cell, index) => new Path2D(neuralCellPath(cell) + fibres.filter(fibre => fibre.neuron === index).map(neuralFibrePath).join("")));
 	const interiors = cells.map(cell => neuralInteriorPaths(cell).map(path => new Path2D(path)));
+	const incoming = fibres.map(fibre => [...fibre.points].reverse());
 	const anatomy = document.createElement("canvas"), glow = document.createElement("canvas");
 	let cacheScale = 0;
 	glow.width = glow.height = 128;
@@ -186,19 +187,21 @@ export function createNeuralRenderer(canvas: HTMLCanvasElement, scene: Partial<N
 			ctx.translate((canvas.width - width * scale) / 2 + (pointer[0] ?? 0) * 7, (canvas.height - height * scale) / 2 + (pointer[1] ?? 0) * 5);
 			ctx.scale(scale, scale); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.drawImage(anatomy, 0, 0, width, height);
 			const cycle = time % CYCLE, ages = cells.map(cell => Math.min(...cell.fires.map(fire => (cycle - fire + CYCLE) % CYCLE)));
-			for (const fibre of fibres) {
-				const age = ages[fibre.neuron]!;
-				if (age < .22 || age > 4.5) continue;
-				const progress = ((age - .22) * 105 - fibre.distance) / fibre.length;
-				pulse(fibre.points, progress, signalOpacity * (.55 + fibre.opacity * .4) * Math.max(.45, 1 - fibre.distance / 800), Math.max(.65, fibre.width * .52), Math.min(1.8, 85 / fibre.length));
+			for (let index = 0; index < fibres.length; index++) {
+				const fibre = fibres[index]!, untilFire = (CYCLE - ages[fibre.neuron]!) % CYCLE;
+				if (untilFire > 3 || untilFire < .06) continue;
+				// Slowed electrotonic input converges towards the soma; it is not an axonal spike.
+				const progress = (fibre.distance + fibre.length - untilFire * 125) / fibre.length;
+				pulse(incoming[index]!, progress, signalOpacity * .32 * fibre.opacity, Math.max(.45, fibre.width * .28), Math.min(.8, 32 / fibre.length));
 			}
-			for (const axon of axons) pulse(axon.points, (cycle - axon.start) / axon.duration, .95 * signalOpacity, 1.6, .2, true);
+			for (const axon of axons) pulse(axon.points, (cycle - axon.start) / axon.duration, .8 * signalOpacity, .95, .055, true);
 			cells.forEach((cell, i) => {
 				const age = ages[i]!, arrival = Math.exp(-Math.pow((CYCLE - age) / .25, 2)) * .3;
-				const firing = Math.exp(-Math.pow(age / .72, 2)) + arrival;
+				const firing = Math.exp(-Math.pow(age / .19, 2)) + arrival * .3;
 				if (firing < .003) return;
-				const size = cell.r * 5.7; ctx.globalAlpha = firing * .55 * signalOpacity; ctx.drawImage(glow, cell.x - size / 2, cell.y - size / 2, size, size);
-				ctx.globalAlpha = firing * (.42 + (phase % 3 === i ? .04 : 0)) * signalOpacity; ctx.fillStyle = "#eee9d9"; ctx.fill(bodies[i]!); ctx.globalAlpha = 1;
+				const initialSegment = { x: cell.x + Math.cos(cell.angle + Math.PI) * cell.r * .55, y: cell.y + Math.sin(cell.angle + Math.PI) * cell.r * .55 };
+				const size = cell.r * 2; ctx.globalAlpha = firing * .55 * signalOpacity; ctx.drawImage(glow, initialSegment.x - size / 2, initialSegment.y - size / 2, size, size);
+				ctx.globalAlpha = 1;
 			});
 		},
 		dispose() { anatomy.width = anatomy.height = 1; glow.width = glow.height = 1; },

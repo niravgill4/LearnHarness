@@ -30,6 +30,13 @@ export async function POST(request: Request) {
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid setup request." }, 400);
 	const provider = ONBOARDING_PROVIDERS.find(p => p.id === body.provider);
+	if (body.action === "existing") {
+		const { data: profile, error } = await client.from("profiles").select("model_settings").eq("id", user.id).single();
+		if (error || !profile) return json({ error: "Your profile could not be loaded." }, 503);
+		const setup = { version: 1, completedAt: new Date().toISOString(), connectionMode: "existing" };
+		const { error: saveError } = await client.from("profiles").update({ model_settings: { ...profile.model_settings, onboarding: setup }, updated_at: new Date().toISOString() }).eq("id", user.id);
+		return saveError ? json({ error: "Your preferences could not be saved." }, 503) : json({ saved: true, setup });
+	}
 	if (!provider) return json({ error: "Choose a supported provider." }, 400);
 	const envVar = AUTH_PROVIDER_KEYS.find(k => k.id === provider.id)!.envVar;
 	try {

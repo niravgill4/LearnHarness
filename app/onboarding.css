@@ -13,6 +13,34 @@
 .onboarding-topline-note { color:var(--ob-muted); font-size:11px; }
 .onboarding-mobile-start { display:none; }
 .onboarding-form-content:focus { outline:none; }
+.provider-logo { width:22px; height:22px; object-fit:contain; flex-shrink:0; }
+.provider-logo:not(.provider-logo-google) { filter:invert(1); }
+.onboarding-model-identity { display:flex; align-items:center; gap:12px; min-width:0; }
+.onboarding-account-connect { display:flex; align-items:center; gap:12px; width:100%; padding:16px; border:1px solid var(--ob-line); background:var(--ob-surface); border-radius:12px; text-align:left; cursor:pointer; }
+.onboarding-account-connect > span { flex:1; font-size:13px; }
+.onboarding-account-connect small { display:block; margin-top:5px; color:var(--ob-muted); font-size:10px; }
+.onboarding-account-connect > svg { width:16px; }
+.onboarding-account-connect:hover { border-color:var(--ob-accent); }
+.onboarding-account-connect + .onboarding-small { text-align:left; margin:12px 0 24px; }
+.account-settings { padding:28px; width:100%; min-width:0; max-width:600px; color:var(--foreground); box-sizing:border-box; }
+.account-settings h2 { font-size:24px; font-weight:500; letter-spacing:-.025em; }
+.account-settings p { margin:8px 0 20px; color:var(--muted-foreground); font-size:12px; line-height:1.7; overflow-wrap:anywhere; }
+.account-identity { display:flex; align-items:center; gap:16px; margin:28px 0; }
+.account-identity > span { display:grid; place-items:center; width:50px; height:50px; border-radius:50%; background:var(--accent); font-size:22px; }
+.account-identity > span { flex-shrink:0; }
+.account-identity > div { min-width:0; overflow-wrap:anywhere; }
+.account-identity strong { overflow-wrap:anywhere; }
+.account-identity p { margin:4px 0 0; }
+.account-settings form { display:flex; flex-direction:column; gap:10px; }
+.account-settings label { font-size:12px; margin-top:8px; }
+.account-settings input { border:1px solid var(--border); background:var(--background); color:var(--foreground); padding:12px; border-radius:10px; min-width:0; font-size:16px; }
+.account-settings button { padding:11px 16px; border:1px solid var(--border); border-radius:10px; cursor:pointer; background:var(--accent); color:var(--foreground); }
+.account-settings button:disabled { opacity:.5; cursor:wait; }
+.account-settings input:focus-visible,.account-settings button:focus-visible { outline:2px solid var(--foreground); outline-offset:3px; }
+.account-session { display:flex; align-items:center; gap:20px; justify-content:space-between; margin-top:36px; padding-top:24px; border-top:1px solid var(--border); }
+.account-session p { margin-bottom:0; }
+.account-settings .account-error { color:var(--destructive); }
+@media(max-width:928px) { .account-settings { padding:20px 14px; } .account-settings h2 { font-size:21px; overflow-wrap:anywhere; } .account-identity { flex-wrap:wrap; gap:10px; } .account-settings input { width:100%; max-width:100%; } .account-session { flex-direction:column; align-items:stretch; gap:12px; } }
 .onboarding-layout { max-width:1440px; margin:auto; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:20px; min-height:calc(100dvh - 105px); }
 .onboarding-story { position:relative; isolation:isolate; overflow:hidden; min-width:0; display:flex; flex-direction:column; border-radius:28px; padding:48px 46px 25px; }
 .onboarding-story-backdrop { position:absolute; inset:0; z-index:-1; background:radial-gradient(ellipse at 50% 57%,#28324866,transparent 66%),linear-gradient(155deg,#1e2231 0%,#151922 38%,#10171b 100%); border:1px solid #ffffff0a; border-radius:inherit; }

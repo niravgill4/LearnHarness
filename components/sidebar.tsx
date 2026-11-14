@@ -844,6 +844,7 @@ function SessionsSidebar() {
 
 					{/* Settings & Auth entry */}
 					<div className="sidebar-settings px-3 pb-3 pt-2 space-y-1">
+						<button type="button" onClick={() => openSettings("account")} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-testid="profile-entry"><span className="flex size-6 items-center justify-center rounded-full bg-accent text-foreground" aria-hidden="true">{authUser?.email?.charAt(0).toUpperCase() || "C"}</span><span>Profile &amp; account</span></button>
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"

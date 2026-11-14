@@ -60,11 +60,13 @@ import { PluginSettingsPage } from "./plugin-settings-page.tsx";
 import { usePlugins } from "@/components/plugins";
 import { ChatGPTUIProvider } from "./chatgpt-connection.tsx";
 import { NativeSubscriptionUIProvider } from "./subscription-connections.tsx";
+import { AccountSection } from "./account-section";
 
 /** Owner (2026-09-20): hints earn their place — mechanics-explaining
  *  prose is out; only the keyboard note stays (storage location is a
  *  real question users ask). */
 const SECTIONS = [
+	{ id: "account", label: "Profile & account", icon: SettingsIcon },
 	{ id: "keys", label: "Providers", icon: KeyIcon },
 	{ id: "agent", label: "Agent", icon: BotIcon },
 	{ id: "appearance", label: "Appearance", icon: PaletteIcon },
@@ -117,6 +119,12 @@ export function SettingsDialogProvider({
 		setShow(true);
 	}, [interactions, layerId]);
 	const close = useCallback((): CloseOutcome => { setShow(false); return "closed"; }, []);
+	useEffect(() => {
+		const url = new URL(window.location.href);
+		if (url.searchParams.get("connections") !== "1") return;
+		url.searchParams.delete("connections"); window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+		open("keys");
+	}, [open]);
 	useEffect(() => window.lh?.onOpenSettings?.((section) => open(section)), [open]);
 	useEffect(() => {
 		const onPluginSettings = (event: Event) => {
@@ -430,7 +438,7 @@ export function SettingsDialogBody({
 							{error}
 						</p>
 					)}
-					{selected === "plugins" || selected === "core-plugins" ? <PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => setActive(`plugin:${pluginId}`)} />
+					{active === "account" ? <AccountSection /> : selected === "plugins" || selected === "core-plugins" ? <PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => setActive(`plugin:${pluginId}`)} />
 						: activePlugin ? <PluginSettingsPage key={`${activePlugin.info.id}/${activePlugin.info.revision}`} plugin={activePlugin} />
 							: activePluginId !== null ? <p role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading plugins…</p>
 								: record === undefined ? (

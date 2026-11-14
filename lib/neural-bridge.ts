@@ -14,14 +14,14 @@ export function makeNeuralBridge({ width, height, stage, card, protectedRects, c
 	const cells: Cell[] = [
 		{ x: card.x + card.width * .91, y: card.y + card.height * .48, r: Math.max(19, Math.min(29, card.width * .045)), angle: -2.36, form: "pyramidal", fires: [4], opacity: .44, span: span * 1.65 },
 		{ x: card.x + card.width * .15, y: card.y + card.height * .84, r: Math.max(13, Math.min(21, card.width * .032)), angle: -1.15, form: "fusiform", fires: [8], opacity: .32, span: span * 1.9 },
-		{ x: stage.x + stage.width * .82, y: Math.max(60, stage.y - 105), r: Math.max(12, 17 * scale), angle: 2.2, form: "tapered", fires: [0], opacity: .19, span: stage.width / 720 * 1.45 },
+		{ x: stage.x + stage.width * .72, y: Math.max(60, stage.y - 125), r: Math.max(12, 17 * scale), angle: 2.2, form: "tapered", fires: [0], opacity: .24, span: stage.width / 720 * 1.95 },
 	];
 	const fibres = makeNeuralFibres(cells, 398451);
 	const leftMid = { x: origin.x + 570 * scale, y: origin.y + 190 * scale }, leftNear = { x: origin.x + 310 * scale, y: origin.y + 350 * scale };
 	const axons = [
-		{ start: .6, duration: 3.4, points: curve(leftNear, { x: leftNear.x + (cells[0]!.x - leftNear.x) * .4, y: leftNear.y + 45 }, { x: cells[0]!.x - 150 * span, y: cells[0]!.y - 160 * span }, cells[0]!) },
-		{ start: 4.8, duration: 3.2, points: curve(cells[0]!, { x: cells[0]!.x - 125 * span, y: cells[0]!.y + 90 * span }, { x: cells[1]!.x + 130 * span, y: cells[1]!.y - 20 * span }, cells[1]!) },
-		{ start: 9, duration: 5, points: curve(cells[1]!, { x: cells[1]!.x - 100 * span, y: cells[1]!.y - 150 * span }, { x: leftMid.x + 100 * scale, y: leftMid.y + 140 * scale }, leftMid) },
+		{ start: .18, duration: 3.74, points: curve(leftNear, { x: leftNear.x + (cells[0]!.x - leftNear.x) * .4, y: leftNear.y + 45 }, { x: cells[0]!.x - 150 * span, y: cells[0]!.y - 160 * span }, cells[0]!) },
+		{ start: 4.18, duration: 3.74, points: curve(cells[0]!, { x: cells[0]!.x - 125 * span, y: cells[0]!.y + 90 * span }, { x: cells[1]!.x + 130 * span, y: cells[1]!.y - 20 * span }, cells[1]!) },
+		{ start: 8.18, duration: 5.74, points: curve(cells[1]!, { x: cells[1]!.x - 100 * span, y: cells[1]!.y - 150 * span }, { x: leftNear.x + 100 * scale, y: leftNear.y + 140 * scale }, leftNear) },
 	];
 	return { width, height, cells, fibres, axons, signalOpacity: .38, protectedRects, copyRects };
 }

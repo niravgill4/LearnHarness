@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LoaderCircleIcon } from "lucide-react";
 import { ONBOARDING_PROVIDERS, type LearningIntent, type OnboardingProvider, type SetupSnapshot } from "@/lib/onboarding";
 import { OnboardingShell } from "./onboarding-shell";
+import { ProviderLogo } from "@/components/provider-logo";
 
 async function setupRequest(body?: unknown, signal?: AbortSignal): Promise<SetupSnapshot & { saved?: boolean }> {
 	const response = await fetch("/api/onboarding", { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal });
@@ -67,6 +68,11 @@ export function SetupScreen() {
 		finally { setBusy(false); }
 	}
 	const back = () => { setError(""); setStep(value => Math.max(1, value - 1)); };
+	async function existingAccount() {
+		setBusy(true); setError("");
+		try { await setupRequest({ action: "existing" }); router.replace("/?connections=1"); router.refresh(); }
+		catch (cause) { setError(cause instanceof Error ? cause.message : "Could not open account connections."); setBusy(false); }
+	}
 	return <OnboardingShell step={step}><div className="onboarding-step" key={snapshot ? step : "loading"}>
 		{!snapshot ? <>
 			<h2 ref={heading} tabIndex={-1}>A space for<br />your next idea.</h2>
@@ -74,9 +80,11 @@ export function SetupScreen() {
 		</> : <>
 			{step > 1 && <button className="onboarding-back" type="button" disabled={busy} onClick={back}><ArrowLeftIcon />Back</button>}
 			{step === 1 && <>
-				<h2 ref={heading} tabIndex={-1}>Bring your<br />own intelligence.</h2><p className="onboarding-intro">Choose a provider and add your API key. Your provider bills you directly for model use.</p>
+				<h2 ref={heading} tabIndex={-1}>Bring your<br />own intelligence.</h2><p className="onboarding-intro">Use an existing subscription connection, or bring a provider API key.</p>
+				<button type="button" className="onboarding-account-connect" disabled={busy} onClick={() => void existingAccount()}><ProviderLogo provider="openai" /><ProviderLogo provider="anthropic" /><span>Use Codex or Claude Code<small>Open existing account connections</small></span><ArrowRightIcon /></button>
+				<p className="onboarding-small">Codex uses ChatGPT sign-in. Claude Code uses the login on the machine running Cognera. A cloud browser cannot read your laptop’s credentials. Connect your account in Providers before starting a lesson.</p>
 				<form onSubmit={connect} className="onboarding-form" aria-busy={busy}>
-					<div className="onboarding-providers" role="group" aria-label="Model provider">{ONBOARDING_PROVIDERS.map(p => <button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id); setKey(""); setModelId(""); setError(""); }}><span className="provider-monogram" aria-hidden="true">{p.name.charAt(0)}</span><span><strong>{p.name}</strong><small>{p.detail}</small></span>{provider === p.id && <CheckIcon />}</button>)}</div>
+					<div className="onboarding-providers" role="group" aria-label="Model provider">{ONBOARDING_PROVIDERS.map(p => <button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id); setKey(""); setModelId(""); setError(""); }}><span className="provider-monogram" aria-hidden="true"><ProviderLogo provider={p.id} /></span><span><strong>{p.name}</strong><small>{p.detail}</small></span>{provider === p.id && <CheckIcon />}</button>)}</div>
 					<div className="onboarding-label-row"><label htmlFor="provider-key">{providerInfo.name} API key</label><a href={providerInfo.url} target="_blank" rel="noopener noreferrer">Get a key<ExternalLinkIcon /></a></div>
 					<div className="onboarding-secret-field"><input id="provider-key" name="provider-key" autoComplete="off" autoCorrect="off" spellCheck={false} type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} placeholder={alreadyConnected ? "A key is already saved" : "Paste your API key"} required={!alreadyConnected} disabled={busy} /><button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} aria-pressed={showKey} onClick={() => setShowKey(value => !value)}>{showKey ? <EyeOffIcon /> : <EyeIcon />}</button></div>
 					<p className="onboarding-key-note"><KeyRoundIcon />Encrypted in your account. Never stored in this browser.</p>
@@ -88,7 +96,7 @@ export function SetupScreen() {
 				<h2 ref={heading} tabIndex={-1}>Choose a mind<br />to learn alongside.</h2><p className="onboarding-intro">Pick a {providerInfo.name} model for your lessons. You can change it later in settings.</p>
 				<div className="onboarding-connected"><CheckIcon />{providerInfo.name} key saved</div>
 				<label className="onboarding-sr-label" htmlFor="model-search">Search models</label><input className="onboarding-search" id="model-search" type="search" placeholder="Find a model…" value={search} onChange={e => setSearch(e.target.value)} />
-				<div className="onboarding-model-list" role="group" aria-label="Choose your model">{filteredModels.length ? filteredModels.map(model => <button key={model.id} type="button" aria-pressed={model.id === modelId} onClick={() => setModelId(model.id)}><span><strong>{model.name}</strong><small>{model.vision ? "Text and images" : "Text"}</small></span><span className="onboarding-choice-dot">{model.id === modelId && <CheckIcon />}</span></button>) : <p className="onboarding-small">No matching models. Try another name.</p>}</div>
+				<div className="onboarding-model-list" role="group" aria-label="Choose your model">{filteredModels.length ? filteredModels.map(model => <button key={model.id} type="button" aria-pressed={model.id === modelId} onClick={() => setModelId(model.id)}><span className="onboarding-model-identity"><ProviderLogo provider={model.id + " " + model.name + " " + model.provider} /><span><strong>{model.name}</strong><small>{model.vision ? "Text and images" : "Text"}</small></span></span><span className="onboarding-choice-dot">{model.id === modelId && <CheckIcon />}</span></button>) : <p className="onboarding-small">No matching models. Try another name.</p>}</div>
 				<button className="onboarding-primary" type="button" disabled={!selectedModel} onClick={() => { setError(""); setStep(3); }}>Continue<ArrowRightIcon /></button>
 				<p className="onboarding-small">Model access and pricing depend on your provider account.</p>
 			</>}
