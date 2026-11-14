@@ -437,6 +437,9 @@ function SessionsSidebar() {
 	}, []);
 	const pathname = usePathname();
 	const router = useRouter();
+	const isPractice = pathname === "/chat/new" && (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "practice");
+	const isNewTeach = pathname === "/chat/new" && !isPractice;
+	const isKnowledge = pathname === "/";
 	const { open: openSettings } = useSettingsDialog();
 
 	/* New session (owner, 2026-09-13): NO POST — the button opens the
@@ -708,30 +711,50 @@ function SessionsSidebar() {
 
 				{/* Apple prominent action buttons */}
 				<div className="sidebar-actions px-3 pb-3 flex flex-col gap-2">
-					<button
-						type="button"
+					<Link
+						href="/chat/new"
+						prefetch={true}
 						data-testid="new-session"
 						title="Teaching"
-						onClick={() => void newSession()}
-						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer"
+						className={cn(
+							"flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer",
+							isNewTeach
+								? "bg-primary hover:bg-primary/90 text-primary-foreground"
+								: "bg-secondary/60 hover:bg-secondary text-foreground"
+						)}
 					>
 						<PlusIcon className="size-3.5 shrink-0 stroke-[2.5]" />
 						<span className="truncate">New session</span>
-					</button>
-					<button
-						type="button"
+					</Link>
+					<Link
+						href="/chat/new?mode=practice"
+						prefetch={true}
 						data-testid="new-session-practice"
 						title="Practice"
-						onClick={() => router.push("/chat/new?mode=practice")}
-						className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-transparent hover:bg-accent text-muted-foreground py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer"
+						className={cn(
+							"flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer",
+							isPractice
+								? "bg-primary hover:bg-primary/90 text-primary-foreground"
+								: "bg-transparent hover:bg-accent text-muted-foreground"
+						)}
 					>
 						<DumbbellIcon className="size-3.5 shrink-0" />
 						<span className="truncate">Practice</span>
-					</button>
+					</Link>
 				</div>
 
 				{/* Apple Native Search Field */}
-                <Link href="/" className="mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><WaypointsIcon aria-hidden="true" className="size-4" />Knowledge</Link>
+				<Link
+					href="/"
+					prefetch={true}
+					className={cn(
+						"mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs transition-colors hover:bg-accent hover:text-foreground",
+						isKnowledge ? "bg-accent text-foreground font-medium" : "text-muted-foreground"
+					)}
+				>
+					<WaypointsIcon aria-hidden="true" className="size-4" />
+					Knowledge
+				</Link>
 
 				<div className="sidebar-search px-3 mb-3">
 					<Hint label="Search sessions" action="sessions-search" side="bottom">
