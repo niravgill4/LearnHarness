@@ -1,5 +1,6 @@
 import { graphView } from "@/src/server";
 import { createClient } from "@/lib/supabase/server";
+import { restoreGraphFromCloud } from "@/lib/supabase/sync";
 
 /**
  * The home graph view's data endpoint (W4; vision §1 "Home page") — thin
@@ -15,16 +16,23 @@ export async function GET() {
 	if (supabase) {
 		const { data: { user } } = await supabase.auth.getUser();
 		if (user) {
-			const { data: posData } = await supabase
-				.from("graph_positions")
-				.select("positions")
-				.eq("user_id", user.id)
-				.maybeSingle();
-			if (posData?.positions && typeof posData.positions === "object") {
-				snapshot.positions = {
-					...snapshot.positions,
-					...(posData.positions as Record<string, { x: number; y: number }>),
-				};
+			const cloudGraph = await restoreGraphFromCloud(user.id);
+			if (cloudGraph) {
+				if (cloudGraph.positions && typeof cloudGraph.positions === "object") {
+					snapshot.positions = {
+						...snapshot.positions,
+						...cloudGraph.positions,
+					};
+				}
+				if (cloudGraph.nodes && cloudGraph.nodes.length > 0) {
+					const existingIds = new Set(snapshot.nodes.map((n) => n.id));
+					for (const node of cloudGraph.nodes) {
+						if (!existingIds.has(node.id)) {
+							snapshot.nodes.push(node);
+							snapshot.propositions.push(node);
+						}
+					}
+				}
 			}
 		}
 	}

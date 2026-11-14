@@ -31,6 +31,7 @@
  */
 
 import { isBuiltinThemeId, type AgentSettings, type AppearanceSettings, type ChatSettings, type ModelsSettings } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
 import {
 	SETTINGS_SECTIONS,
 	allSegmentPaths,
@@ -145,6 +146,18 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 	// along untouched (other sections, unknown keys — sanitize preserves).
 	const next = { ...record, [section]: sectionOut };
 	const stored = writeSettingsRecord(next);
+
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+			if (section === "models") updateData.model_settings = sectionOut;
+			if (section === "appearance") updateData.theme_settings = sectionOut;
+			await supabase.from("profiles").update(updateData).eq("id", user.id);
+		}
+	}
+
 	// Only a successful durable write changes admission. Increasing the
 	// limit immediately drains queued requests; decreasing never cancels active work.
 	refreshWorkerRequestAdmission();

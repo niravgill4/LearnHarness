@@ -1,6 +1,7 @@
 import { compactionInFlight, deleteChatSession, getChat, isTurnRunning, sessionCoverage, sessionCost, stores, turnFailure, type ChatDeleteMode, pluginQuestionAvailabilityOf, reconcilePluginQuestionCompatibility, type QuestionTypeResolver, getPluginQuestionTypeResolver, getPluginHost, pluginProblemAvailabilityOf, type ProblemTypeResolver } from "@/src/server";
 import { pendingPluginQuestionOf, activeProblemOf } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
+import { restoreChatFromCloud } from "@/lib/supabase/sync";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
@@ -10,6 +11,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 		if (user) {
 			const { data: chatRow } = await supabase.from("chats").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
 			if (!chatRow) return Response.json({ error: "Not found" }, { status: 404 });
+
+			// If local chat record is missing, hydrate from Supabase cloud
+			if (!getChat(id)) {
+				const cloudChat = await restoreChatFromCloud(id, user.id);
+				if (cloudChat) {
+					stores.chatStore.createChat(cloudChat.title, cloudChat.kind === "practice" ? "practice" : undefined);
+					stores.chatStore.saveMessages(id, cloudChat.messages);
+					if (cloudChat.tree) stores.chatStore.saveTree(id, cloudChat.tree);
+				}
+			}
 		}
 	}
 	await reconcilePluginQuestionCompatibility(stores.chatStore, id);

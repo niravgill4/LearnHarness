@@ -19,6 +19,7 @@ import type { LhMessage } from "../core/native-messages.ts";
 import { activeProblemOf, danglingQuestionOf } from "../core/native-messages.ts";
 import { phaseAt3Lh } from "../core/phases.ts";
 import { removeLeftoverTemps, writeFileAtomicSync } from "./atomic-write.ts";
+import { syncChatToCloud, deleteChatFromCloud } from "../../lib/supabase/sync.ts";
 
 function chatFile(id: string): string {
 	if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`Invalid chat id: ${id}`);
@@ -58,6 +59,7 @@ function createChat(title: string, kind?: "practice"): ChatRecord {
  *  A future-version guard lives on the read side (getChat). */
 function writeChat(record: ChatRecord): void {
 	writeFileAtomicSync(chatFile(record.id), JSON.stringify({ ...record, version: CURRENT_CHAT_VERSION }, null, "\t"), { allowInPlaceFallback: true });
+	syncChatToCloud(record).catch(() => {});
 }
 
 function getChat(id: string): ChatRecord | null {
@@ -211,9 +213,11 @@ function deleteChat(id: string): boolean {
 	try {
 		fs.unlinkSync(chatFile(id));
 		removeLeftoverTemps(chatFile(id));
+		deleteChatFromCloud(id).catch(() => {});
 		emit("chats-changed", {}); // only a real removal — the present-entry law
 		return true;
 	} catch {
+		deleteChatFromCloud(id).catch(() => {});
 		return false; // never existed, already deleted, or unreadable — same answer
 	}
 }

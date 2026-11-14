@@ -48,6 +48,7 @@ import type {
 	SessionCheckpoint,
 } from "../core/contracts.ts";
 import type { GraphStore } from "../core/ports.ts";
+import { syncNodeToCloud, syncChainToCloud, syncSourceToCloud } from "../../lib/supabase/sync.ts";
 
 // ─── JSONL primitives ────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ const isCoverageEntry = (v: unknown): v is CoverageEntry =>
 export const graphStore: GraphStore = {
 	appendNode(node: GraphNode): void {
 		appendLine(LEDGER_FILES.nodes, node);
+		syncNodeToCloud(node).catch(() => {});
 	},
 	/** Raw node lines in append order. A node id may appear on more than
 	 *  one line (a later session's LINK-append: phrasings + provenance); the
@@ -144,6 +146,7 @@ export const graphStore: GraphStore = {
 	 *  conclusion). */
 	appendChain(assertion: GraphChain): void {
 		appendLine(LEDGER_FILES.chains, assertion);
+		syncChainToCloud(assertion).catch(() => {});
 	},
 	readChains(): GraphChain[] {
 		return readValid(LEDGER_FILES.chains, isGraphChain);
