@@ -3,6 +3,7 @@ import { readSettingsRecord } from "@/src/server";
 import { resolveSettings, slotsConfigured } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { profileModelSlots } from "@/lib/onboarding";
 
 // Dynamic: the configured state is server-rendered into the page (the
 // setup CTA's truth on the first frame), and every navigation re-reads
@@ -17,7 +18,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 		const { data: { user } } = await client.auth.getUser();
 		if (!user) redirect("/login");
 		const { data: profile } = await client.from("profiles").select("model_settings").eq("id", user.id).single();
-		if (!profile?.model_settings?.onboarding?.completedAt) redirect("/onboarding");
+		if (!profile?.model_settings?.onboarding?.completedAt || !slotsConfigured(profileModelSlots(profile.model_settings))) redirect("/onboarding");
 		if (welcome && typeof profile.model_settings.onboarding.topic === "string") firstTopic = profile.model_settings.onboarding.topic;
 	}
 	// First-run gate (model-slots wave): chats cannot start until the user

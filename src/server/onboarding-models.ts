@@ -1,5 +1,11 @@
 import { piModels } from "../agent/models";
 import { chatGPTModels } from "../agent/chatgpt-bridge";
+import { chatGPTConnected } from "../agent/chatgpt-bridge";
+import { claudeCodeAvailable } from "./claude-code-config";
+
+export function onboardingAccountAvailable(provider: string): boolean {
+	return provider === "chatgpt" ? chatGPTConnected() : provider === "claude-code" ? claudeCodeAvailable() : false;
+}
 
 /** Static SDK catalog + live connected account models. */
 export function onboardingProviderModels(provider: string) {

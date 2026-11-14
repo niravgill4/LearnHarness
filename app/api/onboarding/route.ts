@@ -1,8 +1,8 @@
-import { modelCatalog, onboardingProviderModels, readSettingsRecord, writeSettingsRecord, refreshConnectionCatalog } from "@/src/server";
+import { modelCatalog, onboardingAccountAvailable, onboardingProviderModels, readSettingsRecord, writeSettingsRecord, refreshConnectionCatalog } from "@/src/server";
 import { createClient } from "@/lib/supabase/server";
 import { mutateProfileKey, readProfileKeys } from "@/lib/supabase/profile-keys";
-import { ONBOARDING_PROVIDERS, type LearningSetup, type OnboardingProvider } from "@/lib/onboarding";
-import { AUTH_PROVIDER_KEYS, genericProviderKeyGuard } from "@/src/core";
+import { ONBOARDING_PROVIDERS, profileModelSlots, validateOnboardingSlots, type LearningSetup, type OnboardingProvider } from "@/lib/onboarding";
+import { AUTH_PROVIDER_KEYS, genericProviderKeyGuard, slotsConfigured } from "@/src/core";
 
 export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -17,11 +17,8 @@ export async function GET() {
 	if (error || !profile) return json({ error: "Your profile could not be loaded. Please try again." }, 503);
 	try {
 		const keys = readProfileKeys(profile.encrypted_keys);
-		const claudeEnabled = profile.model_settings?.claudeCode?.enabled === true;
-		const chatgptConnected = profile.model_settings?.chatgpt?.connected === true;
 		const connected = ONBOARDING_PROVIDERS.filter(p => {
-			if (p.id === "claude-code") return claudeEnabled;
-			if (p.id === "chatgpt") return chatgptConnected;
+			if (p.keyless) return onboardingAccountAvailable(p.id);
 			const authKey = AUTH_PROVIDER_KEYS.find(k => k.id === p.id);
 			return authKey ? !!keys[authKey.envVar] : false;
 		}).map(p => p.id);
@@ -41,7 +38,7 @@ export async function GET() {
 			return onboardingProviderModels(p.id).map(m => ({ ...m, provider: p.id }));
 		});
 
-		return json({ email: user.email, setup: profile.model_settings?.onboarding ?? null, connected, models });
+		return json({ email: user.email, setup: profile.model_settings?.onboarding ?? null, configured: slotsConfigured(profileModelSlots(profile.model_settings)), connected, models });
 	} catch { return json({ error: "Your saved connection could not be loaded. Please try again." }, 503); }
 }
 
@@ -60,24 +57,8 @@ export async function POST(request: Request) {
 	try {
 		if (body.action === "connect") {
 			if (isKeyless) {
-				const { data: profile, error } = await client.from("profiles").select("model_settings").eq("id", user.id).single();
-				if (error || !profile) return json({ error: "Your profile could not be loaded." }, 503);
-				const isClaude = provider.id === "claude-code";
-				const nextModelSettings = {
-					...profile.model_settings,
-					...(isClaude ? { claudeCode: { enabled: true } } : { chatgpt: { connected: true } }),
-				};
-				const { error: saveError } = await client.from("profiles").update({
-					model_settings: nextModelSettings,
-					updated_at: new Date().toISOString(),
-				}).eq("id", user.id);
-				if (saveError) return json({ error: "Could not save connection." }, 503);
-
-				if (isClaude) {
-					const local = readSettingsRecord() ?? { version: 1 };
-					writeSettingsRecord({ ...local, claudeCode: { enabled: true } });
-				}
-				return json({ saved: true });
+				const available = onboardingAccountAvailable(provider.id);
+				return available ? json({ saved: true }) : json({ error: "Finish this connection before choosing models." }, 409);
 			}
 
 			const envVar = AUTH_PROVIDER_KEYS.find(k => k.id === provider.id)?.envVar;
@@ -98,19 +79,21 @@ export async function POST(request: Request) {
 			liveCatalogModels = [];
 		}
 
-		const availableModels = [
-			...liveCatalogModels.filter(m => m.provider === provider.id).map(m => ({ id: m.id, name: m.name, vision: m.input.includes("image") })),
-			...onboardingProviderModels(provider.id),
-		];
-		const model = availableModels.find(m => m.id === body.modelId);
-		if (!model) return json({ error: "Choose a model from your provider." }, 400);
+		const liveForProvider = liveCatalogModels.filter(m => m.provider === provider.id);
+		const availableModels = liveForProvider.length
+			? liveForProvider.map(m => ({ id: m.id, name: m.name, vision: m.input.includes("image") }))
+			: onboardingProviderModels(provider.id);
+		const choices = validateOnboardingSlots(body.slots, availableModels);
+		if (!choices) return json({ error: "Choose valid strong, cheap, and image-capable vision models." }, 400);
 		if (body.topic !== undefined && (typeof body.topic !== "string" || body.topic.length > 500)) return json({ error: "Keep your topic under 500 characters." }, 400);
 		if (!["understand", "exam", "explore"].includes(body.intent)) return json({ error: "Choose a learning goal." }, 400);
 
 		const { data: profile, error } = await client.from("profiles").select("encrypted_keys, model_settings").eq("id", user.id).single();
 		if (error || !profile) return json({ error: "Your profile could not be loaded. Please try again." }, 503);
 
-		if (!isKeyless) {
+		if (isKeyless) {
+			if (!onboardingAccountAvailable(provider.id)) return json({ error: "Finish connecting this account first." }, 409);
+		} else {
 			const envVar = AUTH_PROVIDER_KEYS.find(k => k.id === provider.id)?.envVar;
 			if (!envVar || !readProfileKeys(profile.encrypted_keys)[envVar]) return json({ error: "Save your provider key first." }, 400);
 		}
@@ -119,20 +102,16 @@ export async function POST(request: Request) {
 			version: 1,
 			completedAt: new Date().toISOString(),
 			provider: provider.id as OnboardingProvider,
-			modelId: model.id,
+			modelId: choices.strong.id,
+			slots: { strong: choices.strong.id, cheap: choices.cheap.id, vision: choices.vision.id },
 			topic: body.topic?.trim() ?? "",
 			intent: body.intent,
 		};
-		const slot = { model: { provider: provider.id, id: model.id } };
+		const slots = Object.fromEntries((["strong", "cheap", "vision"] as const).map(name => [name, { model: { provider: provider.id, id: choices[name].id } }])) as Record<"strong" | "cheap" | "vision", { model: { provider: string; id: string } }>;
 		const isClaude = provider.id === "claude-code";
-		const isChatGPT = provider.id === "chatgpt";
 		const nextModelSettings = {
 			...profile.model_settings,
-			...(isClaude ? { claudeCode: { enabled: true } } : {}),
-			...(isChatGPT ? { chatgpt: { connected: true } } : {}),
-			strong: slot,
-			cheap: slot,
-			...(model.vision ? { vision: slot } : {}),
+			...slots,
 			onboarding: setup,
 		};
 
@@ -149,9 +128,7 @@ export async function POST(request: Request) {
 			...(isClaude ? { claudeCode: { enabled: true } } : {}),
 			models: {
 				...localRecord.models,
-				strong: slot,
-				cheap: slot,
-				...(model.vision ? { vision: slot } : {}),
+				...slots,
 			},
 		});
 

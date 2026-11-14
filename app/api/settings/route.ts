@@ -17,6 +17,7 @@
 import { settingsStore, fileAccessConfigurationError } from "@/src/server";
 import { createClient } from "@/lib/supabase/server";
 import type { ModelsSettings, AppearanceSettings } from "@/src/core";
+import { profileModelSlots } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET() {
 					...baseSettings,
 					version: baseSettings.version ?? 1,
 					...(profile.model_settings && typeof profile.model_settings === "object"
-						? { models: profile.model_settings as ModelsSettings }
+						? { models: profileModelSlots(profile.model_settings) as ModelsSettings }
 						: {}),
 					...(profile.theme_settings && typeof profile.theme_settings === "object"
 						? { appearance: profile.theme_settings as AppearanceSettings }

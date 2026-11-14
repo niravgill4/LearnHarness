@@ -152,7 +152,12 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 		const { data: { user } } = await supabase.auth.getUser();
 		if (user) {
 			const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
-			if (section === "models") updateData.model_settings = sectionOut;
+			if (section === "models") {
+				const { data: profile } = await supabase.from("profiles").select("model_settings").eq("id", user.id).single();
+				const previous = profile?.model_settings ?? {};
+				const { strong: _strong, cheap: _cheap, vision: _vision, ...metadata } = previous;
+				updateData.model_settings = { ...metadata, ...(sectionOut as ModelsSettings) };
+			}
 			if (section === "appearance") updateData.theme_settings = sectionOut;
 			await supabase.from("profiles").update(updateData).eq("id", user.id);
 		}

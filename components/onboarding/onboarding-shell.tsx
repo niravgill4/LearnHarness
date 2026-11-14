@@ -14,7 +14,7 @@ const story = [
 	{ title: "Find your\nthinking partner.", description: "A new perspective. A clearer explanation. A way through the things that don’t quite click.", thought: "Understanding is a conversation, too." },
 	{ title: "Your next idea\nis out there.", description: "Start with something that stays on your mind. See where it takes you.", thought: "One question can open a whole new world." },
 ];
-const stages = ["Your account", "Your connection", "Your curiosity"];
+const stages = ["Your account", "Your models", "Your curiosity"];
 const SceneContext = createContext<{ setStep: (step: number) => void } | null>(null);
 const ease = [.22, 1, .36, 1] as const;
 

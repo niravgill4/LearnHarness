@@ -22,10 +22,11 @@ export function SetupScreen() {
 	const chatgptUI = useChatGPTUI();
 	const [snapshot, setSnapshot] = useState<SetupSnapshot | null>(null);
 	const [step, setStep] = useState(1);
-	const [provider, setProvider] = useState<OnboardingProvider>("chatgpt");
+	const [provider, setProvider] = useState<OnboardingProvider>("openrouter");
 	const [key, setKey] = useState("");
 	const [showKey, setShowKey] = useState(false);
-	const [modelId, setModelId] = useState("");
+	const [slots, setSlots] = useState<Record<"strong" | "cheap" | "vision", string>>({ strong: "", cheap: "", vision: "" });
+	const [activeSlot, setActiveSlot] = useState<"strong" | "cheap" | "vision">("strong");
 	const [search, setSearch] = useState("");
 	const [topic, setTopic] = useState("");
 	const [intent, setIntent] = useState<LearningIntent>("understand");
@@ -47,13 +48,14 @@ export function SetupScreen() {
 		const controller = new AbortController();
 		setError("");
 		void setupRequest(undefined, controller.signal).then(result => {
-			if (result.setup?.completedAt) { router.replace("/"); return; }
+			if (result.setup?.completedAt && result.configured) { router.replace("/"); return; }
 			setSnapshot(result);
 			if (result.connected.length) {
-				const firstConnected = result.connected[0] as OnboardingProvider;
+				const firstConnected = (result.setup?.provider && result.connected.includes(result.setup.provider) ? result.setup.provider : result.connected[0]) as OnboardingProvider;
 				setProvider(firstConnected);
 				const availableModels = result.models.filter(m => m.provider === firstConnected);
-				if (availableModels[0]) setModelId(availableModels[0].id);
+				if (result.setup?.provider === firstConnected && result.setup.slots) setSlots(result.setup.slots);
+				else if (availableModels[0]) setSlots({ strong: availableModels[0].id, cheap: "", vision: "" });
 				setStep(2);
 			}
 		}).catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Your setup could not be loaded."); });
@@ -71,16 +73,9 @@ export function SetupScreen() {
 	};
 	const providerInfo = ONBOARDING_PROVIDERS.find(p => p.id === provider) ?? fallbackProvider;
 	const models = snapshot?.models.filter(m => m.provider === provider) ?? [];
-	const filteredModels = models.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(search.toLowerCase()));
-	const selectedModel = models.find(m => m.id === modelId) ?? models[0];
-	const alreadyConnected = isChatgptConnected || !!snapshot?.connected.includes(provider);
-
-	useEffect(() => {
-		if (step === 2 && models.length && (!modelId || !models.some(m => m.id === modelId))) {
-			const first = models[0];
-			if (first) setModelId(first.id);
-		}
-	}, [step, models, modelId]);
+	const filteredModels = models.filter(m => (activeSlot !== "vision" || m.vision) && `${m.name} ${m.id}`.toLowerCase().includes(search.toLowerCase()));
+	const selectedModel = models.find(m => m.id === slots.strong);
+	const alreadyConnected = provider === "chatgpt" ? isChatgptConnected : !!snapshot?.connected.includes(provider);
 
 	async function connect(event: FormEvent) {
 		event.preventDefault();
@@ -90,21 +85,21 @@ export function SetupScreen() {
 				await setupRequest({ action: "connect", provider });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				if (targetModels[0]) setModelId(targetModels[0].id);
+					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
 				setStep(2);
 			} else if (key.trim()) {
 				await setupRequest({ action: "connect", provider, key: key.trim() });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				if (targetModels[0]) setModelId(targetModels[0].id);
+					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
 				setStep(2);
 			} else if (!alreadyConnected) {
 				throw new Error("Enter your provider API key to continue.");
 			} else {
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				if (targetModels[0]) setModelId(targetModels[0].id);
+					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
 				setStep(2);
 			}
 		} catch (cause) {
@@ -116,14 +111,13 @@ export function SetupScreen() {
 
 	async function finish(event: FormEvent) {
 		event.preventDefault(); setBusy(true); setError("");
-		const finalModelId = modelId || selectedModel?.id;
-		if (!finalModelId) {
-			setError("Please choose a model to continue.");
+		if (!slots.strong || !slots.cheap || !slots.vision) {
+			setError("Choose a model for all three roles.");
 			setBusy(false);
 			return;
 		}
 		try {
-			await setupRequest({ action: "complete", provider, modelId: finalModelId, topic: topic.trim(), intent });
+			await setupRequest({ action: "complete", provider, slots, topic: topic.trim(), intent });
 			router.replace("/?welcome=1"); router.refresh();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Your preferences could not be saved.");
@@ -146,7 +140,7 @@ export function SetupScreen() {
 			{step > 1 && <button className="onboarding-back" type="button" disabled={busy} onClick={back}><ArrowLeftIcon />Back</button>}
 			{step === 1 && <>
 				<h2 ref={heading} tabIndex={-1}>Bring your<br />own intelligence.</h2>
-				<p className="onboarding-intro">Connect your subscription or CLI account directly, or bring a provider API key.</p>
+				<p className="onboarding-intro">Connect a model source, then choose which models teach, assist, and read images.</p>
 				
 				<div className="onboarding-account-actions">
 					<button type="button" className="onboarding-account-connect" disabled={busy || chatgptUI.busy} onClick={triggerCodexConnect}>
@@ -176,7 +170,7 @@ export function SetupScreen() {
 							<CheckIcon className="inline-block w-4 h-4 mr-1 text-emerald-400" />
 							Connected to <strong>{activeChatgptAccount?.email || "ChatGPT"}</strong>. You can now proceed to model selection.
 						</p>
-						<button type="button" className="onboarding-primary mt-3" onClick={() => { setProvider("chatgpt"); setStep(2); }}>
+						<button type="button" className="onboarding-primary mt-3" onClick={() => { setProvider("chatgpt"); setSlots({ strong: "", cheap: "", vision: "" }); setStep(2); }}>
 							Choose your ChatGPT models <ArrowRightIcon />
 						</button>
 					</div>
@@ -187,7 +181,7 @@ export function SetupScreen() {
 				<form onSubmit={connect} className="onboarding-form" aria-busy={busy}>
 					<div className="onboarding-providers" role="group" aria-label="Model provider">
 						{ONBOARDING_PROVIDERS.filter(p => !p.keyless).map(p => (
-							<button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id as OnboardingProvider); setKey(""); setModelId(""); setError(""); }}>
+							<button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id as OnboardingProvider); setKey(""); setSlots({ strong: "", cheap: "", vision: "" }); setError(""); }}>
 								<span className="provider-monogram" aria-hidden="true"><ProviderLogo provider={p.id} /></span>
 								<span><strong>{p.name}</strong><small>{p.detail}</small></span>
 								{provider === p.id && <CheckIcon />}
@@ -210,26 +204,29 @@ export function SetupScreen() {
 						{busy ? <><LoaderCircleIcon className="onboarding-spinner" />Connecting…</> : <>{alreadyConnected && !key ? "Use saved connection" : "Save and continue"}<ArrowRightIcon /></>}
 					</button>
 				</form>
-				<p className="onboarding-small">Connected intelligence is saved to your account profile so you can resume anywhere.</p>
+				<p className="onboarding-small">Your API key is encrypted in your account. Local subscription and CLI connections depend on the machine running Cognera.</p>
 			</>}
 			{step === 2 && <>
 				<h2 ref={heading} tabIndex={-1}>Choose a mind<br />to learn alongside.</h2>
-				<p className="onboarding-intro">Pick a {providerInfo.name} model for your lessons. You can change it anytime in settings.</p>
-				<div className="onboarding-connected"><CheckIcon />{providerInfo.name} connected</div>
+				<p className="onboarding-intro">Give each job its own model. Strong teaches, cheap handles lighter work, and vision reads images.</p>
+				<div className="onboarding-connected"><CheckIcon />{providerInfo.name} selected</div>
+				<div className="onboarding-slot-tabs" role="group" aria-label="Model roles">{(["strong", "cheap", "vision"] as const).map(slot => <button key={slot} type="button" aria-pressed={activeSlot === slot} onClick={() => { setActiveSlot(slot); setSearch(""); }}><span>{slot === "strong" ? "01" : slot === "cheap" ? "02" : "03"} · {slot}</span><strong>{models.find(m => m.id === slots[slot])?.name ?? "Choose a model"}</strong></button>)}</div>
+				<p className="onboarding-small">{activeSlot === "strong" ? "Strong is your main tutor and the default for new lessons." : activeSlot === "cheap" ? "Cheap handles supporting tasks. Pick a faster or lower-cost model if available." : "Vision needs an image-capable model for pictures and visual material."}</p>
 				<label className="onboarding-sr-label" htmlFor="model-search">Search models</label>
 				<input className="onboarding-search" id="model-search" type="search" placeholder="Find a model…" value={search} onChange={e => setSearch(e.target.value)} />
-				<div className="onboarding-model-list" role="group" aria-label="Choose your model">
+				<div className="onboarding-model-list" role="group" aria-label={`Choose ${activeSlot} model`}>
 					{filteredModels.length ? filteredModels.map(model => (
-						<button key={model.id} type="button" aria-pressed={(modelId || selectedModel?.id) === model.id} onClick={() => setModelId(model.id)}>
+						<button key={model.id} type="button" aria-pressed={slots[activeSlot] === model.id} onClick={() => { setSlots(previous => ({ ...previous, [activeSlot]: model.id })); if (activeSlot === "strong") setActiveSlot("cheap"); else if (activeSlot === "cheap") setActiveSlot("vision"); setSearch(""); }}>
 							<span className="onboarding-model-identity">
 								<ProviderLogo provider={model.id + " " + model.name + " " + model.provider} />
 								<span><strong>{model.name}</strong><small>{model.vision ? "Text and images" : "Text"}</small></span>
 							</span>
-							<span className="onboarding-choice-dot">{(modelId || selectedModel?.id) === model.id && <CheckIcon />}</span>
+							<span className="onboarding-choice-dot">{slots[activeSlot] === model.id && <CheckIcon />}</span>
 						</button>
-					)) : <p className="onboarding-small">No matching models. Try another name.</p>}
+					)) : <p className="onboarding-small">{activeSlot === "vision" ? "No image-capable models for this provider." : "No matching models. Try another name."}</p>}
 				</div>
-				<button className="onboarding-primary" type="button" disabled={!selectedModel && !modelId} onClick={() => { setError(""); setStep(3); }}>Continue<ArrowRightIcon /></button>
+				{!models.some(m => m.vision) && <p role="alert" className="onboarding-error">This provider has no image-capable model. Connect another provider to finish vision setup.</p>}
+				<button className="onboarding-primary" type="button" disabled={!slots.strong || !slots.cheap || !slots.vision} onClick={() => { setError(""); setStep(3); }}>Continue<ArrowRightIcon /></button>
 				<p className="onboarding-small">Model access depends on your provider account or subscription.</p>
 			</>}
 			{step === 3 && <>
