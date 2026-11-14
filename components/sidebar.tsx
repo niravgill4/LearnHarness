@@ -687,7 +687,7 @@ function SessionsSidebar() {
 						<Link
 							href="/"
 							aria-label="Home"
-							className="lh-no-drag flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-accent"
+							className="lh-no-drag flex items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-accent"
 						>
 							<CogneraMark className="size-6 text-foreground" />
 							<span className="font-medium text-sm tracking-tight text-foreground">Cognera</span>
