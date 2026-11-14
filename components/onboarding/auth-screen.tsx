@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightIcon, CheckIcon, EyeIcon, EyeOffIcon, LoaderCircleIcon, MailIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createBrowserClient } from "@supabase/ssr";
+import { validateEmail } from "@/lib/validation/email";
 import { OnboardingShell } from "./onboarding-shell";
 
 function GithubMark() {
@@ -60,14 +61,22 @@ export function AuthScreen() {
 	async function submit(event: FormEvent) {
 		event.preventDefault();
 		if (!client) { setError("Account access is not available yet. Please try again later."); return; }
+
+		const emailValidation = validateEmail(email);
+		if (!emailValidation.valid) {
+			setError(emailValidation.error || "Please enter a valid email address.");
+			return;
+		}
+
 		setBusy(true); setError("");
 		try {
+			const cleanEmail = emailValidation.normalized;
 			if (mode === "signin") {
-				const result = await client.auth.signInWithPassword({ email: email.trim(), password });
+				const result = await client.auth.signInWithPassword({ email: cleanEmail, password });
 				if (result.error) throw result.error;
 				router.replace("/onboarding"); router.refresh();
 			} else {
-				const result = await client.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+				const result = await client.auth.signUp({ email: cleanEmail, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
 				if (result.error) throw result.error;
 				setPassword("");
 				if (result.data.session) { router.replace("/onboarding"); router.refresh(); }
@@ -103,9 +112,14 @@ export function AuthScreen() {
 	}
 	async function resend() {
 		if (!client) return;
+		const emailValidation = validateEmail(email);
+		if (!emailValidation.valid) {
+			setError(emailValidation.error || "Please enter a valid email address.");
+			return;
+		}
 		setBusy(true); setError("");
 		try {
-			const result = await client.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+			const result = await client.auth.resend({ type: "signup", email: emailValidation.normalized, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
 			if (result.error) throw result.error;
 			setResent(true);
 		} catch { setError("The email could not be resent yet. Please try again shortly."); }
