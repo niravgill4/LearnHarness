@@ -6,6 +6,7 @@ import { LayoutGroup, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, MoveUpRightIcon } from "lucide-react";
 import { CogneraMark } from "@/components/cognera-mark";
 import { AsciiLandscape, LandscapeControls } from "@/components/ascii-landscape";
+import { InteractiveAsciiNeuralCanvas } from "@/components/onboarding/interactive-ascii-neural-canvas";
 import { useReducedMotionPreference } from "@/lib/use-reduced-motion";
 
 const story = [
@@ -39,6 +40,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
 			<section className="onboarding-form-area" aria-label="Set up your workspace">
+				<InteractiveAsciiNeuralCanvas className="onboarding-form-canvas" />
 				<LayoutGroup id="cognera-onboarding-progress"><nav aria-label="Setup progress" className="onboarding-progress"><ol>{stages.map((label, index) => <li key={label} aria-current={current === index ? "step" : undefined} data-complete={current > index}>
 					{current === index && <motion.span className="onboarding-progress-selection" layoutId="current-step" transition={reduced ? { type: "tween", duration: 0 } : { type: "spring", stiffness: 450, damping: 30 }} />}
 					<span className="onboarding-progress-number">{current > index ? <CheckIcon aria-hidden="true" /> : `0${index + 1}`}</span><span className="onboarding-progress-label">{label}</span>
