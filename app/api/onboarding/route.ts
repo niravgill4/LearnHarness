@@ -134,7 +134,7 @@ export async function POST(request: Request) {
 		const slots = Object.fromEntries((["strong", "cheap", "vision"] as const).map(name => [name, { model: { provider: provider.id, id: choices[name].id } }])) as Record<"strong" | "cheap" | "vision", { model: { provider: string; id: string } }>;
 		const isClaude = provider.id === "claude-code";
 		const nextModelSettings = {
-			...((profile as any)?.model_settings ?? {}),
+			...(fullProfile?.model_settings ?? {}),
 			...slots,
 			onboarding: setup,
 		};

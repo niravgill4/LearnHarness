@@ -1,13 +1,184 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-12T19:18:44.192203+00:00",
-  "title": "Design System: LearnHarness",
+  "generatedAt": "2026-11-15T18:05:16.959Z",
+  "title": "Design System: Cognera",
   "extensions": {
+    "colorMeta": {
+      "onboarding-ground": {
+        "role": "neutral",
+        "displayName": "Landscape ink",
+        "tonalRamp": [
+          "oklch(15% 0.0021 173.74)",
+          "oklch(26% 0.0033 173.74)",
+          "oklch(38% 0.0044 173.74)",
+          "oklch(49% 0.0052 173.74)",
+          "oklch(61% 0.0052 173.74)",
+          "oklch(72% 0.0046 173.74)",
+          "oklch(84% 0.0033 173.74)",
+          "oklch(95% 0.0015 173.74)"
+        ]
+      },
+      "onboarding-surface": {
+        "role": "neutral",
+        "displayName": "Form surface",
+        "tonalRamp": [
+          "oklch(15% 0.0038 173.38)",
+          "oklch(26% 0.0062 173.38)",
+          "oklch(38% 0.0081 173.38)",
+          "oklch(49% 0.0095 173.38)",
+          "oklch(61% 0.0095 173.38)",
+          "oklch(72% 0.0086 173.38)",
+          "oklch(84% 0.0062 173.38)",
+          "oklch(95% 0.0029 173.38)"
+        ]
+      },
+      "onboarding-line": {
+        "role": "neutral",
+        "displayName": "Field line",
+        "tonalRamp": [
+          "oklch(15% 0.0065 152.20)",
+          "oklch(26% 0.0105 152.20)",
+          "oklch(38% 0.0138 152.20)",
+          "oklch(49% 0.0162 152.20)",
+          "oklch(61% 0.0162 152.20)",
+          "oklch(72% 0.0146 152.20)",
+          "oklch(84% 0.0105 152.20)",
+          "oklch(95% 0.0049 152.20)"
+        ]
+      },
+      "onboarding-ink": {
+        "role": "neutral",
+        "displayName": "Chalk",
+        "tonalRamp": [
+          "oklch(15% 0.0038 119.58)",
+          "oklch(26% 0.0062 119.58)",
+          "oklch(38% 0.0081 119.58)",
+          "oklch(49% 0.0095 119.58)",
+          "oklch(61% 0.0095 119.58)",
+          "oklch(72% 0.0085 119.58)",
+          "oklch(84% 0.0062 119.58)",
+          "oklch(95% 0.0028 119.58)"
+        ]
+      },
+      "onboarding-muted": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "tonalRamp": [
+          "oklch(15% 0.0063 145.43)",
+          "oklch(26% 0.0103 145.43)",
+          "oklch(38% 0.0135 145.43)",
+          "oklch(49% 0.0158 145.43)",
+          "oklch(61% 0.0158 145.43)",
+          "oklch(72% 0.0143 145.43)",
+          "oklch(84% 0.0103 145.43)",
+          "oklch(95% 0.0048 145.43)"
+        ]
+      },
+      "onboarding-action-ink": {
+        "role": "neutral",
+        "displayName": "Action ink",
+        "tonalRamp": [
+          "oklch(15% 0.0096 152.04)",
+          "oklch(26% 0.0156 152.04)",
+          "oklch(38% 0.0204 152.04)",
+          "oklch(49% 0.0240 152.04)",
+          "oklch(61% 0.0240 152.04)",
+          "oklch(72% 0.0216 152.04)",
+          "oklch(84% 0.0156 152.04)",
+          "oklch(95% 0.0072 152.04)"
+        ]
+      },
+      "scene-rainforest": {
+        "role": "secondary",
+        "displayName": "Rainforest leaf",
+        "tonalRamp": [
+          "oklch(15% 0.0265 135.50)",
+          "oklch(26% 0.0430 135.50)",
+          "oklch(38% 0.0563 135.50)",
+          "oklch(49% 0.0662 135.50)",
+          "oklch(61% 0.0662 135.50)",
+          "oklch(72% 0.0596 135.50)",
+          "oklch(84% 0.0430 135.50)",
+          "oklch(95% 0.0199 135.50)"
+        ]
+      },
+      "scene-lighthouse": {
+        "role": "secondary",
+        "displayName": "Lighthouse mist",
+        "tonalRamp": [
+          "oklch(15% 0.0128 240.72)",
+          "oklch(26% 0.0208 240.72)",
+          "oklch(38% 0.0272 240.72)",
+          "oklch(49% 0.0320 240.72)",
+          "oklch(61% 0.0320 240.72)",
+          "oklch(72% 0.0288 240.72)",
+          "oklch(84% 0.0208 240.72)",
+          "oklch(95% 0.0096 240.72)"
+        ]
+      },
+      "scene-cherry-blossom": {
+        "role": "secondary",
+        "displayName": "Cherry blossom",
+        "tonalRamp": [
+          "oklch(15% 0.0217 349.39)",
+          "oklch(26% 0.0352 349.39)",
+          "oklch(38% 0.0460 349.39)",
+          "oklch(49% 0.0541 349.39)",
+          "oklch(61% 0.0541 349.39)",
+          "oklch(72% 0.0487 349.39)",
+          "oklch(84% 0.0352 349.39)",
+          "oklch(95% 0.0162 349.39)"
+        ]
+      },
+      "scene-caravan": {
+        "role": "secondary",
+        "displayName": "Caravan sand",
+        "tonalRamp": [
+          "oklch(15% 0.0260 75.96)",
+          "oklch(26% 0.0423 75.96)",
+          "oklch(38% 0.0553 75.96)",
+          "oklch(49% 0.0651 75.96)",
+          "oklch(61% 0.0651 75.96)",
+          "oklch(72% 0.0586 75.96)",
+          "oklch(84% 0.0423 75.96)",
+          "oklch(95% 0.0195 75.96)"
+        ]
+      },
+      "scene-maples": {
+        "role": "secondary",
+        "displayName": "Maple glow",
+        "tonalRamp": [
+          "oklch(15% 0.0255 49.97)",
+          "oklch(26% 0.0414 49.97)",
+          "oklch(38% 0.0541 49.97)",
+          "oklch(49% 0.0637 49.97)",
+          "oklch(61% 0.0637 49.97)",
+          "oklch(72% 0.0573 49.97)",
+          "oklch(84% 0.0414 49.97)",
+          "oklch(95% 0.0191 49.97)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "onboarding-display": {
+        "displayName": "Onboarding display",
+        "purpose": "Existing story copy over the landscape; responsive from 39px on phones to 66px on wide screens."
+      },
+      "studio-display": {
+        "displayName": "Studio display",
+        "purpose": "The learning studio heading above the working desk and atlas."
+      }
+    },
     "shadows": [
       {
         "name": "composer-depth",
-        "value": "0 10px 30px rgb(0 0 0 / 20%)",
-        "purpose": "Separate the active composer from the reading surface."
+        "value": "0 8px 24px #0000001c",
+        "purpose": "Quiet separation for the landscape workspace's shared composer."
+      },
+      {
+        "name": "onboarding-form-focus",
+        "value": "0 0 0 3px #b8d5aa18",
+        "purpose": "A restrained halo around focused secret fields, alongside the scene-accent border."
       }
     ],
     "motion": [
@@ -15,6 +186,21 @@
         "name": "control-ease",
         "value": "cubic-bezier(.2,.8,.2,1)",
         "purpose": "Brief state transitions; respect reduced motion."
+      },
+      {
+        "name": "landscape-control-duration",
+        "value": "180ms",
+        "purpose": "Scene-control background and border transitions; disabled for reduced motion."
+      },
+      {
+        "name": "onboarding-step-ease",
+        "value": "cubic-bezier(.22,1,.36,1)",
+        "purpose": "Existing 200ms form-step and 220ms story transitions; reduced motion removes translation and duration."
+      },
+      {
+        "name": "landscape-playback",
+        "value": "native muted loop",
+        "purpose": "One video per active scene surface. Still posters for reduced motion, data saving, blocked autoplay, loading and errors; pause offscreen and when the document is hidden."
       }
     ],
     "breakpoints": [
@@ -29,25 +215,114 @@
       {
         "name": "compact-desktop",
         "value": "1100px"
+      },
+      {
+        "name": "onboarding-stack",
+        "value": "950px"
+      },
+      {
+        "name": "landscape-phone",
+        "value": "520px"
+      },
+      {
+        "name": "landscape-wide",
+        "value": "1600px"
+      },
+      {
+        "name": "studio-container-stack",
+        "value": "800px"
       }
     ]
   },
-  "components": [],
+  "components": [
+    {
+      "name": "Workspace Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The established monochrome action treatment remains available on quiet workspace surfaces.",
+      "html": "<button class=\"ds-workspace-primary\" type=\"button\">New session</button>",
+      "css": ".ds-workspace-primary{font-family:lh-interface,Inter,sans-serif;background:var(--foreground,#f2f1f5);color:var(--background,#1a1a1e);border:1px solid transparent;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .18s}.ds-workspace-primary:hover{opacity:.88}.ds-workspace-primary:focus-visible{outline:2px solid var(--foreground,#f2f1f5);outline-offset:3px}.ds-workspace-primary:active{opacity:.75}"
+    },
+    {
+      "name": "Onboarding Primary Action",
+      "kind": "button",
+      "refersTo": "onboarding-primary",
+      "description": "Solid scene-accent action above the form scrim; the default preview uses the rainforest scene.",
+      "html": "<button class=\"ds-onboarding-primary\" type=\"button\">Create your space <svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-onboarding-primary{font-family:lh-interface,Inter,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:49px;padding:13px 16px;background:var(--landscape-accent,#b8d5aa);color:#17231a;border:1px solid var(--landscape-accent,#b8d5aa);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,transform .2s,box-shadow .2s}.ds-onboarding-primary:hover:not(:disabled){background:color-mix(in srgb,var(--landscape-accent,#b8d5aa) 82%,white);box-shadow:0 5px 18px #00000020}.ds-onboarding-primary:focus-visible{outline:2px solid var(--landscape-accent,#b8d5aa);outline-offset:4px}.ds-onboarding-primary:active:not(:disabled){transform:scale(.985)}.ds-onboarding-primary:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Onboarding Field",
+      "kind": "input",
+      "refersTo": "onboarding-input",
+      "description": "A solid, legible form field using the onboarding palette and explicit scene-accent focus.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-email\">Email address</label><input class=\"ds-onboarding-input\" id=\"ds-email\" type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\">",
+      "css": ".ds-field-label{font-family:lh-interface,Inter,sans-serif;display:block;margin-bottom:8px;color:#f3f5ee;font-size:12px;font-weight:500;line-height:1.6}.ds-onboarding-input{font-family:lh-interface,Inter,sans-serif;display:block;width:calc(100% - 30px);height:47px;padding:0 14px;border:1px solid #48514a;background:#1b211f;border-radius:11px;color:#f3f5ee;font-size:13px;transition:border-color .2s,box-shadow .2s,background .2s}.ds-onboarding-input::placeholder{color:#adb9ae}.ds-onboarding-input:hover{border-color:#6c7e6b}.ds-onboarding-input:focus-visible{outline:2px solid var(--landscape-accent,#b8d5aa);outline-offset:3px}.ds-onboarding-input:disabled{opacity:.45}@media(max-width:520px){.ds-onboarding-input{font-size:16px}}"
+    },
+    {
+      "name": "Setup Progress",
+      "kind": "nav",
+      "description": "Three existing setup stages with a tonal selected surface over the landscape.",
+      "html": "<nav aria-label=\"Setup progress\" class=\"ds-setup-progress\"><ol><li aria-current=\"step\"><span>01</span> Your account</li><li><span>02</span> Your models</li><li><span>03</span> Your curiosity</li></ol></nav>",
+      "css": ".ds-setup-progress{font-family:lh-interface,Inter,sans-serif;color:#bec7be}.ds-setup-progress ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;list-style:none;margin:0;padding:4px;border:1px solid #c9dbca26;border-radius:12px;background:#121a16ed}.ds-setup-progress li{display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 6px;font-size:10px;white-space:nowrap;border:1px solid transparent;border-radius:8px}.ds-setup-progress li span{font-size:9px;font-variant-numeric:tabular-nums}.ds-setup-progress li[aria-current]{background:#344032;border-color:#c9dbca26;color:#fff}.ds-setup-progress li[aria-current] span{color:#d8ebe3}@media(max-width:520px){.ds-setup-progress li{font-size:8px;gap:5px;padding:9px 3px}}"
+    },
+    {
+      "name": "Landscape Controls",
+      "kind": "custom",
+      "description": "Optional shuffle, pause and credit controls; the artwork plane never captures pointer input.",
+      "html": "<div class=\"ds-scene-controls\" role=\"group\" aria-label=\"Landscape settings\"><span class=\"ds-scene-caption\"><i aria-hidden=\"true\"></i>Rainforest falls</span><span class=\"ds-scene-actions\"><button type=\"button\" aria-label=\"Change landscape\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"m18 14 4 4-4 4m0-20 4 4-4 4M2 18h2.5a6 6 0 0 0 5-2.7l5-7.6A6 6 0 0 1 19.5 5H22M2 6h2.5a6 6 0 0 1 5 2.7l5 7.6a6 6 0 0 0 5 2.7H22\"/></svg></button><button type=\"button\" aria-label=\"Pause landscape animation\" aria-pressed=\"false\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/></svg></button><a href=\"https://www.ascii-magic.com/ascii\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"Landscape artwork by ASCII Magic (opens in new tab)\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"M15 3h6v6m0-6L10 14\"/><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/></svg></a></span></div>",
+      "css": ".ds-scene-controls{font-family:lh-interface,Inter,sans-serif;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#e7ebe3}.ds-scene-caption{display:flex;align-items:center;gap:9px;min-width:0;font-size:11px;line-height:1.5}.ds-scene-caption i{width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--landscape-accent,#b8d5aa)}.ds-scene-actions{display:flex;gap:4px;flex-shrink:0}.ds-scene-actions button,.ds-scene-actions a{display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid #a6b7a331;border-radius:50%;background:#101713e8;color:#e7ebe3;cursor:pointer;transition:background .18s,border-color .18s;touch-action:manipulation}.ds-scene-actions button:hover,.ds-scene-actions a:hover{background:#2b382a;border-color:var(--landscape-accent,#b8d5aa)}.ds-scene-actions :focus-visible{outline:2px solid var(--landscape-accent,#b8d5aa);outline-offset:3px}.ds-scene-actions button:disabled{opacity:.5;cursor:default}@media(max-width:520px){.ds-scene-actions button,.ds-scene-actions a{width:40px;height:40px}.ds-scene-caption{font-size:10px}}@media(prefers-reduced-motion:reduce){.ds-scene-actions *{transition:none}}"
+    },
+    {
+      "name": "Studio Landscape Header",
+      "kind": "card",
+      "description": "A static poster preview of the supplied rainforest art; the app uses the matching local video when motion is allowed.",
+      "html": "<section class=\"ds-studio-hero\" aria-label=\"Learning studio\"><h1>Your learning studio</h1><p>Explore, practise, and connect what you learn.</p></section>",
+      "css": ".ds-studio-hero{font-family:lh-interface,Inter,sans-serif;display:flex;flex-direction:column;justify-content:flex-end;min-height:216px;padding:32px;overflow:hidden;border:1px solid var(--workspace-edge,#3b3b43);border-radius:17px;color:#f3f5ee;background-color:#080b09;background-image:linear-gradient(90deg,#0a100ded 0%,#0a100d70 48%,#0a100d0a 80%),linear-gradient(0deg,#0a100dd9,transparent 70%),url(\"/landscapes/rainforest-falls-mist.webp\");background-size:cover;background-position:center 47%}.ds-studio-hero h1{max-width:430px;margin:0;font-size:36px;font-weight:450;line-height:1.17;letter-spacing:-.035em}.ds-studio-hero p{max-width:310px;margin:8px 0 0;color:#d0dacd;font-size:13px;line-height:1.6}@media(max-width:520px){.ds-studio-hero{padding:22px;min-height:196px}.ds-studio-hero h1{font-size:29px}.ds-studio-hero p{font-size:12px}}"
+    },
+    {
+      "name": "Sidebar Landscape Still",
+      "kind": "button",
+      "description": "A static scene thumbnail in navigation, with shuffle as its existing action.",
+      "html": "<button class=\"ds-landscape-miniature\" type=\"button\" aria-label=\"Change landscape. Current scene: Rainforest falls\"><span>Rainforest falls</span><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"m18 14 4 4-4 4m0-20 4 4-4 4M2 18h2.5a6 6 0 0 0 5-2.7l5-7.6A6 6 0 0 1 19.5 5H22M2 6h2.5a6 6 0 0 1 5 2.7l5 7.6a6 6 0 0 0 5 2.7H22\"/></svg></button>",
+      "css": ".ds-landscape-miniature{font-family:lh-interface,Inter,sans-serif;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;width:100%;height:93px;padding:12px;border:1px solid var(--workspace-edge,#3b3b43);border-radius:12px;color:#f3f5ee;background-color:#101713;background-image:linear-gradient(0deg,#101713ee,transparent),url(\"/landscapes/rainforest-falls-mist.webp\");background-size:cover;background-position:center 54%;text-align:left;cursor:pointer;transition:border-color .18s}.ds-landscape-miniature span{min-width:0;font-size:10px;line-height:1.5}.ds-landscape-miniature svg{flex-shrink:0}.ds-landscape-miniature:hover{border-color:var(--landscape-accent,#b8d5aa)}.ds-landscape-miniature:focus-visible{outline:2px solid var(--landscape-accent,#b8d5aa);outline-offset:3px}"
+    },
+    {
+      "name": "Unified Composer",
+      "kind": "custom",
+      "refersTo": "composer",
+      "description": "The quiet shared writing surface retains its controls and editor ownership; the focus border follows the scene.",
+      "html": "<div class=\"ds-composer\"><textarea aria-label=\"Learning topic\" placeholder=\"What do you want to learn?\"></textarea><div class=\"ds-composer-toolbar\"><button class=\"ds-attach\" type=\"button\" aria-label=\"Attach files\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"m21 11-9 9a6 6 0 0 1-8.5-8.5L13 2a4 4 0 0 1 5.5 5.5L9 17a2 2 0 0 1-2.8-2.8l8.5-8.5\"/></svg></button><span class=\"ds-mode-controls\"><button type=\"button\" aria-pressed=\"true\">Teach</button><button type=\"button\" aria-pressed=\"false\">Practice</button></span><button class=\"ds-send\" type=\"button\" aria-label=\"Start session\"><svg viewBox=\"0 0 24 24\" width=\"17\" height=\"17\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"m5 12 7-7 7 7m-7-7v14\"/></svg></button></div></div>",
+      "css": ".ds-composer{font-family:lh-interface,Inter,sans-serif;padding:20px 16px 12px;border:1px solid var(--workspace-edge,#3b3b43);border-radius:20px;background:var(--composer-fill,color-mix(in srgb,var(--background,#1a1a1e) 28%,#000));color:var(--foreground,#f2f1f5);box-shadow:0 8px 24px #0000001c}.ds-composer:focus-within{border-color:color-mix(in srgb,var(--landscape-accent,#b8d5aa) 65%,var(--border,#3b3b43))}.ds-composer textarea{font-family:lh-interface,Inter,sans-serif;display:block;width:calc(100% - 14px);min-height:110px;padding:2px 7px 8px;resize:vertical;border:0;background:transparent;color:inherit;font-size:15px;line-height:1.6}.ds-composer textarea::placeholder{color:var(--muted-foreground,#b0adbd)}.ds-composer textarea:focus-visible{outline:none}.ds-composer-toolbar{display:flex;align-items:center;gap:8px;min-height:38px}.ds-composer-toolbar button{font-family:lh-interface,Inter,sans-serif;border:0;color:inherit;background:transparent;cursor:pointer}.ds-composer-toolbar button:focus-visible{outline:2px solid var(--landscape-accent,#b8d5aa);outline-offset:3px}.ds-composer-toolbar button:hover{background:var(--accent,#303034)}.ds-composer-toolbar .ds-attach{display:grid;place-items:center;width:34px;height:34px;padding:0;border-radius:50%;color:var(--muted-foreground,#b0adbd)}.ds-mode-controls{display:flex;gap:2px}.ds-mode-controls button{padding:8px 11px;border-radius:999px;font-size:11px}.ds-mode-controls button[aria-pressed=\"true\"]{background:var(--accent,#303034)}.ds-composer-toolbar .ds-send{display:grid;place-items:center;width:36px;height:36px;margin-left:auto;padding:0;border-radius:50%;background:var(--foreground,#f2f1f5);color:var(--background,#1a1a1e)}"
+    }
+  ],
   "narrative": {
     "northStar": "Keep the learning in focus.",
-    "overview": "Sculpted surfaces around a continuous reading canvas.",
+    "overview": "Cognera opens onto the user's five supplied ASCII Magic halftone landscapes. Their colored dots carry the visual personality, while account forms, the learning desk, and the knowledge atlas retain their familiar copy and behavior. One continuous landscape plane crosses the two onboarding cards; the main workspace gives the landscape a wide header and a small still in navigation.\n\nFloating monochrome navigation and an inset workspace frame the actual learning content. Home keeps the working desk on the left and the real knowledge atlas beside it, stacking them in narrow containers. Conversations retain a continuous reading canvas with neutral learner bubbles and unboxed assistant replies.",
     "keyCharacteristics": [
-      "Floating monochrome navigation",
-      "One unified composer",
-      "Unboxed assistant responses",
-      "Theme-aware edge light"
+      "Supplied halftone landscapes with scene-derived accents.",
+      "One continuous onboarding video beneath two equal desktop cards.",
+      "Quiet, theme-aware learning surfaces and a unified composer.",
+      "Readable forms, optional landscape controls, and still-image fallbacks."
     ],
-    "rules": [],
+    "rules": [
+      {
+        "name": "The Readable Foreground Rule",
+        "body": "Keep text and controls above localized dark scrims; landscape pixels must not become a filter over forms or learning records.",
+        "section": "colors"
+      }
+    ],
     "dos": [
-      "Use actual learning records and truthful empty states."
+      "Do use actual learning records and truthful empty states.",
+      "Do preserve user themes, configured emphasis, reading preferences, keyboard shortcuts, and plugin contracts.",
+      "Do use the five supplied landscape exports and their local derivatives; retain the provenance in `public/landscapes/SOURCES.md`.",
+      "Do keep forms legible above the shared landscape and preserve all existing copy and product flows.",
+      "Do verify menus, expanded questions, long text, and narrow or short layouts in the rendered application."
     ],
     "donts": [
-      "Do not replace accessible focus with visual subtlety."
+      "Don't replace accessible focus with visual subtlety.",
+      "Don't replace supplied artwork with generated substitutes, decorative stock scenes, or remote embeds.",
+      "Don't add landscape motion to the reading canvas or use it to obscure learning records."
     ]
   }
 }

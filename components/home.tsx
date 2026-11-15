@@ -20,6 +20,7 @@ import { OPENING_PROMPT_FAILURE } from "@/components/opening-prompt";
 import { Composer } from "@/components/composer";
 import { SessionStarter } from "@/components/start-session";
 import type { TurnUsage } from "@/src/core";
+import { AsciiLandscape, LandscapeControls } from "@/components/ascii-landscape";
 
 /**
  * Home — the knowledge graph is the main view, full-bleed edge to edge
@@ -182,8 +183,10 @@ export function Home({
 			<div className="lh-drag absolute inset-x-0 top-0 h-13" aria-hidden="true" />
 
             <section className="studio-heading" aria-label="Learning studio">
-                <h1>Your learning studio</h1>
-                <p>Explore, practise, and connect what you learn.</p>
+                <AsciiLandscape className="studio-landscape" />
+                <div className="studio-heading-copy"><h1>Your learning studio</h1>
+                <p>Explore, practise, and connect what you learn.</p></div>
+                <LandscapeControls compact />
             </section>
 
 			{/* The main view — full-bleed (owner, graph-view round 1): no

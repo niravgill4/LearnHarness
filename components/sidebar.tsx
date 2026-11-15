@@ -28,6 +28,7 @@ import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { LandscapeMiniature } from "@/components/ascii-landscape";
 
 /**
  * Toggleable sidebar — NOT a modal drawer: no backdrop, no focus theft. It
@@ -872,6 +873,7 @@ function SessionsSidebar() {
 					    populates and grows when processes run. The session list is
 					    flex-1, so this pins to the bottom. Sidebar closed = the
 					    learner opted out (no ambient signal, user decision). */}
+					<div className="sidebar-landscape"><LandscapeMiniature /></div>
 					<ActivitySection />
 
 					{/* Settings & Auth entry */}

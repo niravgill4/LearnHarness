@@ -12,7 +12,7 @@ Cognera supports adaptive teaching, practice, and a persistent knowledge graph. 
 Preserve existing learning, chat, graph, plugin, and settings workflows during the visual redesign. The app uses Next.js and React, with an Electron desktop shell. Provider setup is required for model-driven sessions.
 
 ## Brand Commitments
-The user approved the revised expressive Bloom/Siri-inspired study: floating black navigation, an inset reading surface, unified composer, unboxed assistant replies, neutral learner bubbles, and restrained active-edge illumination.
+The user pinned the five supplied ASCII Magic halftone landscapes as the visual direction, replacing neural artwork while preserving existing text, functional layout, and learning flows. Floating navigation, an inset reading surface, a unified composer, unboxed assistant replies, and neutral learner bubbles remain.
 
 ## Evidence on Hand
 README.md, docs/development.md, and the running application.

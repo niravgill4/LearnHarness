@@ -22,7 +22,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { piModels } from "../agent/models.ts";
 import { customProviderAvailable } from "./custom-provider.ts";
 import { chatGPTConnected, chatGPTModel, chatGPTModels, refreshChatGPTModels } from "../agent/chatgpt-bridge.ts";
-import { NATIVE_SUBSCRIPTIONS } from "../core/contracts/subscriptions.ts";
+import { NATIVE_SUBSCRIPTIONS, type NativeSubscriptionProviderId } from "../core/contracts/subscriptions.ts";
 import { nativeSubscriptionId, nativeSubscriptionConnected, nativeSubscriptionModel, nativeSubscriptionModels, refreshSubscriptionModels } from "../agent/subscription-bridge.ts";
 
 export async function refreshConnectionCatalog(provider?: string): Promise<void> {
@@ -160,7 +160,7 @@ export function catalogProviders(): CatalogProvider[] {
 		})() : false)
 		: chatGPTConnected();
 	const isClaudeCode = userKeys !== null ? false : claudeCodeAvailable();
-	const isNativeSub = (providerId: string) => userKeys !== null ? false : nativeSubscriptionConnected(providerId as any);
+	const isNativeSub = (providerId: NativeSubscriptionProviderId) => userKeys !== null ? false : nativeSubscriptionConnected(providerId);
 
 	return AUTH_PROVIDER_KEYS.map((p) => ({
 		id: p.id,

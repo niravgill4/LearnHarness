@@ -42,7 +42,7 @@ async function loadSDK() {
 /** Injectable factories/stores keep all test authentication offline. */
 export function createWebSubscriptionOwner(options: {
 	directory: string;
-	chatgptStore?: any;
+	chatgptStore?: ReturnType<typeof fileStore> | { read(): Promise<any>; write(data: any): Promise<void> } | any;
 	sdk?: unknown;
 	onPacket?: (channel: Channel, packet: Packet) => void;
 } ) {
