@@ -14,6 +14,7 @@ import type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 import type { NativeSubscriptionSnapshot } from "../core/contracts/subscriptions.ts";
 import { configureWebSubscriptionRuntime, publishWebSubscriptionPacket, webSubscriptionsEnabled, type SubscriptionRuntimeChannel as Channel, type SubscriptionRuntimePacket as Packet } from "../agent/subscription-runtime.ts";
 import { createSupabaseChatGPTStore } from "../../lib/supabase/profile-keys.ts";
+import { getActiveUserId } from "../core/user-auth-context.ts";
 export { webSubscriptionsEnabled } from "../agent/subscription-runtime.ts";
 interface BrowserAction { target: string; origin: string; scope: string; expires: number; current(): Promise<boolean> }
 const KEY = Symbol.for("lh.webSubscriptions");
@@ -137,7 +138,9 @@ export function emptySubscriptionStatus(): { chatgpt: ChatGPTStatus; native: Nat
 
 /** Private runtime calls only: no HTTP lease/token operation exists. */
 export async function webSubscriptionRequest<T>(channel: Channel, op: string, fields: Record<string, unknown>): Promise<T> {
-	const owner = webSubscriptionOwner();
+	const userId = getActiveUserId();
+	const state = registry();
+	const owner = (userId && state.userOwners?.get(userId)) || webSubscriptionOwner();
 	let value: unknown;
 	if (channel === "lh:chatgpt") {
 		if (op === "status") value = { status: await owner.chatgpt.status(), ...owner.chatgpt.stamp() };

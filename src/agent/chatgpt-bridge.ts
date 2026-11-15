@@ -2,6 +2,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import { onWebSubscriptionPacket, webSubscriptionRequest, webSubscriptionsEnabled } from "./subscription-runtime.ts";
 import type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 import type { AdmissionScope, NoDispatchKind } from "./chatgpt-request-cycle.ts";
+import { getActiveUserKeys } from "../core/user-auth-context.ts";
 export type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 export interface Stamp { epoch: number; authorityRevision: number; revision: number }
 interface StatusValue extends Stamp { status: ChatGPTStatus }
@@ -79,26 +80,89 @@ export function chatGPTRequest<T>(op: "status" | "models" | "lease", fields: Rec
   });
  });
 }
+export const DEFAULT_CHATGPT_MODELS: Model<"openai-responses">[] = [
+	{ id: "gpt-6-sol", name: "GPT 6 Sol", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "gpt-6-astra", name: "GPT 6 Astra", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "gpt-6-tera", name: "GPT 6 Tera", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "chatgpt-4o", name: "ChatGPT 4o", provider: "chatgpt", api: "openai-responses", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "chatgpt-4o-mini", name: "ChatGPT 4o mini", provider: "chatgpt", api: "openai-responses", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "o1", name: "o1", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "o3-mini", name: "o3-mini", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+];
+
 export function chatGPTStatus(): ChatGPTStatus { return bridge().status; }
-export function chatGPTConnected(): boolean { const s = chatGPTStatus(); return runtimeConnected() && s.available && s.accounts.some((a) => a.id === s.activeId && a.connected && a.planEnabled === true); }
-export function chatGPTBackgroundAllowed(): boolean { const s = chatGPTStatus(); return chatGPTConnected() && s.allowBackgroundUse === true; }
+export function chatGPTConnected(): boolean {
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		const raw = userKeys["__chatgpt_credentials"];
+		if (!raw) return false;
+		try {
+			const parsed = JSON.parse(raw);
+			return parsed.registrations?.some((r: any) => r.id === parsed.activeId && r.tokens && !r.reconnectRequired) ?? false;
+		} catch { return false; }
+	}
+	const s = chatGPTStatus();
+	return runtimeConnected() && s.available && s.accounts.some((a) => a.id === s.activeId && a.connected && a.planEnabled === true);
+}
+export function chatGPTBackgroundAllowed(): boolean {
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) return chatGPTConnected();
+	const s = chatGPTStatus();
+	return chatGPTConnected() && s.allowBackgroundUse === true;
+}
 export function onChatGPTChange(listener: () => void): () => void { bridge().listeners.add(listener); return () => { bridge().listeners.delete(listener); }; }
-export function chatGPTModels(): Model<"openai-responses">[] { return bridge().models; }
+export function chatGPTModels(): Model<"openai-responses">[] {
+	if (bridge().models.length > 0) return bridge().models;
+	if (chatGPTConnected()) return DEFAULT_CHATGPT_MODELS;
+	return [];
+}
 export function chatGPTModel(id: string): Model<"openai-responses"> | undefined { return chatGPTModels().find((m) => m.id === id); }
 export function chatGPTScope(selectedModelId: string): AdmissionScope {
- const state = bridge();
- if (!chatGPTConnected() || !state.catalogAccount || state.catalogAccount !== state.status.activeId || !chatGPTModel(selectedModelId)) throw new Error("ChatGPT account model catalog is unavailable");
- return { accountId: state.catalogAccount, epoch: state.stamp.epoch, authorityRevision: state.stamp.authorityRevision, selectedModelId };
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		const raw = userKeys["__chatgpt_credentials"];
+		if (!raw || !chatGPTModel(selectedModelId)) throw new Error("ChatGPT account model catalog is unavailable");
+		try {
+			const parsed = JSON.parse(raw);
+			const active = parsed.registrations?.find((r: any) => r.id === parsed.activeId);
+			if (active) {
+				return { accountId: active.id, epoch: 1, authorityRevision: 1, selectedModelId };
+			}
+		} catch {}
+		throw new Error("ChatGPT account model catalog is unavailable");
+	}
+	const state = bridge();
+	if (!chatGPTConnected() || !state.catalogAccount || state.catalogAccount !== state.status.activeId || !chatGPTModel(selectedModelId)) throw new Error("ChatGPT account model catalog is unavailable");
+	return { accountId: state.catalogAccount, epoch: state.stamp.epoch, authorityRevision: state.stamp.authorityRevision, selectedModelId };
 }
 export function chatGPTScopeCurrent(scope: AdmissionScope): boolean {
- const s = bridge();
- return runtimeConnected() && chatGPTConnected() && scope.accountId === s.catalogAccount && scope.accountId === s.status.activeId && scope.epoch === s.stamp.epoch && scope.authorityRevision === s.stamp.authorityRevision && !!chatGPTModel(scope.selectedModelId);
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		return chatGPTConnected() && !!chatGPTModel(scope.selectedModelId);
+	}
+	const s = bridge();
+	return runtimeConnected() && chatGPTConnected() && scope.accountId === s.catalogAccount && scope.accountId === s.status.activeId && scope.epoch === s.stamp.epoch && scope.authorityRevision === s.stamp.authorityRevision && !!chatGPTModel(scope.selectedModelId);
 }
 export async function chatGPTLease(scope: AdmissionScope, background: boolean): Promise<LeaseValue> {
- if (!chatGPTScopeCurrent(scope)) throw new Error("ChatGPT catalog authority changed");
- const value = await chatGPTRequest<LeaseValue>("lease", { background, expectedAccountId: scope.accountId, expectedAuthorityRevision: scope.authorityRevision, selectedModelId: scope.selectedModelId });
- if (!validStamp(value) || !chatGPTScopeCurrent(scope) || value.epoch !== scope.epoch || value.authorityRevision !== scope.authorityRevision || value.accountId !== scope.accountId || typeof value.accessToken !== "string" || !value.accessToken || value.accessToken.startsWith("sk-")) throw new Error("ChatGPT lease is stale");
- return value;
+	if (!chatGPTScopeCurrent(scope)) throw new Error("ChatGPT catalog authority changed");
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		const raw = userKeys["__chatgpt_credentials"];
+		if (!raw) throw new Error("ChatGPT credentials missing");
+		const parsed = JSON.parse(raw);
+		const active = parsed.registrations?.find((r: any) => r.id === parsed.activeId && r.tokens);
+		if (!active?.tokens?.accessToken) throw new Error("ChatGPT access token missing");
+		return {
+			accessToken: active.tokens.accessToken,
+			accountId: active.id,
+			epoch: 1,
+			authorityRevision: 1,
+			revision: 1,
+		};
+	}
+	const value = await chatGPTRequest<LeaseValue>("lease", { background, expectedAccountId: scope.accountId, expectedAuthorityRevision: scope.authorityRevision, selectedModelId: scope.selectedModelId });
+	if (!validStamp(value) || !chatGPTScopeCurrent(scope) || value.epoch !== scope.epoch || value.authorityRevision !== scope.authorityRevision || value.accountId !== scope.accountId || typeof value.accessToken !== "string" || !value.accessToken || value.accessToken.startsWith("sk-")) throw new Error("ChatGPT lease is stale");
+	return value;
 }
 /** Safe status confirmation can establish consent-only denial, never parse error text. */
 export async function chatGPTDenial(scope: AdmissionScope | undefined, controller: AbortController, callerAborted: boolean, background: boolean): Promise<NoDispatchKind> {
