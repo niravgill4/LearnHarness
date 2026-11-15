@@ -214,12 +214,12 @@ export function providerKeyPresent(provider: string): boolean {
 			}
 		}
 		if (provider === CUSTOM_PROVIDER.id) {
-			return typeof userKeys[CUSTOM_PROVIDER.envVar] === "string" && userKeys[CUSTOM_PROVIDER.envVar].trim().length > 0;
+			return !!userKeys[CUSTOM_PROVIDER.envVar]?.trim();
 		}
 		if (provider === CLAUDE_CODE_PROVIDER) return false;
 		if (isSubscriptionProvider(provider)) return false;
 		const info = AUTH_PROVIDER_KEYS.find((p) => p.id === provider);
-		return info ? typeof userKeys[info.envVar] === "string" && userKeys[info.envVar].trim().length > 0 : false;
+		return info ? !!userKeys[info.envVar]?.trim() : false;
 	}
 	if (provider === CUSTOM_PROVIDER.id) return customProviderAvailable();
 	// Explicit opt-in + installation only, never authentication readiness.

@@ -80,7 +80,7 @@ export function chatGPTRequest<T>(op: "status" | "models" | "lease", fields: Rec
   });
  });
 }
-export const DEFAULT_CHATGPT_MODELS: Model<"openai-responses">[] = [
+export const DEFAULT_CHATGPT_MODELS: Model<"openai-responses">[] = ([
 	{ id: "gpt-6.1-sol", name: "GPT 6.1 Sol", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "gpt-6-sol", name: "GPT 6 Sol", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "gpt-5.6-tera", name: "GPT 5.6 Tera", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
@@ -91,7 +91,7 @@ export const DEFAULT_CHATGPT_MODELS: Model<"openai-responses">[] = [
 	{ id: "chatgpt-4o-mini", name: "ChatGPT 4o mini", provider: "chatgpt", api: "openai-responses", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "o1", name: "o1", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "o3-mini", name: "o3-mini", provider: "chatgpt", api: "openai-responses", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-];
+] satisfies Omit<Model<"openai-responses">, "baseUrl">[]).map(model => ({ ...model, baseUrl: "https://api.openai.com/v1" }));
 
 export function chatGPTStatus(): ChatGPTStatus { return bridge().status; }
 export function chatGPTConnected(): boolean {
