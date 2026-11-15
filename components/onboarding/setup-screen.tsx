@@ -65,6 +65,8 @@ export function SetupScreen() {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [loadAttempt, setLoadAttempt] = useState(0);
+	const [callbackUrl, setCallbackUrl] = useState("");
+	const [callbackSubmitting, setCallbackSubmitting] = useState(false);
 	const heading = useRef<HTMLHeadingElement>(null);
 
 	const isChatgptConnected = chatgptUI.status.accounts.some(a => a.id === chatgptUI.status.activeId && a.connected);
@@ -208,27 +210,48 @@ export function SetupScreen() {
 						<form
 							onSubmit={async (e) => {
 								e.preventDefault();
-								const form = e.currentTarget;
-								const input = form.elements.namedItem("callbackUrl") as HTMLInputElement;
-								if (input?.value.trim()) {
-									await chatgptUI.callback(input.value.trim());
+								if (!callbackUrl.trim() || callbackSubmitting) return;
+								setCallbackSubmitting(true);
+								try {
+									await chatgptUI.callback(callbackUrl.trim());
+								} finally {
+									setCallbackSubmitting(false);
 								}
 							}}
-							className="flex flex-col sm:flex-row gap-2"
+							className="flex flex-col gap-2"
 						>
-							<input
-								name="callbackUrl"
-								type="text"
-								placeholder="Paste http://127.0.0.1:... address here"
-								disabled={chatgptUI.busy}
-								className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-							/>
+							<div className="flex gap-2">
+								<input
+									name="callbackUrl"
+									type="text"
+									placeholder="Paste http://127.0.0.1:... address here"
+									value={callbackUrl}
+									onChange={(e) => setCallbackUrl(e.target.value)}
+									disabled={callbackSubmitting}
+									className="flex-1 select-text rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											if (navigator.clipboard?.readText) {
+												const text = await navigator.clipboard.readText();
+												if (text) setCallbackUrl(text);
+											}
+										} catch {}
+									}}
+									disabled={callbackSubmitting}
+									className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground hover:bg-muted cursor-pointer shrink-0"
+								>
+									Paste
+								</button>
+							</div>
 							<button
 								type="submit"
-								disabled={chatgptUI.busy}
-								className="onboarding-primary !py-1.5 !px-3 !text-xs whitespace-nowrap cursor-pointer"
+								disabled={!callbackUrl.trim() || callbackSubmitting}
+								className="onboarding-primary !py-2 !px-4 !text-xs self-start whitespace-nowrap cursor-pointer"
 							>
-								{chatgptUI.busy ? "Connecting…" : "Complete Sign-in"}
+								{callbackSubmitting ? "Connecting…" : "Complete Sign-in"}
 							</button>
 						</form>
 					</div>

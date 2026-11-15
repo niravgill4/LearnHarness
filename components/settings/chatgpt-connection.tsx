@@ -252,15 +252,22 @@ export function ChatGPTUIProvider({ children }: { children: React.ReactNode }) {
 		// completion, failure, or explicit cancellation releases the attempt.
 	}
 	async function submitCallback(url: string) {
-		if (!bridge?.callback || operation.current || !status.pending) return;
+		if (!bridge?.callback || operation.current === "cancel") return;
 		setBusy(true); setError(null);
 		try {
 			const value = await bridge.callback(url);
 			if (!isStatus(value)) { setError(replyError(value)); return; }
 			const next = publishStatus(value);
 			if (next) {
-				if (next.error) setError(next.error);
-				else if (dialogRef.current?.kind === "connect") showDialog(null);
+				if (next.error) {
+					setError(next.error);
+				} else {
+					if (loginAttempt.current) {
+						await complete(loginAttempt.current, next);
+					} else {
+						showDialog(null);
+					}
+				}
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : CONTROL_ERROR);
@@ -327,7 +334,7 @@ export function ChatGPTUIProvider({ children }: { children: React.ReactNode }) {
 						<p className="text-muted-foreground leading-relaxed">
 							Copy the address from Safari’s address bar (starting with <code className="text-foreground font-mono text-[11px] bg-background px-1 py-0.5 rounded border border-border">http://127.0.0.1:...</code>) and paste it below:
 						</p>
-						<CallbackInput onSubmit={context.callback} busy={busy} />
+						<CallbackInput onSubmit={context.callback} />
 					</div>
 				)}
 				{context.error && <p role="alert" className="mt-3 text-xs text-error">{context.error}</p>}
@@ -388,12 +395,12 @@ export function ChatGPTBackgroundAccess({ provider }: { provider: string | undef
 	return <Button type="button" size="xs" variant="ghost" className="cursor-pointer" disabled={ui.busy} onClick={() => ui.manage(account.id)}>Enable background use</Button>;
 }
 
-function CallbackInput({ onSubmit, busy }: { onSubmit: (url: string) => Promise<void>; busy: boolean }) {
+function CallbackInput({ onSubmit }: { onSubmit: (url: string) => Promise<void> }) {
 	const [url, setUrl] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!url.trim() || submitting || busy) return;
+		if (!url.trim() || submitting) return;
 		setSubmitting(true);
 		try {
 			await onSubmit(url.trim());
@@ -401,21 +408,42 @@ function CallbackInput({ onSubmit, busy }: { onSubmit: (url: string) => Promise<
 			setSubmitting(false);
 		}
 	};
+	const pasteFromClipboard = async () => {
+		try {
+			if (navigator.clipboard?.readText) {
+				const text = await navigator.clipboard.readText();
+				if (text) setUrl(text);
+			}
+		} catch {}
+	};
 	return (
 		<form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2">
-			<input
-				type="text"
-				placeholder="Paste http://127.0.0.1:... address here"
-				value={url}
-				onChange={(e) => setUrl(e.target.value)}
-				disabled={busy || submitting}
-				className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-			/>
+			<div className="flex gap-2">
+				<input
+					type="text"
+					placeholder="Paste http://127.0.0.1:... address here"
+					value={url}
+					onChange={(e) => setUrl(e.target.value)}
+					disabled={submitting}
+					autoFocus
+					className="w-full select-text rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+				/>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={pasteFromClipboard}
+					disabled={submitting}
+					className="text-xs whitespace-nowrap cursor-pointer shrink-0"
+				>
+					Paste
+				</Button>
+			</div>
 			<Button
 				type="submit"
 				size="sm"
 				variant="default"
-				disabled={!url.trim() || busy || submitting}
+				disabled={!url.trim() || submitting}
 				className="self-start text-xs font-medium cursor-pointer"
 			>
 				{submitting ? "Connecting…" : "Complete Sign-in"}
