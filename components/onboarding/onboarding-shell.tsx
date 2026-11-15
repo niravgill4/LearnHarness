@@ -29,8 +29,8 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 		<a href="#onboarding-form" className="onboarding-skip">Skip to account setup</a>
 		<header className="onboarding-topline"><div className="onboarding-brand"><CogneraMark /><span>Cognera</span></div><span className="onboarding-topline-note">A space for your curious mind.</span><a className="onboarding-mobile-start" href="#onboarding-form">{step === 0 ? "Get started" : "Continue setup"}<ArrowRightIcon aria-hidden="true" /></a></header>
 		<div className="onboarding-layout">
-			<AsciiLandscape className="onboarding-landscape" />
 			<section className="onboarding-story" aria-label="Welcome to Cognera">
+				<AsciiLandscape className="onboarding-story-landscape" />
 				<div className="onboarding-story-backdrop" aria-hidden="true" />
 				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .22, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
 				<div className="onboarding-art" aria-hidden="true" />
