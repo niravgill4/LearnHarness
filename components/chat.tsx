@@ -1628,8 +1628,8 @@ export function Chat({
 		    chip) spans from the left sidebar's edge to the panel's edge. The
 		    dock overlays the column bottom (outside the scroller); a spacer in
 		    the transcript reserves its height. */}
-		<div className="session-page flex h-dvh">
-			<div className="flex min-w-0 flex-1 flex-col">
+		<div className="session-page flex h-full h-dvh max-h-dvh overflow-hidden overscroll-none">
+			<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 				{/* The top bar is its own block (owner, top-fade round 4): in flow
 				    above the scroller on the plain page background — no gradient. Its
 				    bottom outline (border-b border-border) matches the one that
@@ -1755,7 +1755,7 @@ export function Chat({
                 <LearningJourney phase={phases.at(-1) ?? "probe"} checking={!!pending || !!pendingPlugin} practice={kind === "practice"} />
 
 				<SessionFind scopeRef={sessionFindScopeRef} scrollContextRef={scrollContextRef} />
-				<div ref={sessionFindScopeRef} className="relative flex min-h-0 flex-1 apple-canvas-bg">
+				<div ref={sessionFindScopeRef} className="relative flex min-h-0 flex-1 overflow-hidden apple-canvas-bg">
 				<Conversation className="h-full min-w-0 flex-1" initial="instant" contextRef={scrollContextRef}>
 					<SessionMessageNavigation />
 					<TranscriptElementReporter onElement={setTranscriptElement} />
@@ -2706,8 +2706,26 @@ export function DockOverlay({
 		const el = scrollRef.current;
 		if (!root || !el) return;
 		const onWheel = (e: WheelEvent) => forwardDockWheel(e, root, el);
+		let touchStartY = 0;
+		const onTouchStart = (e: TouchEvent) => {
+			if (e.touches.length === 1) touchStartY = e.touches[0]!.clientY;
+		};
+		const onTouchMove = (e: TouchEvent) => {
+			if (e.touches.length !== 1) return;
+			const target = e.target as HTMLElement | null;
+			if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.closest("textarea, input, [data-dock-scroll-area]"))) return;
+			const deltaY = touchStartY - e.touches[0]!.clientY;
+			touchStartY = e.touches[0]!.clientY;
+			el.scrollTop += deltaY;
+		};
 		root.addEventListener("wheel", onWheel, { passive: false });
-		return () => root.removeEventListener("wheel", onWheel);
+		root.addEventListener("touchstart", onTouchStart, { passive: true });
+		root.addEventListener("touchmove", onTouchMove, { passive: true });
+		return () => {
+			root.removeEventListener("wheel", onWheel);
+			root.removeEventListener("touchstart", onTouchStart);
+			root.removeEventListener("touchmove", onTouchMove);
+		};
 	}, [scrollRef]);
 
 	// Explicit expand (bar click): the smooth scroll to the bottom takes

@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			suppressHydrationWarning
 		>
 			<head><link rel="preload" href="/fonts/inter-variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" /></head>
-            <body className="min-h-dvh antialiased">
+            <body className="h-full h-dvh overflow-hidden antialiased overscroll-none">
 			{/* The notification channel rides OUTSIDE everything: sidebar, dock,
 				 and pages all subscribe as the polls retire (push S3, 2026-10-02). */}
 			<WorkspaceFrame initialAppearance={appearance} initialTheme={theme}>{children}</WorkspaceFrame>
