@@ -64,7 +64,32 @@
 .onboarding-thought-dots i { height:4px; width:4px; border-radius:50%; background:#596575; transition:background .35s,transform .35s; }
 .onboarding-thought-dots i[data-active="true"] { background:#d8e9f9; transform:scale(1.5); }
 .onboarding-story-footer { display:flex; justify-content:space-between; gap:12px; font-size:9px; line-height:1.6; color:#aebdd0; padding-top:12px; }
-.onboarding-form-area { position:relative; z-index:10; display:flex; flex-direction:column; min-width:0; overflow-y:auto; overscroll-behavior-y:contain; -webkit-overflow-scrolling:touch; padding:27px 42px 19px; background:#14171d; border:1px solid #ffffff10; border-radius:28px; box-shadow:0 24px 70px #00000026; }
+.onboarding-form-area {
+	position:relative;
+	z-index:10;
+	display:flex;
+	flex-direction:column;
+	min-width:0;
+	overflow-y:auto;
+	overscroll-behavior-y:contain;
+	-webkit-overflow-scrolling:touch;
+	padding:32px 36px 24px;
+	border-radius:24px;
+	border:1px solid rgba(255,255,255,0.12);
+	background-color:#0d120f;
+	background-image:
+		radial-gradient(ellipse 90% 50% at 50% -10%, rgba(184,213,170,0.08), transparent 70%),
+		radial-gradient(circle, rgba(200,225,205,0.07) 1px, transparent 1px),
+		linear-gradient(180deg, rgba(17,23,19,0.96) 0%, rgba(11,15,13,0.99) 100%);
+	background-size:100% 100%, 14px 14px, 100% 100%;
+	background-repeat:no-repeat, repeat, no-repeat;
+	box-shadow:
+		inset 0 1px 0 0 rgba(255,255,255,0.14),
+		inset 0 0 24px 0 rgba(184,213,170,0.02),
+		0 24px 60px -8px rgba(0,0,0,0.65);
+	backdrop-filter:blur(16px);
+	-webkit-backdrop-filter:blur(16px);
+}
 .onboarding-progress ol { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); list-style:none; margin:0; padding:4px; border:1px solid #ffffff0d; border-radius:12px; background:#101412; gap:4px; }
 .onboarding-progress li { position:relative; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 8px; color:var(--ob-muted); font-size:11px; font-weight:500; white-space:nowrap; }
 .onboarding-progress-selection { position:absolute; inset:0; border-radius:8px; background:var(--ob-accent); box-shadow:0 1px 4px rgba(0,0,0,0.2); }
