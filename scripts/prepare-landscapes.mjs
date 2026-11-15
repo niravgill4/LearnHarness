@@ -3,7 +3,17 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 // Rebuild only from the user's supplied exports; pass their attachment paths in order.
-const names = ['rainforest-falls-mist', 'lighthouse-storm', 'cherry-blossom-river', 'camel-caravan-dusk', 'autumn-pagoda-maples'];
+const names = [
+	'rainforest-falls-mist',
+	'lighthouse-storm',
+	'cherry-blossom-river',
+	'camel-caravan-dusk',
+	'autumn-pagoda-maples',
+	'balloon-valley-sunrise',
+	'elephants-at-waterhole',
+	'floating-islands',
+	'sea-cliff-puffins'
+];
 const inputs = process.argv.slice(2);
 if (inputs.length !== names.length) throw new Error('Pass the five original export paths in the documented order.');
 const out = resolve('public/landscapes');

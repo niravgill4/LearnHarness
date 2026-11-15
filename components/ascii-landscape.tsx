@@ -10,6 +10,10 @@ export const LANDSCAPES = [
 	{ id: "cherry-blossom-river", name: "Cherry blossom river", color: "#e3b9cc", place: "Let your curiosity wander." },
 	{ id: "camel-caravan-dusk", name: "Caravan at dusk", color: "#e4c69c", place: "There’s always more to discover." },
 	{ id: "autumn-pagoda-maples", name: "Autumn among the maples", color: "#e3b59c", place: "See where an idea takes you." },
+	{ id: "balloon-valley-sunrise", name: "Valley sunrise balloons", color: "#f0c49e", place: "New heights, quiet horizons." },
+	{ id: "elephants-at-waterhole", name: "Elephants at the waterhole", color: "#d8ba8e", place: "Patience runs deep." },
+	{ id: "floating-islands", name: "Floating islands", color: "#88d4ca", place: "Imagination knows no gravity." },
+	{ id: "sea-cliff-puffins", name: "Sea cliff puffins", color: "#92c5c8", place: "Perched above the open sea." },
 ] as const;
 const SCENE_KEY = "cognera:landscape:v1";
 const MOTION_KEY = "cognera:landscape-motion:v1";
