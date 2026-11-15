@@ -214,7 +214,6 @@ export function providerKeyPresent(provider: string): boolean {
 			}
 		}
 		if (provider === CUSTOM_PROVIDER.id) {
-		if (provider === CUSTOM_PROVIDER.id) {
 			return !!userKeys[CUSTOM_PROVIDER.envVar]?.trim();
 		}
 		if (provider === CLAUDE_CODE_PROVIDER) return false;
