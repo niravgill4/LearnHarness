@@ -159,7 +159,7 @@ export function catalogProviders(): CatalogProvider[] {
 		})() : false)
 		: chatGPTConnected();
 	const isClaudeCode = userKeys !== null ? false : claudeCodeAvailable();
-	const isNativeSub = (providerId: string) => userKeys !== null ? false : nativeSubscriptionConnected(providerId);
+	const isNativeSub = (providerId: string) => userKeys !== null ? false : nativeSubscriptionConnected(providerId as any);
 
 	return AUTH_PROVIDER_KEYS.map((p) => ({
 		id: p.id,

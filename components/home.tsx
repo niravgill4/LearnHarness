@@ -122,7 +122,7 @@ export function Home({
 		void dictation.finish().then(() => begin());
 	};
 	const begin = async () => {
-		const t = topicRef.current.trim() || (attachedImages.length > 0 ? `Study: ${attachedImages[0].name}` : "");
+		const t = topicRef.current.trim() || (attachedImages.length > 0 ? `Study: ${attachedImages[0]?.name || "image"}` : "");
 		if (!t || startingRef.current) return;
 		// Unconfigured: the send INTERCEPTS into the setup flow (the draft
 		// stays in the textarea; the learner sends it after Save).
