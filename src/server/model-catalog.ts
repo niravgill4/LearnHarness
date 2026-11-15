@@ -39,6 +39,7 @@ function connectionProviderIds(): string[] { return [...piModels().getProviders(
 import { settingsStore } from "../store/settings.ts";
 import { effectiveSettings } from "./stores.ts";
 import { keyValue } from "./keys.ts";
+import { getActiveUserKeys } from "./user-auth-context.ts";
 import type { ChatSettings } from "../core/contracts/chat.ts";
 import type {
 	CatalogDefaults,
@@ -148,14 +149,26 @@ export function catalogSlots(): SlotPins {
  *  saving a key immediately federates the provider into the picker. */
 export function catalogProviders(): CatalogProvider[] {
 	piModels();
+	const userKeys = getActiveUserKeys();
+	const isChatgpt = userKeys !== null
+		? (userKeys["__chatgpt_credentials"] ? (() => {
+			try {
+				const p = JSON.parse(userKeys["__chatgpt_credentials"]);
+				return p.registrations?.some((r: any) => r.id === p.activeId && r.tokens && !r.reconnectRequired) ?? false;
+			} catch { return false; }
+		})() : false)
+		: chatGPTConnected();
+	const isClaudeCode = userKeys !== null ? false : claudeCodeAvailable();
+	const isNativeSub = (providerId: string) => userKeys !== null ? false : nativeSubscriptionConnected(providerId);
+
 	return AUTH_PROVIDER_KEYS.map((p) => ({
 		id: p.id,
 		envVar: p.envVar,
 		keyPresent: keyValue(p.envVar) !== undefined,
 	})).concat([
-		{ id: "chatgpt", envVar: "", keyPresent: chatGPTConnected() },
-		{ id: CLAUDE_CODE_PROVIDER, envVar: "", keyPresent: claudeCodeAvailable() },
-		...NATIVE_SUBSCRIPTIONS.map((p) => ({ id: p.logicalId, envVar: "", keyPresent: nativeSubscriptionConnected(p.providerId) })),
+		{ id: "chatgpt", envVar: "", keyPresent: isChatgpt },
+		{ id: CLAUDE_CODE_PROVIDER, envVar: "", keyPresent: isClaudeCode },
+		...NATIVE_SUBSCRIPTIONS.map((p) => ({ id: p.logicalId, envVar: "", keyPresent: isNativeSub(p.providerId) })),
 		// The custom endpoint: a row only when usable (base URL set). keyPresent
 		// reflects usability, not key presence (keyless local servers are allowed).
 		...(customProviderUsable(effectiveSettings().customProvider)

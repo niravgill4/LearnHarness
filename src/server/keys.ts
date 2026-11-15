@@ -58,6 +58,7 @@ import { customProviderAvailable, installCustomProviderSource } from "./custom-p
 import { claudeCodeAvailable } from "./claude-code-config.ts";
 import { CLAUDE_CODE_PROVIDER } from "../agent/claude-code/constants.ts";
 import { CUSTOM_AUTH_BINDING } from "../core/custom-provider-auth.ts";
+import { getActiveUserKeys } from "./user-auth-context.ts";
 
 // Shared HMR-stable provenance lets external CLIs exclude file-only injections
 // without importing this store-backed module into the agent layer.
@@ -183,6 +184,10 @@ export function keyStatuses(): AuthKeyStatus[] {
  *  otherwise read env before any fill-gap ran). */
 export function keyValue(id: string): string | undefined {
 	if (id === CUSTOM_AUTH_BINDING) return undefined;
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		return userKeys[id];
+	}
 	// The fresh-user switch: ONLY the file store counts (belt-and-
 	// suspenders — the boot deletion already emptied the env; this guards
 	// any env key reintroduced after boot).
@@ -197,6 +202,25 @@ export function keyValue(id: string): string | undefined {
  * (gate by what would run). Providers absent from AUTH_PROVIDER_KEYS take
  * no key at all: nothing to gate, present by definition. */
 export function providerKeyPresent(provider: string): boolean {
+	const userKeys = getActiveUserKeys();
+	if (userKeys !== null) {
+		if (provider === "chatgpt") {
+			if (!userKeys["__chatgpt_credentials"]) return false;
+			try {
+				const parsed = JSON.parse(userKeys["__chatgpt_credentials"]);
+				return parsed.registrations?.some((r: any) => r.id === parsed.activeId && r.tokens && !r.reconnectRequired) ?? false;
+			} catch {
+				return false;
+			}
+		}
+		if (provider === CUSTOM_PROVIDER.id) {
+			return typeof userKeys[CUSTOM_PROVIDER.envVar] === "string" && userKeys[CUSTOM_PROVIDER.envVar].trim().length > 0;
+		}
+		if (provider === CLAUDE_CODE_PROVIDER) return false;
+		if (isSubscriptionProvider(provider)) return false;
+		const info = AUTH_PROVIDER_KEYS.find((p) => p.id === provider);
+		return info ? typeof userKeys[info.envVar] === "string" && userKeys[info.envVar].trim().length > 0 : false;
+	}
 	if (provider === CUSTOM_PROVIDER.id) return customProviderAvailable();
 	// Explicit opt-in + installation only, never authentication readiness.
 	// Consulted at admission, not inside already-running agent loops.

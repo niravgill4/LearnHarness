@@ -22,6 +22,8 @@ import { createClaudeCodeProvider } from "./claude-code/provider.ts";
 import { streamClaudeCode } from "./claude-code/stream.ts";
 import { nativeSubscriptionId, nativeSubscriptionModel } from "./subscription-bridge.ts";
 import { nativeSubscriptionStream } from "./subscription-stream.ts";
+import { AUTH_PROVIDER_KEYS, CUSTOM_PROVIDER } from "../core/auth-keys.ts";
+import { getActiveUserKeys } from "../core/user-auth-context.ts";
 
 /** App identity is immutable and shared by Models and every native Agent.
  * Agent's default Pi attribution otherwise overrides the Models identity. */
@@ -160,8 +162,19 @@ export function piEngineForSpec(spec: ResolvedModelSpec, background: boolean | (
 			// Read the slot preference for every operation, not just engine creation.
 			// Unset adds NOTHING: native defaults/env and explicit caller options survive.
 			const retention = cacheRetention?.();
+			const userKeys = getActiveUserKeys();
+			let resolvedApiKey = options?.apiKey;
+			if (userKeys !== null) {
+				const info = AUTH_PROVIDER_KEYS.find((p) => p.id === spec.provider);
+				if (info && userKeys[info.envVar]) {
+					resolvedApiKey = userKeys[info.envVar];
+				} else if (spec.provider === CUSTOM_PROVIDER.id && userKeys[CUSTOM_PROVIDER.envVar]) {
+					resolvedApiKey = userKeys[CUSTOM_PROVIDER.envVar];
+				}
+			}
 			const requestOptions = {
 				...options,
+				...(resolvedApiKey !== undefined ? { apiKey: resolvedApiKey } : {}),
 				...(retention !== undefined ? { cacheRetention: retention } : {}),
 				reasoning: level === "off" ? undefined : level,
 			};

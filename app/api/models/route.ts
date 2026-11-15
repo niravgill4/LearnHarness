@@ -1,4 +1,6 @@
-import { modelCatalog, refreshConnectionCatalog } from "@/src/server";
+import { modelCatalog, refreshConnectionCatalog, userAuthStorage } from "@/src/server";
+import { createClient } from "@/lib/supabase/server";
+import { readProfileKeys } from "@/lib/supabase/profile-keys";
 
 /**
  * The model picker's data (model-control wave): pi-ai's configured-provider
@@ -7,6 +9,25 @@ import { modelCatalog, refreshConnectionCatalog } from "@/src/server";
  * catalog: no network, stable within a pi-ai version.
  */
 export async function GET() {
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		let userKeys: Record<string, string> = {};
+		if (user) {
+			const { data: profile } = await supabase
+				.from("profiles")
+				.select("encrypted_keys")
+				.eq("id", user.id)
+				.single();
+			if (profile?.encrypted_keys) {
+				userKeys = readProfileKeys(profile.encrypted_keys);
+			}
+		}
+		return userAuthStorage.run({ userId: user?.id ?? "", keys: userKeys }, async () => {
+			await refreshConnectionCatalog();
+			return Response.json(modelCatalog(), { headers: { "Cache-Control": "no-store" } });
+		});
+	}
 	await refreshConnectionCatalog();
 	return Response.json(modelCatalog(), { headers: { "Cache-Control": "no-store" } });
 }
