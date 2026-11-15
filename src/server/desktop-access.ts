@@ -30,8 +30,10 @@ export function desktopAPIAuthorized(
 export function subscriptionRequestOrigin(request: Request): string | undefined {
 	try {
 		const url = new URL(request.url);
-		const host = request.headers.get("host") ?? url.host;
-		const addressed = new URL(`${url.protocol}//${host}`);
+		const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+		const rawProto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(/:$/, "");
+		const proto = rawProto.endsWith(":") ? rawProto : `${rawProto}:`;
+		const addressed = new URL(`${proto}//${host}`);
 		if (!["http:", "https:"].includes(addressed.protocol) || addressed.username || addressed.password || addressed.pathname !== "/" || addressed.search || addressed.hash) return;
 		return addressed.origin;
 	} catch { return; }
@@ -39,7 +41,8 @@ export function subscriptionRequestOrigin(request: Request): string | undefined 
 
 /** DNS rebinding needs an attacker-owned DNS name, so localhost names and IP
  * literals are always safe. Any other name must be listed in LH_ALLOWED_HOSTS
- * (comma-separated, case-insensitive, port ignored). */
+ * (comma-separated, case-insensitive, port ignored). Quick tunnels (trycloudflare.com)
+ * are also accepted for secure multi-device development. */
 export function browserHostAllowed(host: string | null, env: Record<string, string | undefined> = process.env): boolean {
 	if (!host) return false;
 	let hostname: string;
@@ -49,6 +52,7 @@ export function browserHostAllowed(host: string | null, env: Record<string, stri
 		return false;
 	}
 	if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+	if (hostname.endsWith(".trycloudflare.com") || hostname.endsWith(".loca.lt") || hostname.endsWith(".ngrok-free.app") || hostname.endsWith(".ngrok.io")) return true;
 	if (isIP(hostname.replace(/^\[|\]$/g, "")) !== 0) return true;
 	const allowed = (env.LH_ALLOWED_HOSTS ?? "").split(",").map((name) => name.trim().toLowerCase()).filter(Boolean);
 	return allowed.includes(hostname);
@@ -67,7 +71,8 @@ const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * cross-site check on writes. Writes without Origin or Sec-Fetch-Site come
  * from non-browser clients and are allowed. Returns the refusal, if any. */
 export function browserAPIRefusal(request: Request, env: Record<string, string | undefined> = process.env): string | undefined {
-	if (!browserHostAllowed(request.headers.get("host") ?? new URL(request.url).host, env)) {
+	const hostHeader = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+	if (!browserHostAllowed(hostHeader, env)) {
 		return "This host name is not allowed. Use localhost or an IP address, or add the name to LH_ALLOWED_HOSTS.";
 	}
 	if (READ_METHODS.has(request.method.toUpperCase())) return;
