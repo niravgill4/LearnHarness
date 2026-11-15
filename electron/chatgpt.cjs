@@ -95,7 +95,7 @@ function allowedAuthEndpoint(value) {
 	} catch { return false; }
 }
 
-function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch, onChange = () => {}, timeoutMs = 180000 }) {
+function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch, onChange = () => {}, timeoutMs = 600000 }) {
 	let state;
 	let init;
 	let queue = Promise.resolve();
@@ -282,19 +282,13 @@ function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch,
 				listener.listen(0, "127.0.0.1", resolve);
 			});
 			const redirectUri = `http://127.0.0.1:${listener.address().port}/auth/callback`;
-			listener.on("request", async (req, res) => {
-				let callback;
-				try { callback = new URL(req.url || "/", redirectUri); }
-				catch { res.writeHead(400).end(); return; }
-				res.setHeader("Cache-Control", "no-store");
-				res.setHeader("Content-Security-Policy", "default-src 'none'");
-				res.setHeader("Referrer-Policy", "no-referrer");
-				if (req.method !== "GET" || callback.origin !== new URL(redirectUri).origin || callback.pathname !== "/auth/callback" || req.headers.host !== new URL(redirectUri).host || consumed) { res.writeHead(404).end(); return; }
-				const params = callback.searchParams;
+			const processCallback = async (params) => {
+				if (consumed) return;
 				// Reject duplicate parameters and unsolicited callbacks without consuming a valid pending attempt.
-				if (["state", "code", "client_id", "error"].some((key) => params.getAll(key).length > 1) || params.get("state") !== expectedState) { res.writeHead(400).end("Sign-in could not be verified."); return; }
+				if (["state", "code", "client_id", "error"].some((key) => params.getAll(key).length > 1) || params.get("state") !== expectedState) {
+					throw fail("identity");
+				}
 				consumed = true;
-				res.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("Return to Cognera to view the sign-in result. You may close this tab.");
 				cleanup();
 				try {
 					if (params.has("error")) throw fail(params.get("error") === "access_denied" ? "cancelled" : "identity");
@@ -329,8 +323,21 @@ function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch,
 						retryRegistration = undefined;
 					});
 					lastError = planScopes(tokens) ? null : publicError(fail("scope"));
-				} catch (err) { if (!abort.signal.aborted) lastError = publicError(err); }
+				} catch (err) { if (!abort.signal.aborted) lastError = publicError(err); throw err; }
 				finally { if (pending?.abort === abort) pending = null; finish(); notify(); }
+			};
+			pending.callback = processCallback;
+
+			listener.on("request", async (req, res) => {
+				let callback;
+				try { callback = new URL(req.url || "/", redirectUri); }
+				catch { res.writeHead(400).end(); return; }
+				res.setHeader("Cache-Control", "no-store");
+				res.setHeader("Content-Security-Policy", "default-src 'none'");
+				res.setHeader("Referrer-Policy", "no-referrer");
+				if (req.method !== "GET" || callback.origin !== new URL(redirectUri).origin || callback.pathname !== "/auth/callback" || req.headers.host !== new URL(redirectUri).host || consumed) { res.writeHead(404).end(); return; }
+				res.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("Return to Cognera to view the sign-in result. You may close this tab.");
+				try { await processCallback(callback.searchParams); } catch {}
 			});
 			timer = setTimeout(() => cancel("timeout"), timeoutMs);
 			const url = new URL(AUTHORIZE);
@@ -350,6 +357,29 @@ function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch,
 		return snapshot();
 	}
 	function cancelLogin() { pending?.cancel(); return snapshot(); }
+	async function callback(urlOrParams) {
+		await ready();
+		if (!pending || !pending.callback) throw fail("identity");
+		let params;
+		if (typeof urlOrParams === "string") {
+			try {
+				let s = urlOrParams.trim();
+				if (s.includes("?")) s = s.slice(s.indexOf("?") + 1);
+				if (s.includes("#")) s = s.slice(0, s.indexOf("#"));
+				params = new URLSearchParams(s);
+			} catch {
+				throw fail("identity");
+			}
+		} else if (urlOrParams instanceof URLSearchParams) {
+			params = urlOrParams;
+		} else if (typeof urlOrParams === "object" && urlOrParams !== null) {
+			params = new URLSearchParams(urlOrParams);
+		} else {
+			throw fail("identity");
+		}
+		await pending.callback(params);
+		return snapshot();
+	}
 
 	function authorized(background, expected, capturedEpoch) {
 		const account = active();
@@ -536,7 +566,7 @@ function createChatGPT({ store, openExternal, fetch: request = globalThis.fetch,
 	function close() { closed = true; pending?.cancel(); stop(); }
 	function pause() { paused = true; pending?.cancel(); stop(); notify(); }
 	function resume() { paused = false; if (!storageDenied) suspended = false; notify(); }
-	return { status, login, cancelLogin, lease, models, select, consent, disconnect, logout, close, pause, resume, stamp };
+	return { status, login, cancelLogin, callback, lease, models, select, consent, disconnect, logout, close, pause, resume, stamp };
 }
 
 module.exports = { createChatGPT, fileStore, publicError, allowedAuthEndpoint, SCOPES, validateState };

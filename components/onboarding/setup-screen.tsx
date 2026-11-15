@@ -193,6 +193,47 @@ export function SetupScreen() {
 					</button>
 				</div>
 
+				{chatgptUI.status.pending && (
+					<div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm mt-3 space-y-3">
+						<div className="flex items-center gap-2 font-medium text-foreground">
+							<LoaderCircleIcon className="w-4 h-4 animate-spin text-primary" />
+							<span>Waiting for Codex / ChatGPT sign-in…</span>
+						</div>
+						<p className="text-xs text-muted-foreground leading-relaxed">
+							If you are on an <strong>iPad or mobile device</strong>, Safari will display <em>“Safari cannot open the page because it could not connect to the server”</em> after you sign in on OpenAI.
+						</p>
+						<p className="text-xs text-muted-foreground leading-relaxed">
+							Simply copy the address from Safari’s address bar (starting with <code className="text-primary font-mono bg-background px-1 py-0.5 rounded border border-border">http://127.0.0.1:...</code>) and paste it here:
+						</p>
+						<form
+							onSubmit={async (e) => {
+								e.preventDefault();
+								const form = e.currentTarget;
+								const input = form.elements.namedItem("callbackUrl") as HTMLInputElement;
+								if (input?.value.trim()) {
+									await chatgptUI.callback(input.value.trim());
+								}
+							}}
+							className="flex flex-col sm:flex-row gap-2"
+						>
+							<input
+								name="callbackUrl"
+								type="text"
+								placeholder="Paste http://127.0.0.1:... address here"
+								disabled={chatgptUI.busy}
+								className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+							/>
+							<button
+								type="submit"
+								disabled={chatgptUI.busy}
+								className="onboarding-primary !py-1.5 !px-3 !text-xs whitespace-nowrap cursor-pointer"
+							>
+								{chatgptUI.busy ? "Connecting…" : "Complete Sign-in"}
+							</button>
+						</form>
+					</div>
+				)}
+
 				<div className="onboarding-native-block">
 					<div className="onboarding-native-section">
 						<h3 className="onboarding-section-title">Subscriptions</h3>

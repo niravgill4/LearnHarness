@@ -136,5 +136,10 @@ test("web ChatGPT login supplies only an opaque browser action; cancel/replaceme
 		const callback = new URL(target.searchParams.get("redirect_uri")!);
 		assert.equal(callback.hostname, "127.0.0.1"); assert.equal(callback.pathname, "/auth/callback");
 		assert(target.searchParams.has("state")); assert(target.searchParams.has("code_challenge"));
+
+		// Test remote manual callback submission with invalid state (fails closed without crashing)
+		const invalidCallbackResult = await owner.control("chatgpt", { op: "callback", url: "http://127.0.0.1:12345/auth/callback?code=bad_code&state=bad_state" }, "http://localhost:3000");
+		assert.equal(invalidCallbackResult.value?.error, "ChatGPT sign-in could not be verified. Select the intended saved account and try again.");
+		await owner.control("chatgpt", { op: "cancel" }, "http://localhost:3000");
 	} finally { owner.close(); await fs.rm(scratch, { recursive: true, force: true }); }
 });

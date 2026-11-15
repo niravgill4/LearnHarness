@@ -17,6 +17,7 @@ export interface ChatGPTStatus {
 export interface ChatGPTControlBridge {
 	status(): Promise<ChatGPTStatus>;
 	login(id?: string): Promise<ChatGPTStatus>;
+	callback?(url: string): Promise<ChatGPTStatus>;
 	cancel(): Promise<ChatGPTStatus>;
 	select(id: string): Promise<ChatGPTStatus>;
 	/** Explicitly forget every local registration/credential for this verified identity. */

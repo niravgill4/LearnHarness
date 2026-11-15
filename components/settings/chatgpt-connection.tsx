@@ -36,6 +36,7 @@ const Context = createContext({
 	inlineError: null as string | null,
 	warning: null as string | null,
 	connect: () => {},
+	callback: (_url: string) => Promise.resolve() as Promise<void>,
 	manage: (_id: string) => {},
 	select: (_id: string) => {},
 	dismissWarning: () => {},
@@ -250,9 +251,27 @@ export function ChatGPTUIProvider({ children }: { children: React.ReactNode }) {
 		// No finally: pending OAuth outlives this IPC promise. Only its status
 		// completion, failure, or explicit cancellation releases the attempt.
 	}
+	async function submitCallback(url: string) {
+		if (!bridge?.callback || operation.current || !status.pending) return;
+		setBusy(true); setError(null);
+		try {
+			const value = await bridge.callback(url);
+			if (!isStatus(value)) { setError(replyError(value)); return; }
+			const next = publishStatus(value);
+			if (next) {
+				if (next.error) setError(next.error);
+				else if (dialogRef.current?.kind === "connect") showDialog(null);
+			}
+		} catch (err) {
+			setError(err instanceof Error ? err.message : CONTROL_ERROR);
+		} finally {
+			setBusy(false);
+		}
+	}
 	const context = {
 		status, busy, error: warning ? null : visibleError, inlineError: dialog || warning ? null : visibleError, warning: dialog?.kind === "warning" ? null : warning,
 		connect: openConnect,
+		callback: submitCallback,
 		manage: (id: string) => {
 			const account = statusRef.current.accounts.find((a) => a.id === id);
 			if (!operation.current && account) { setError(null); showDialog({ kind: "manage", accountId: id, account }); }
@@ -299,7 +318,18 @@ export function ChatGPTUIProvider({ children }: { children: React.ReactNode }) {
 					<a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer" className="underline underline-offset-2">Manage usage</a>
 				</div>
 				{!status.available && <p className="mt-3 text-xs text-muted-foreground">ChatGPT sign-in is available only in the desktop app. API-key connections remain available here.</p>}
-				{status.pending && <p role="status" className="mt-3 text-xs text-muted-foreground">Waiting for browser sign-in…</p>}
+				{status.pending && (
+					<div className="mt-3 space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs">
+						<p className="font-medium text-foreground">Waiting for browser sign-in…</p>
+						<p className="text-muted-foreground leading-relaxed">
+							If connecting on an <strong>iPad or mobile device</strong>, Safari may show <em>“Safari cannot open the page because it could not connect to the server”</em> after logging in.
+						</p>
+						<p className="text-muted-foreground leading-relaxed">
+							Copy the address from Safari’s address bar (starting with <code className="text-foreground font-mono text-[11px] bg-background px-1 py-0.5 rounded border border-border">http://127.0.0.1:...</code>) and paste it below:
+						</p>
+						<CallbackInput onSubmit={context.callback} busy={busy} />
+					</div>
+				)}
 				{context.error && <p role="alert" className="mt-3 text-xs text-error">{context.error}</p>}
 				{dialog.kind === "manage" && managed && <div className="mt-4 flex flex-wrap items-center justify-between gap-3" data-testid="chatgpt-account-strip">
 					<div data-testid="chatgpt-managed-identity" className="flex min-w-0 items-center gap-2 text-xs text-foreground">
@@ -356,4 +386,40 @@ export function ChatGPTBackgroundAccess({ provider }: { provider: string | undef
 	const account: Account | undefined = ui.status.accounts.find((a) => a.id === ui.status.activeId && a.connected);
 	if (provider !== "chatgpt" || !account || ui.status.allowBackgroundUse) return null;
 	return <Button type="button" size="xs" variant="ghost" className="cursor-pointer" disabled={ui.busy} onClick={() => ui.manage(account.id)}>Enable background use</Button>;
+}
+
+function CallbackInput({ onSubmit, busy }: { onSubmit: (url: string) => Promise<void>; busy: boolean }) {
+	const [url, setUrl] = useState("");
+	const [submitting, setSubmitting] = useState(false);
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!url.trim() || submitting || busy) return;
+		setSubmitting(true);
+		try {
+			await onSubmit(url.trim());
+		} finally {
+			setSubmitting(false);
+		}
+	};
+	return (
+		<form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2">
+			<input
+				type="text"
+				placeholder="Paste http://127.0.0.1:... address here"
+				value={url}
+				onChange={(e) => setUrl(e.target.value)}
+				disabled={busy || submitting}
+				className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+			/>
+			<Button
+				type="submit"
+				size="sm"
+				variant="default"
+				disabled={!url.trim() || busy || submitting}
+				className="self-start text-xs font-medium cursor-pointer"
+			>
+				{submitting ? "Connecting…" : "Complete Sign-in"}
+			</Button>
+		</form>
+	);
 }
