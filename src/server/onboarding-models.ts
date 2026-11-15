@@ -22,9 +22,13 @@ export function onboardingProviderModels(provider: string) {
 			return live.map(m => ({ id: m.id, name: m.name, vision: m.input.includes("image") }));
 		}
 		return [
+			{ id: "gpt-6.1-sol", name: "GPT 6.1 Sol", vision: true },
 			{ id: "gpt-6-sol", name: "GPT 6 Sol", vision: true },
-			{ id: "gpt-6-astra", name: "GPT 6 Astra", vision: true },
+			{ id: "gpt-5.6-tera", name: "GPT 5.6 Tera", vision: true },
+			{ id: "gpt-5.6-terra", name: "GPT 5.6 Terra", vision: true },
 			{ id: "gpt-6-tera", name: "GPT 6 Tera", vision: true },
+			{ id: "gpt-6-astra", name: "GPT 6 Astra", vision: true },
+			{ id: "gpt-5.6-astra", name: "GPT 5.6 Astra", vision: true },
 			{ id: "chatgpt-4o", name: "ChatGPT 4o", vision: true },
 			{ id: "chatgpt-4o-mini", name: "ChatGPT 4o mini", vision: true },
 			{ id: "o1", name: "o1", vision: true },
