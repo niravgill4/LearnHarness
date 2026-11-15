@@ -674,11 +674,20 @@ function SessionsSidebar() {
 	}, [open, pathname, refresh]);
 
 	return (
-		<aside
-			className={cn("sidebar-motion workspace-sidebar-slot shrink-0 overflow-hidden duration-200", open ? "w-60" : "w-0")}
-			aria-hidden={!open}
-            inert={!open}
-		>
+		<>
+			{open && (
+				<div
+					data-testid="sidebar-backdrop"
+					className="sidebar-backdrop"
+					onClick={toggle}
+					aria-hidden="true"
+				/>
+			)}
+			<aside
+				className={cn("sidebar-motion workspace-sidebar-slot shrink-0 overflow-hidden duration-200", open ? "w-60" : "w-0")}
+				aria-hidden={!open}
+				inert={!open}
+			>
 			<div className="workspace-sidebar flex h-full w-60 flex-col">
 				{/* Apple macOS / iPadOS Window Chrome Header */}
 				<div className="lh-drag lh-lights-gutter flex items-center justify-between sidebar-brand px-3 py-5">

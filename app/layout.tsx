@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { connection } from "next/server";
 import "katex/dist/katex.min.css";
@@ -16,6 +16,16 @@ const prose = localFont({ src: "../public/fonts/source-sans-variable.woff2", wei
 export const metadata: Metadata = {
 	title: "Cognera",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
+};
+
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	maximumScale: 1,
+	userScalable: false,
+	viewportFit: "cover",
+	themeColor: "#1a1a1e",
+	interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
