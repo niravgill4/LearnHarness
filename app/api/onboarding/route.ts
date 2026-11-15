@@ -17,8 +17,19 @@ export async function GET() {
 	if (error || !profile) return json({ error: "Your profile could not be loaded. Please try again." }, 503);
 	try {
 		const keys = readProfileKeys(profile.encrypted_keys);
+		const isChatgptConnectedForUser = () => {
+			if (!keys["__chatgpt_credentials"]) return false;
+			try {
+				const parsed = JSON.parse(keys["__chatgpt_credentials"]);
+				return parsed.registrations?.some((r: any) => r.id === parsed.activeId && r.tokens && !r.reconnectRequired) ?? false;
+			} catch {
+				return false;
+			}
+		};
+
 		const connected = ONBOARDING_PROVIDERS.filter(p => {
-			if (p.keyless) return onboardingAccountAvailable(p.id);
+			if (p.id === "chatgpt") return isChatgptConnectedForUser();
+			if (p.keyless) return false;
 			const authKey = AUTH_PROVIDER_KEYS.find(k => k.id === p.id);
 			return authKey ? !!keys[authKey.envVar] : false;
 		}).map(p => p.id);
@@ -55,9 +66,21 @@ export async function POST(request: Request) {
 	const isKeyless = !!provider.keyless;
 
 	try {
+		const { data: profile, error: profileErr } = await client.from("profiles").select("encrypted_keys").eq("id", user.id).single();
+		const currentKeys = profile?.encrypted_keys ? readProfileKeys(profile.encrypted_keys) : {};
+		const isChatgptConnectedForUser = () => {
+			if (!currentKeys["__chatgpt_credentials"]) return false;
+			try {
+				const parsed = JSON.parse(currentKeys["__chatgpt_credentials"]);
+				return parsed.registrations?.some((r: any) => r.id === parsed.activeId && r.tokens && !r.reconnectRequired) ?? false;
+			} catch {
+				return false;
+			}
+		};
+
 		if (body.action === "connect") {
 			if (isKeyless) {
-				const available = onboardingAccountAvailable(provider.id);
+				const available = provider.id === "chatgpt" ? isChatgptConnectedForUser() : onboardingAccountAvailable(provider.id);
 				return available ? json({ saved: true }) : json({ error: "Finish this connection before choosing models." }, 409);
 			}
 
@@ -88,14 +111,15 @@ export async function POST(request: Request) {
 		if (body.topic !== undefined && (typeof body.topic !== "string" || body.topic.length > 500)) return json({ error: "Keep your topic under 500 characters." }, 400);
 		if (!["understand", "exam", "explore"].includes(body.intent)) return json({ error: "Choose a learning goal." }, 400);
 
-		const { data: profile, error } = await client.from("profiles").select("encrypted_keys, model_settings").eq("id", user.id).single();
-		if (error || !profile) return json({ error: "Your profile could not be loaded. Please try again." }, 503);
+		const { data: fullProfile, error } = await client.from("profiles").select("encrypted_keys, model_settings").eq("id", user.id).single();
+		if (error || !fullProfile) return json({ error: "Your profile could not be loaded. Please try again." }, 503);
 
 		if (isKeyless) {
-			if (!onboardingAccountAvailable(provider.id)) return json({ error: "Finish connecting this account first." }, 409);
+			const available = provider.id === "chatgpt" ? isChatgptConnectedForUser() : onboardingAccountAvailable(provider.id);
+			if (!available) return json({ error: "Finish connecting this account first." }, 409);
 		} else {
 			const envVar = AUTH_PROVIDER_KEYS.find(k => k.id === provider.id)?.envVar;
-			if (!envVar || !readProfileKeys(profile.encrypted_keys)[envVar]) return json({ error: "Save your provider key first." }, 400);
+			if (!envVar || !readProfileKeys(fullProfile.encrypted_keys)[envVar]) return json({ error: "Save your provider key first." }, 400);
 		}
 
 		const setup: LearningSetup = {

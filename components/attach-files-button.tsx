@@ -154,7 +154,7 @@ export function AttachFilesButton({
 				type="file"
 				multiple
 				hidden
-				accept="image/*,text/*,.txt,.md,.markdown,.js,.ts,.jsx,.tsx,.py,.json,.csv,.tsv,.html,.css"
+				accept="image/*,text/*,.pdf,application/pdf,.txt,.md,.markdown,.js,.ts,.jsx,.tsx,.py,.json,.csv,.tsv,.html,.css"
 				data-testid="attach-files-input"
 				onChange={async (e) => {
 					const files = e.currentTarget.files;

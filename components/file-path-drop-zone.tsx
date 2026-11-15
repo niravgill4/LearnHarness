@@ -70,13 +70,12 @@ export function FilePathDropZone({ children, className, onContentRoot }: {
 				clearDrag();
 				const resolve = window.lh?.getPathForFile;
 				if (!resolve) {
-					const focused = document.activeElement?.closest<HTMLElement>("[data-file-path-input]")
-						?? root.current?.querySelector<HTMLElement>("[data-file-path-input]")
-						?? document.querySelector<HTMLElement>("[data-file-path-input]");
-					const { imageCount, textCount } = await processAttachmentFiles(event.dataTransfer.files, focused);
-					if (imageCount === 0 && textCount === 0) {
-						setNotice("Unsupported file type dropped.");
+					const focused = document.activeElement?.closest<HTMLElement>("[data-file-path-input]");
+					if (focused) {
+						const { imageCount, textCount } = await processAttachmentFiles(event.dataTransfer.files, focused);
+						if (imageCount > 0 || textCount > 0) return;
 					}
+					setNotice(BROWSER_NOTICE);
 					return;
 				}
 				// Inspect only the dropped item's type, never traverse its entries.
@@ -114,7 +113,7 @@ export function FilePathDropZone({ children, className, onContentRoot }: {
 				<div data-testid="file-path-drop-indicator" className="pointer-events-none absolute inset-2 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/85 p-6 text-center backdrop-blur-sm">
 					<div className="flex max-w-md flex-col items-center gap-3">
 						<FileSymlinkIcon className="size-8 text-primary" aria-hidden />
-						<span className="font-ui text-sm">{window.lh?.getPathForFile ? "Drop to attach file paths" : "Drop files or images to attach"}</span>
+						<span className="font-ui text-sm">{window.lh?.getPathForFile ? "Drop to attach file paths" : "Drop files or images to attach in desktop app or browser"}</span>
 					</div>
 				</div>
 			)}

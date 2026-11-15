@@ -23,3 +23,24 @@ export async function mutateProfileKey(client: NonNullable<Awaited<ReturnType<ty
 	}
 	throw new Error("Another key change is being saved. Please try again.");
 }
+
+export function createSupabaseChatGPTStore(client: NonNullable<Awaited<ReturnType<typeof createClient>>>, userId: string) {
+	return {
+		async read() {
+			try {
+				const { data: profile } = await client.from("profiles").select("encrypted_keys").eq("id", userId).single();
+				if (!profile?.encrypted_keys) return null;
+				const keys = readProfileKeys(profile.encrypted_keys);
+				const raw = keys["__chatgpt_credentials"];
+				if (!raw) return null;
+				return JSON.parse(raw);
+			} catch {
+				return null;
+			}
+		},
+		async write(state: unknown) {
+			await mutateProfileKey(client, userId, "__chatgpt_credentials", JSON.stringify(state));
+		},
+	};
+}
+

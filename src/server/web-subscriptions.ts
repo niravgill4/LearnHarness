@@ -13,11 +13,13 @@ import { emit } from "../core/events.ts";
 import type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 import type { NativeSubscriptionSnapshot } from "../core/contracts/subscriptions.ts";
 import { configureWebSubscriptionRuntime, publishWebSubscriptionPacket, webSubscriptionsEnabled, type SubscriptionRuntimeChannel as Channel, type SubscriptionRuntimePacket as Packet } from "../agent/subscription-runtime.ts";
+import { createSupabaseChatGPTStore } from "../../lib/supabase/profile-keys.ts";
 export { webSubscriptionsEnabled } from "../agent/subscription-runtime.ts";
 interface BrowserAction { target: string; origin: string; scope: string; expires: number; current(): Promise<boolean> }
 const KEY = Symbol.for("lh.webSubscriptions");
 interface Registry {
 	owner?: ReturnType<typeof createWebSubscriptionOwner>;
+	userOwners?: Map<string, ReturnType<typeof createWebSubscriptionOwner>>;
 }
 function registry(): Registry {
 	const global = globalThis as typeof globalThis & { [KEY]?: Registry };
@@ -102,6 +104,37 @@ export function webSubscriptionOwner() {
 	}
 	return state.owner;
 }
+
+export function getUserWebSubscriptionOwner(userId: string, client: any) {
+	if (!webSubscriptionsEnabled()) throw new Error("Web subscription controls are unavailable in desktop-owned mode.");
+	const state = registry();
+	state.userOwners ??= new Map();
+	let owner = state.userOwners.get(userId);
+	if (!owner) {
+		owner = createWebSubscriptionOwner({
+			directory: path.dirname(AUTH_FILE),
+			chatgptStore: createSupabaseChatGPTStore(client, userId),
+			onPacket: publish,
+		});
+		state.userOwners.set(userId, owner);
+	}
+	return owner;
+}
+
+export function emptySubscriptionStatus(): { chatgpt: ChatGPTStatus; native: NativeSubscriptionSnapshot["statuses"] } {
+	return {
+		chatgpt: {
+			available: true,
+			pending: false,
+			allowBackgroundUse: true,
+			activeId: null,
+			accounts: [],
+			error: null,
+		},
+		native: [],
+	};
+}
+
 /** Private runtime calls only: no HTTP lease/token operation exists. */
 export async function webSubscriptionRequest<T>(channel: Channel, op: string, fields: Record<string, unknown>): Promise<T> {
 	const owner = webSubscriptionOwner();

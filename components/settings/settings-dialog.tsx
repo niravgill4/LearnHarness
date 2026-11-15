@@ -245,6 +245,16 @@ export function SettingsDialogBody({
 		setActive(initialSection);
 	}, [initialSection, navigationRequest]);
 
+	const [visitedSections, setVisitedSections] = useState<Set<string>>(() => new Set([initialSection]));
+	useEffect(() => {
+		setVisitedSections((prev) => {
+			if (prev.has(active)) return prev;
+			const next = new Set(prev);
+			next.add(active);
+			return next;
+		});
+	}, [active]);
+
 	const enabledPlugins = snapshot.plugins.filter(plugin => plugin.info.enabled);
 	const activePluginId = active.startsWith("plugin:") ? active.slice("plugin:".length) : null;
 	const activePlugin = enabledPlugins.find(plugin => plugin.info.id === activePluginId);
@@ -438,94 +448,118 @@ export function SettingsDialogBody({
 							{error}
 						</p>
 					)}
-					{active === "account" ? <AccountSection /> : selected === "plugins" || selected === "core-plugins" ? <PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => setActive(`plugin:${pluginId}`)} />
-						: activePlugin ? <PluginSettingsPage key={`${activePlugin.info.id}/${activePlugin.info.revision}`} plugin={activePlugin} />
-							: activePluginId !== null ? <p role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading plugins…</p>
-								: record === undefined ? (
-						<p className="px-6 py-5 text-xs text-muted-foreground/70">
-							Loading settings…
-						</p>
+					{visitedSections.has("account") && (
+						<div className={active === "account" ? "block" : "hidden"}>
+							<AccountSection />
+						</div>
+					)}
+					{selected === "plugins" || selected === "core-plugins" ? (
+						<PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => setActive(`plugin:${pluginId}`)} />
+					) : activePlugin ? (
+						<PluginSettingsPage key={`${activePlugin.info.id}/${activePlugin.info.revision}`} plugin={activePlugin} />
+					) : activePluginId !== null ? (
+						<p role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading plugins…</p>
+					) : record === undefined ? (
+						active !== "account" && (
+							<p className="px-6 py-5 text-xs text-muted-foreground/70">
+								Loading settings…
+							</p>
+						)
 					) : record === null ? (
-						<p className="px-6 py-5 text-xs text-muted-foreground/70">
-							Settings could not be loaded — refresh to retry.
-						</p>
+						active !== "account" && (
+							<p className="px-6 py-5 text-xs text-muted-foreground/70">
+								Settings could not be loaded — refresh to retry.
+							</p>
+						)
 					) : (
-						<div>
-							{active === "general" && (
-								<SettingsSection
-									title="General"
-									testid="section-general"
-								>
-									<UpdateSettings
-										autoUpdate={record.general?.autoUpdate ?? true}
-										onAutoUpdateChange={(on) =>
-											void write("general", { ...record.general, autoUpdate: on })
-										}
-									/>
-								</SettingsSection>
+						<div className={active !== "account" ? "block" : "hidden"}>
+							{visitedSections.has("general") && (
+								<div className={active === "general" ? "block" : "hidden"}>
+									<SettingsSection
+										title="General"
+										testid="section-general"
+									>
+										<UpdateSettings
+											autoUpdate={record.general?.autoUpdate ?? true}
+											onAutoUpdateChange={(on) =>
+												void write("general", { ...record.general, autoUpdate: on })
+											}
+										/>
+									</SettingsSection>
+								</div>
 							)}
-							{active === "keys" && (
-								<SettingsSection title="Providers" testid="section-keys">
-									<KeysSection initialRow={initialRow ?? undefined} />
-								</SettingsSection>
+							{visitedSections.has("keys") && (
+								<div className={active === "keys" ? "block" : "hidden"}>
+									<SettingsSection title="Providers" testid="section-keys">
+										<KeysSection initialRow={initialRow ?? undefined} />
+									</SettingsSection>
+								</div>
 							)}
-							{active === "agent" && (
-								<SettingsSection
-									title="Agent"
-									testid="section-agent"
-								>
-									<AgentSection
-										agent={record.agent}
-										fileAccessError={fileAccessError}
-										models={record.models}
-										graph={record.graph}
-										compaction={record.compaction}
-										onModelsChange={(next: ModelsSettings) =>
-											void write("models", next)
-										}
-										onSectionChange={(next: AgentSettings) =>
-											write("agent", next)
-										}
-										onCompactionChange={(next: CompactionSettings) =>
-											write("compaction", next)
-										}
-									/>
-								</SettingsSection>
+							{visitedSections.has("agent") && (
+								<div className={active === "agent" ? "block" : "hidden"}>
+									<SettingsSection
+										title="Agent"
+										testid="section-agent"
+									>
+										<AgentSection
+											agent={record.agent}
+											fileAccessError={fileAccessError}
+											models={record.models}
+											graph={record.graph}
+											compaction={record.compaction}
+											onModelsChange={(next: ModelsSettings) =>
+												void write("models", next)
+											}
+											onSectionChange={(next: AgentSettings) =>
+												write("agent", next)
+											}
+											onCompactionChange={(next: CompactionSettings) =>
+												write("compaction", next)
+											}
+										/>
+									</SettingsSection>
+								</div>
 							)}
-							{active === "appearance" && (
-								<SettingsSection
-									title="Appearance"
-									testid="section-appearance"
-								>
-									<AppearanceSection
-										appearance={record.appearance}
-										onSectionChange={(next: AppearanceSettings) =>
-											write("appearance", next)
-										}
-									/>
-								</SettingsSection>
+							{visitedSections.has("appearance") && (
+								<div className={active === "appearance" ? "block" : "hidden"}>
+									<SettingsSection
+										title="Appearance"
+										testid="section-appearance"
+									>
+										<AppearanceSection
+											appearance={record.appearance}
+											onSectionChange={(next: AppearanceSettings) =>
+												write("appearance", next)
+											}
+										/>
+									</SettingsSection>
+								</div>
 							)}
-							{active === "graph" && (
-								<SettingsSection
-									title="Graph"
-									testid="section-graph"
-								>
-									<GraphSection
-										graph={record.graph}
-										onSectionChange={(next: GraphSettings) =>
-											write("graph", next)
-										}
-									/>
-								</SettingsSection>
+							{visitedSections.has("graph") && (
+								<div className={active === "graph" ? "block" : "hidden"}>
+									<SettingsSection
+										title="Graph"
+										testid="section-graph"
+									>
+										<GraphSection
+											graph={record.graph}
+											onSectionChange={(next: GraphSettings) =>
+												write("graph", next)
+											}
+										/>
+									</SettingsSection>
+								</div>
 							)}
-							{active === "keyboard" && (
-								<SettingsSection
-									title="Keyboard"
-									hint="Stored on this device"
-									testid="section-keyboard"
-								>
-									<KeyboardSection />
-								</SettingsSection>
+							{visitedSections.has("keyboard") && (
+								<div className={active === "keyboard" ? "block" : "hidden"}>
+									<SettingsSection
+										title="Keyboard"
+										hint="Stored on this device"
+										testid="section-keyboard"
+									>
+										<KeyboardSection />
+									</SettingsSection>
+								</div>
 							)}
 						</div>
 					)}

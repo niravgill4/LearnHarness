@@ -1,6 +1,6 @@
 import { NATIVE_SUBSCRIPTIONS } from "../core/contracts/subscriptions.ts";
 import { subscriptionRequestOrigin } from "./desktop-access.ts";
-import { webSubscriptionOwner, webSubscriptionsEnabled, webSubscriptionStatus } from "./web-subscriptions.ts";
+import { webSubscriptionOwner, webSubscriptionsEnabled, webSubscriptionStatus, getUserWebSubscriptionOwner, emptySubscriptionStatus } from "./web-subscriptions.ts";
 
 // Lives in desktop-access.ts so proxy.ts can share it without loading the
 // subscription runtime; re-exported for existing callers.
@@ -19,8 +19,30 @@ export async function subscriptionControlsResponse(request: Request): Promise<Re
 	if (!webSubscriptionsEnabled()) return error("Web subscription controls are unavailable in desktop-owned mode.", 404);
 	if (!authorized(request)) return error("Subscription controls require a same-origin Cognera request.", 403);
 	try {
-		if (request.method === "GET") return Response.json(await webSubscriptionStatus(), { headers: HEADERS });
+		let client = null;
+		try {
+			const { createClient } = await import("@/lib/supabase/server");
+			client = await createClient();
+		} catch {
+			client = null;
+		}
+
+		const user = client ? (await client.auth.getUser().catch(() => ({ data: { user: null } }))).data.user : null;
+		const owner = user && client
+			? getUserWebSubscriptionOwner(user.id, client)
+			: !client
+				? webSubscriptionOwner()
+				: null;
+
+		if (request.method === "GET") {
+			if (!owner) {
+				return Response.json(emptySubscriptionStatus(), { headers: HEADERS });
+			}
+			const [chatgpt, native] = await Promise.all([owner.chatgpt.status(), owner.native.status()]);
+			return Response.json({ chatgpt, native }, { headers: HEADERS });
+		}
 		if (request.method !== "POST") return error("Unsupported method.", 405);
+		if (!owner) return error("Sign in to manage connections.", 401);
 		if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json") return error("Expected JSON.", 415);
 		// Bound both advertised and streamed input before parsing commands.
 		if (Number(request.headers.get("content-length")) > 16384) return error("Request too large.", 413);
@@ -42,7 +64,7 @@ export async function subscriptionControlsResponse(request: Request): Promise<Re
 		if (providerId !== "chatgpt" && !NATIVE_SUBSCRIPTIONS.some((provider) => provider.providerId === providerId)) return error("Unsupported connection.", 400);
 		const allowed = providerId === "chatgpt" ? ["login", "cancel", "select", "disconnect", "logout", "consent"] : ["login", "cancel", "respond", "open", "retry", "disconnect", "consent"];
 		if (typeof fields.op !== "string" || !allowed.includes(fields.op)) return error("Unsupported control.", 400);
-		return Response.json(await webSubscriptionOwner().control(providerId as string, fields, subscriptionRequestOrigin(request)!), { headers: HEADERS });
+		return Response.json(await owner.control(providerId as string, fields, subscriptionRequestOrigin(request)!), { headers: HEADERS });
 	} catch {
 		return error("The subscription connection could not be changed. Retry or reconnect in Providers.", 400);
 	}
@@ -55,7 +77,16 @@ export async function subscriptionBrowserResponse(request: Request): Promise<Res
 	if (!origin || (request.method === "POST" ? !authorized(request) : request.headers.get("sec-fetch-site") !== "same-origin")) return error("Open sign-in from Cognera.", 403);
 	const id = new URL(request.url).searchParams.get("id");
 	if (!id || !/^[0-9a-f-]{36}$/.test(id)) return error("This sign-in action is no longer available.", 410);
-	const target = await webSubscriptionOwner().takeBrowserAction(id, origin);
+	let client = null;
+	try {
+		const { createClient } = await import("@/lib/supabase/server");
+		client = await createClient();
+	} catch {
+		client = null;
+	}
+	const user = client ? (await client.auth.getUser().catch(() => ({ data: { user: null } }))).data.user : null;
+	const owner = user && client ? getUserWebSubscriptionOwner(user.id, client) : webSubscriptionOwner();
+	const target = await owner.takeBrowserAction(id, origin);
 	if (!target) return error("This sign-in action is no longer available.", 410);
 	return new Response(null, { status: 303, headers: { ...HEADERS, Location: target } });
 }

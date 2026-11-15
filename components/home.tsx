@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SurfaceRegion, usePageSurfaceBoundary, useSurfaceChromeStyle } from "./plugin-surfaces";
 import { DumbbellIcon } from "lucide-react";
+import { type AttachedImage } from "@/lib/file-attachments";
 import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
 import { SetupDialog } from "@/components/setup-dialog";
@@ -104,6 +105,7 @@ export function Home({
 	const [mode, setMode] = useState<"teach" | "practice">("teach");
 	const [practiceProps, setPracticeProps] = useState<{ id: string; name: string; statement: string }[]>([]);
 	const [chainSelectOpen, setChainSelectOpen] = useState(false);
+	const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
 	// The chain table is CONTROLLED off this id set (the lifted pick).
 	const pickedIds = useMemo(() => new Set(practiceProps.map((p) => p.id)), [practiceProps]);
 
@@ -120,7 +122,7 @@ export function Home({
 		void dictation.finish().then(() => begin());
 	};
 	const begin = async () => {
-		const t = topicRef.current.trim();
+		const t = topicRef.current.trim() || (attachedImages.length > 0 ? `Study: ${attachedImages[0].name}` : "");
 		if (!t || startingRef.current) return;
 		// Unconfigured: the send INTERCEPTS into the setup flow (the draft
 		// stays in the textarea; the learner sends it after Save).
@@ -258,11 +260,13 @@ export function Home({
                             onChange={(value) => { topicRef.current = value; setTopic(value); }}
                             onSend={() => { void start(); }}
                             onStop={() => {}}
-                            canSend={!!topic.trim() || dictation.active}
+                            canSend={!!topic.trim() || dictation.active || attachedImages.length > 0}
                             inputRef={topicInputRef}
                             onEscape={dictation.active ? dictation.cancel : undefined}
                             sendLabel="Start session"
                             placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
+                            attachedImages={attachedImages}
+                            onAttachedImagesChange={setAttachedImages}
                             toolbar={
 					<StatsBar
 						dictationSlot={<DictationBar dictation={dictation} />}
