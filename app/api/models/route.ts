@@ -12,8 +12,8 @@ export async function GET() {
 	const supabase = await createClient();
 	if (supabase) {
 		const { data: { user } } = await supabase.auth.getUser();
-		let userKeys: Record<string, string> = {};
 		if (user) {
+			let userKeys: Record<string, string> = {};
 			const { data: profile } = await supabase
 				.from("profiles")
 				.select("encrypted_keys")
@@ -22,11 +22,11 @@ export async function GET() {
 			if (profile?.encrypted_keys) {
 				userKeys = readProfileKeys(profile.encrypted_keys);
 			}
+			return userAuthStorage.run({ userId: user.id, keys: userKeys }, async () => {
+				await refreshConnectionCatalog();
+				return Response.json(modelCatalog(), { headers: { "Cache-Control": "no-store" } });
+			});
 		}
-		return userAuthStorage.run({ userId: user?.id ?? "", keys: userKeys }, async () => {
-			await refreshConnectionCatalog();
-			return Response.json(modelCatalog(), { headers: { "Cache-Control": "no-store" } });
-		});
 	}
 	await refreshConnectionCatalog();
 	return Response.json(modelCatalog(), { headers: { "Cache-Control": "no-store" } });

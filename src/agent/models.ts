@@ -114,17 +114,32 @@ export function piModels() {
 
 		const origGetModels = collection.getModels.bind(collection);
 		collection.getModels = ((provider?: string) => {
-			if (provider === "anthropic") return REAL_ANTHROPIC_MODELS as any;
-			if (provider === "google") return REAL_GOOGLE_MODELS as any;
 			const list = origGetModels(provider);
-			return list.filter((m: any) => !isFakeModel(m.id, m.name));
+			const extra = provider === "anthropic"
+				? REAL_ANTHROPIC_MODELS
+				: provider === "google"
+					? REAL_GOOGLE_MODELS
+					: [];
+			const map = new Map<string, any>();
+			for (const m of [...list, ...extra]) {
+				if (!isFakeModel(m.id, m.name) && !map.has(m.id)) {
+					map.set(m.id, m);
+				}
+			}
+			return Array.from(map.values());
 		}) as any;
 
 		const origGetModel = collection.getModel.bind(collection);
 		collection.getModel = ((provider: string, id: string) => {
 			const targetId = isFakeModel(id) ? healFakeModel(provider, id) : id;
-			if (provider === "anthropic") return REAL_ANTHROPIC_MODELS.find(m => m.id === targetId) as any;
-			if (provider === "google") return REAL_GOOGLE_MODELS.find(m => m.id === targetId) as any;
+			if (provider === "anthropic") {
+				const found = REAL_ANTHROPIC_MODELS.find(m => m.id === targetId);
+				if (found) return found as any;
+			}
+			if (provider === "google") {
+				const found = REAL_GOOGLE_MODELS.find(m => m.id === targetId);
+				if (found) return found as any;
+			}
 			const model = origGetModel(provider, targetId);
 			if (model && isFakeModel(model.id, model.name)) return undefined;
 			return model;

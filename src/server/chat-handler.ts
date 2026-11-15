@@ -32,6 +32,7 @@ import { setFileAccessPolicy } from "../agent/tools/file-access.ts";
 import { fileAccessPolicy } from "./file-access.ts";
 import { collectToolCallIds } from "./pi/call-ids.ts";
 import { providerEventNote } from "../agent/provider-events.ts";
+import { getActiveUserSettings } from "./user-auth-context.ts";
 import { effectiveSettings, stores } from "./stores.ts";
 import { getPluginAgentContributions, getPluginHost } from "./plugins.ts";
 import { preparePluginQuestionSubmission, reconcilePluginQuestionCompatibility, type QuestionTypeResolver } from "./plugin-questions.ts";
@@ -164,14 +165,16 @@ setTurnRunner(async (chatId, input) => {
  *  flows through to the per-need refusal gates (runner/extraction), read
  *  FRESH so a settings PUT between dispatch and spawn lands. */
 function resolveEngine(role: ModelRole): PiEngine | undefined {
-	const spec = resolveRoleSpec(role, stores.settingsStore.readSettings());
+	const userSettings = getActiveUserSettings();
+	const settings = userSettings ?? stores.settingsStore.readSettings();
+	const spec = resolveRoleSpec(role, settings);
 	return spec ? piEngineForSpec(spec, true, undefined, retentionForSlot(ROLE_SLOT[role])) : undefined;
 }
 
 /** Slot policy is independent of model overrides. Read fresh per operation,
  * including parked conversations, background loops and compaction. */
 function retentionForSlot(slot: ModelSlotName) {
-	return () => stores.settingsStore.readSettings()?.models?.[slot]?.cacheRetention;
+	return () => (getActiveUserSettings() ?? stores.settingsStore.readSettings())?.models?.[slot]?.cacheRetention;
 }
 
 setJobRespawn((jobId) => void jobRunner.runJob(jobId));

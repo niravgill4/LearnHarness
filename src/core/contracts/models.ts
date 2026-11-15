@@ -74,29 +74,36 @@ export interface CatalogProvider {
 	keyPresent: boolean;
 }
 
-/** Identifies fictional/speculative models (e.g. speculative GPT-6, GPT-5, Claude-5, Gemini-4 models). */
+/** Identifies typo / hallucinated models (e.g. gpt-6-tera with one 'r', 5.6-astra). */
 export function isFakeModel(id: string, name?: string): boolean {
 	const text = `${id} ${name ?? ""}`.toLowerCase();
-	// Speculative GPT models
-	if (/\bgpt-(?:5|6|4\.1|daybreak)/i.test(text)) return true;
-	if (/(?:terra|tera|sol|luna|astra)/i.test(text)) return true;
-	if (/\bo4-|\bo3-pro\b/i.test(text)) return true;
-	// Speculative Claude models
-	if (/claude-(?:fable|.*[45]-[0-9]|.*-5$)/i.test(text)) return true;
-	// Speculative Gemini/Google models
-	if (/gemini-(?:3|4|2\.5)|gemma-4|deep-research/i.test(text)) return true;
+	// Typo single-'r' variants of terra
+	if (/\bgpt-(?:5\.6|6)-tera\b/i.test(text)) return true;
+	// Non-existent astra for 5.6 (astra is only for 6)
+	if (/\b(?:gpt-)?5\.6-astra\b/i.test(text)) return true;
+	if (/\bclaude-fable\b/i.test(text)) return true;
 	return false;
 }
 
-/** Heals any historical or legacy fake model ID into a real, verified model ID. */
+/** Heals any historical or legacy typo/fake model ID into a real model ID. */
 export function healFakeModel(provider: string, id: string, slot?: "strong" | "cheap" | "vision"): string {
 	if (!isFakeModel(id)) return id;
+	const text = id.toLowerCase();
+	if (/\bgpt-6-tera\b/i.test(text)) {
+		return "gpt-6-astra";
+	}
+	if (/\bgpt-5\.6-tera\b/i.test(text)) {
+		return "gpt-5.6-terra";
+	}
+	if (/\b(?:gpt-)?5\.6-astra\b/i.test(text)) {
+		return "gpt-6-astra";
+	}
 	if (provider === "chatgpt") {
-		if (slot === "cheap" || /mini|flash|tera/i.test(id)) return "chatgpt-4o-mini";
-		return "chatgpt-4o";
+		if (slot === "cheap") return "chatgpt-4o-mini";
+		return "gpt-6.1-sol";
 	}
 	if (provider === "openai") {
-		if (slot === "cheap" || /mini|flash|tera/i.test(id)) return "gpt-4o-mini";
+		if (slot === "cheap") return "gpt-4o-mini";
 		return "gpt-4o";
 	}
 	if (provider === "claude-code") {

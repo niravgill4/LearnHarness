@@ -20,7 +20,7 @@
  * healthy. The dock's chips + graph refetch track progress live through
  * /api/graph/status, as with session runs.
  */
-import { convertPdf, extraction, joinPages, NotesImportError, sourceDirectory } from "@/src/server";
+import { convertPdf, extraction, joinPages, NotesImportError, settingsStore, sourceDirectory, userAuthStorage } from "@/src/server";
 import { IMPORT_EXTENSIONS, MAX_IMPORT_BODY_BYTES, MAX_IMPORT_BYTES, UNSUPPORTED_TYPE_MESSAGE, validNotesPath } from "@/lib/notes-import-limits.ts";
 import { FormBodyLimitError, readBoundedFormData } from "@/lib/bounded-form-data.ts";
 import {
@@ -29,7 +29,12 @@ import {
 	PROVIDER_KEY_MISSING_CODE,
 	ProviderKeyMissingError,
 	type EmissionStats,
+	type ModelsSettings,
+	type UserSettings,
 } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
+import { readProfileKeys } from "@/lib/supabase/profile-keys";
+import { profileModelSlots } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -111,36 +116,72 @@ export async function POST(request: Request) {
 	}
 	const results: ImportResult[] = [];
 	const queue = files.map((file, requestIndex) => ({ file, requestIndex, filePath: paths[requestIndex]! }));
-	const workers = Array.from({ length: Math.min(3, files.length) }, async () => {
-		for (;;) {
-			const next = queue.shift();
-			if (!next) return;
-			const { file, requestIndex, filePath } = next;
-			try {
-				const notes = await readNotesFile(file);
-				if (notes.kind === "refused") {
-					results.push({ filePath, requestIndex, outcome: "failed", ok: false, error: notes.error });
-					continue;
-				}
-				sourceDirectory.registerImport(filePath);
-				const stats = await extraction.importNotes({ filePath, text: notes.text });
-				results.push({ filePath, requestIndex, outcome: "completed", ok: true, stats, ...(notes.notice ? { notice: notes.notice } : {}) });
-			} catch (err) {
-				if (err instanceof ModelsNotConfiguredError) {
-					results.push({ filePath, ok: false, requestIndex, outcome: "failed", error: err.envelope.error,
-						code: "models_not_configured", missing: err.envelope.missing });
-				} else if (err instanceof ProviderKeyMissingError) {
-					results.push({ filePath, ok: false, requestIndex, outcome: "failed", error: err.envelope.error,
-						code: PROVIDER_KEY_MISSING_CODE, provider: err.envelope.provider, slots: err.envelope.slots });
-				} else {
-					results.push({ filePath, requestIndex, ok: false,
-						outcome: err instanceof NotesImportError ? err.outcome : "failed",
-						...(err instanceof NotesImportError ? { stats: err.partialStats } : {}),
-						error: err instanceof Error ? err.message : String(err) });
-				}
-			} finally { emit("sources-changed", {}); }
+	
+	const supabase = await createClient();
+	let userId = "";
+	let userKeys: Record<string, string> = {};
+	let userSettings: UserSettings | undefined;
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (user) {
+			userId = user.id;
+			const { data: profile } = await supabase
+				.from("profiles")
+				.select("encrypted_keys, model_settings")
+				.eq("id", user.id)
+				.single();
+			if (profile?.encrypted_keys) {
+				userKeys = readProfileKeys(profile.encrypted_keys);
+			}
+			if (profile?.model_settings) {
+				const baseSettings = settingsStore.readSettings() ?? { version: 1 };
+				userSettings = {
+					...baseSettings,
+					version: baseSettings.version ?? 1,
+					models: profileModelSlots(profile.model_settings) as ModelsSettings,
+				};
+			}
 		}
-	});
-	await Promise.all(workers);
+	}
+
+	const runWorkers = async () => {
+		const workers = Array.from({ length: Math.min(3, files.length) }, async () => {
+			for (;;) {
+				const next = queue.shift();
+				if (!next) return;
+				const { file, requestIndex, filePath } = next;
+				try {
+					const notes = await readNotesFile(file);
+					if (notes.kind === "refused") {
+						results.push({ filePath, requestIndex, outcome: "failed", ok: false, error: notes.error });
+						continue;
+					}
+					sourceDirectory.registerImport(filePath);
+					const stats = await extraction.importNotes({ filePath, text: notes.text });
+					results.push({ filePath, requestIndex, outcome: "completed", ok: true, stats, ...(notes.notice ? { notice: notes.notice } : {}) });
+				} catch (err) {
+					if (err instanceof ModelsNotConfiguredError) {
+						results.push({ filePath, ok: false, requestIndex, outcome: "failed", error: err.envelope.error,
+							code: "models_not_configured", missing: err.envelope.missing });
+					} else if (err instanceof ProviderKeyMissingError) {
+						results.push({ filePath, ok: false, requestIndex, outcome: "failed", error: err.envelope.error,
+							code: PROVIDER_KEY_MISSING_CODE, provider: err.envelope.provider, slots: err.envelope.slots });
+					} else {
+						results.push({ filePath, requestIndex, ok: false,
+							outcome: err instanceof NotesImportError ? err.outcome : "failed",
+							...(err instanceof NotesImportError ? { stats: err.partialStats } : {}),
+							error: err instanceof Error ? err.message : String(err) });
+					}
+				} finally { emit("sources-changed", {}); }
+			}
+		});
+		await Promise.all(workers);
+	};
+
+	if (userId) {
+		await userAuthStorage.run({ userId, keys: userKeys, settings: userSettings }, runWorkers);
+	} else {
+		await runWorkers();
+	}
 	return Response.json({ results });
 }
