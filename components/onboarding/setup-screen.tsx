@@ -10,6 +10,38 @@ import { useChatGPTUI, ChatGPTConnection } from "@/components/settings/chatgpt-c
 import { SubscriptionConnections } from "@/components/settings/subscription-connections";
 import { ClaudeCodeInstallationStatus } from "@/components/settings/claude-code-status";
 
+export function recommendSlotsForProvider(
+	_provider: string,
+	availableModels: { id: string; name: string; vision: boolean }[]
+): Record<"strong" | "cheap" | "vision", string> {
+	if (!availableModels.length) return { strong: "", cheap: "", vision: "" };
+	const strong = availableModels.find(m => /sol|sonnet|opus|o1|pro|gpt-4o(?!-mini)/i.test(m.name || m.id)) ?? availableModels[0];
+	const cheap = availableModels.find(m => m.id !== strong?.id && /tera|terra|haiku|mini|flash/i.test(m.name || m.id))
+		?? availableModels.find(m => /tera|terra|haiku|mini|flash/i.test(m.name || m.id))
+		?? availableModels[1]
+		?? availableModels[0];
+	const vision = availableModels.find(m => m.vision && (m.id === strong?.id || /astra|sol|sonnet|gpt-4o|flash|pro/i.test(m.name || m.id)))
+		?? availableModels.find(m => m.vision)
+		?? availableModels[0];
+
+	return {
+		strong: strong?.id ?? "",
+		cheap: cheap?.id ?? "",
+		vision: vision?.id ?? "",
+	};
+}
+
+export function isModelRecommended(
+	model: { id: string; name: string; vision: boolean },
+	slot: "strong" | "cheap" | "vision"
+): boolean {
+	const n = (model.name + " " + model.id).toLowerCase();
+	if (slot === "strong") return /sol|sonnet|opus|o1|pro|gpt-4o(?!-mini)/i.test(n);
+	if (slot === "cheap") return /tera|terra|haiku|mini|flash/i.test(n);
+	if (slot === "vision") return model.vision && /astra|sol|sonnet|gpt-4o|flash|pro/i.test(n);
+	return false;
+}
+
 async function setupRequest(body?: unknown, signal?: AbortSignal): Promise<SetupSnapshot & { saved?: boolean }> {
 	const response = await fetch("/api/onboarding", { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal });
 	const result = await response.json();
@@ -54,8 +86,16 @@ export function SetupScreen() {
 				const firstConnected = (result.setup?.provider && result.connected.includes(result.setup.provider) ? result.setup.provider : result.connected[0]) as OnboardingProvider;
 				setProvider(firstConnected);
 				const availableModels = result.models.filter(m => m.provider === firstConnected);
-				if (result.setup?.provider === firstConnected && result.setup.slots) setSlots(result.setup.slots);
-				else if (availableModels[0]) setSlots({ strong: availableModels[0].id, cheap: "", vision: "" });
+				const recs = recommendSlotsForProvider(firstConnected, availableModels);
+				if (result.setup?.provider === firstConnected && result.setup.slots) {
+					setSlots({
+						strong: result.setup.slots.strong || recs.strong,
+						cheap: result.setup.slots.cheap || recs.cheap,
+						vision: result.setup.slots.vision || recs.vision,
+					});
+				} else {
+					setSlots(recs);
+				}
 				setStep(2);
 			}
 		}).catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Your setup could not be loaded."); });
@@ -85,21 +125,21 @@ export function SetupScreen() {
 				await setupRequest({ action: "connect", provider });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
+				setSlots(recommendSlotsForProvider(provider, targetModels));
 				setStep(2);
 			} else if (key.trim()) {
 				await setupRequest({ action: "connect", provider, key: key.trim() });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
+				setSlots(recommendSlotsForProvider(provider, targetModels));
 				setStep(2);
 			} else if (!alreadyConnected) {
 				throw new Error("Enter your provider API key to continue.");
 			} else {
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-					if (targetModels[0]) setSlots({ strong: targetModels[0].id, cheap: "", vision: "" });
+				setSlots(recommendSlotsForProvider(provider, targetModels));
 				setStep(2);
 			}
 		} catch (cause) {
@@ -170,7 +210,12 @@ export function SetupScreen() {
 							<CheckIcon className="inline-block w-4 h-4 mr-1 text-emerald-400" />
 							Connected to <strong>{activeChatgptAccount?.email || "ChatGPT"}</strong>. You can now proceed to model selection.
 						</p>
-						<button type="button" className="onboarding-primary mt-3" onClick={() => { setProvider("chatgpt"); setSlots({ strong: "", cheap: "", vision: "" }); setStep(2); }}>
+						<button type="button" className="onboarding-primary mt-3" onClick={() => {
+							setProvider("chatgpt");
+							const targetModels = snapshot?.models.filter(m => m.provider === "chatgpt") ?? [];
+							setSlots(recommendSlotsForProvider("chatgpt", targetModels));
+							setStep(2);
+						}}>
 							Choose your ChatGPT models <ArrowRightIcon />
 						</button>
 					</div>
@@ -219,7 +264,15 @@ export function SetupScreen() {
 						<button key={model.id} type="button" aria-pressed={slots[activeSlot] === model.id} onClick={() => { setSlots(previous => ({ ...previous, [activeSlot]: model.id })); if (activeSlot === "strong") setActiveSlot("cheap"); else if (activeSlot === "cheap") setActiveSlot("vision"); setSearch(""); }}>
 							<span className="onboarding-model-identity">
 								<ProviderLogo provider={model.id + " " + model.name + " " + model.provider} />
-								<span><strong>{model.name}</strong><small>{model.vision ? "Text and images" : "Text"}</small></span>
+								<span>
+									<strong>
+										{model.name}
+										{isModelRecommended(model, activeSlot) && (
+											<span className="onboarding-model-badge">Recommended</span>
+										)}
+									</strong>
+									<small>{model.vision ? "Text and images" : "Text"}</small>
+								</span>
 							</span>
 							<span className="onboarding-choice-dot">{slots[activeSlot] === model.id && <CheckIcon />}</span>
 						</button>

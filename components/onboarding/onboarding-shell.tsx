@@ -37,6 +37,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 				<div className="onboarding-thought"><span className="onboarding-thought-mark" aria-hidden="true"><MoveUpRightIcon /></span><p key={step}>{content.thought}</p><span className="onboarding-thought-dots" aria-hidden="true">{story.map((_, i) => <i key={i} data-active={step === i} />)}</span></div>
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
+			<div ref={neuralCanopy} className="onboarding-neural-canopy" aria-hidden="true" />
 			<section className="onboarding-form-area" aria-label="Set up your workspace">
 				<LayoutGroup id="cognera-onboarding-progress"><nav aria-label="Setup progress" className="onboarding-progress"><ol>{stages.map((label, index) => <li key={label} aria-current={current === index ? "step" : undefined} data-complete={current > index}>
 					{current === index && <motion.span className="onboarding-progress-selection" layoutId="current-step" transition={reduced ? { type: "tween", duration: 0 } : { type: "spring", stiffness: 450, damping: 30 }} />}
@@ -46,7 +47,6 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 				<div className="onboarding-bottom"><p className="onboarding-footnote">Good things start with a question.</p><span aria-hidden="true">{step + 1} / 4</span></div>
 				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (step + 1) / 4 }} transition={{ duration: reduced ? 0 : .25, ease }} /></div>
 			</section>
-			<div ref={neuralCanopy} className="onboarding-neural-canopy" aria-hidden="true" />
 		</div>
 	</main></SceneContext.Provider>;
 }
