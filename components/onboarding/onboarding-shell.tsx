@@ -1,11 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, MoveUpRightIcon } from "lucide-react";
 import { CogneraMark } from "@/components/cognera-mark";
-import { NeuralField } from "@/components/neural-field";
+import { AsciiLandscape, LandscapeControls } from "@/components/ascii-landscape";
 import { useReducedMotionPreference } from "@/lib/use-reduced-motion";
 
 const story = [
@@ -20,7 +20,6 @@ const ease = [.22, 1, .36, 1] as const;
 
 export function OnboardingFrame({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
-	const neuralCanopy = useRef<HTMLDivElement>(null);
 	const [step, setStep] = useState(pathname === "/onboarding" ? 1 : 0);
 	const controller = useMemo(() => ({ setStep }), []);
 	const reduced = useReducedMotionPreference();
@@ -30,14 +29,15 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 		<a href="#onboarding-form" className="onboarding-skip">Skip to account setup</a>
 		<header className="onboarding-topline"><div className="onboarding-brand"><CogneraMark /><span>Cognera</span></div><span className="onboarding-topline-note">A space for your curious mind.</span><a className="onboarding-mobile-start" href="#onboarding-form">{step === 0 ? "Get started" : "Continue setup"}<ArrowRightIcon aria-hidden="true" /></a></header>
 		<div className="onboarding-layout">
+			<AsciiLandscape className="onboarding-landscape" />
 			<section className="onboarding-story" aria-label="Welcome to Cognera">
 				<div className="onboarding-story-backdrop" aria-hidden="true" />
 				<motion.div className="onboarding-story-copy" key={step} initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .22, ease }}><h1>{content.title}</h1><p>{content.description}</p></motion.div>
-				<div className="onboarding-art"><NeuralField phase={step} extensionRoot={neuralCanopy} /></div>
+				<div className="onboarding-art" aria-hidden="true" />
+				<LandscapeControls />
 				<div className="onboarding-thought"><span className="onboarding-thought-mark" aria-hidden="true"><MoveUpRightIcon /></span><p key={step}>{content.thought}</p><span className="onboarding-thought-dots" aria-hidden="true">{story.map((_, i) => <i key={i} data-active={step === i} />)}</span></div>
 				<div className="onboarding-story-footer"><span>Explore. Connect. Understand.</span><span>Entirely your journey.</span></div>
 			</section>
-			<div ref={neuralCanopy} className="onboarding-neural-canopy" aria-hidden="true" />
 			<section className="onboarding-form-area" aria-label="Set up your workspace">
 				<LayoutGroup id="cognera-onboarding-progress"><nav aria-label="Setup progress" className="onboarding-progress"><ol>{stages.map((label, index) => <li key={label} aria-current={current === index ? "step" : undefined} data-complete={current > index}>
 					{current === index && <motion.span className="onboarding-progress-selection" layoutId="current-step" transition={reduced ? { type: "tween", duration: 0 } : { type: "spring", stiffness: 450, damping: 30 }} />}
