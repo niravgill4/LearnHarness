@@ -26,6 +26,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ModelRole } from "../../config.ts";
 import type { ChatSettings } from "./contracts/chat.ts";
 import type { SearchEngineId } from "./search.ts";
+import { isFakeModel, healFakeModel } from "./contracts/models.ts";
 import {
 	BACKGROUND_MODEL_ROLES,
 	FACTORY_SETTINGS,
@@ -113,11 +114,12 @@ export function resolveConversationSpec(
 	chat: ChatSettings | undefined,
 	strong: EffectiveSlot | null,
 ): EffectiveModelSpec | null {
-	const model = chat?.model ?? (strong ? { provider: strong.provider, id: strong.id } : undefined);
-	if (!model) return null;
+	const rawModel = chat?.model ?? (strong ? { provider: strong.provider, id: strong.id } : undefined);
+	if (!rawModel) return null;
+	const id = isFakeModel(rawModel.id) ? healFakeModel(rawModel.provider, rawModel.id) : rawModel.id;
 	return {
-		provider: model.provider,
-		id: model.id,
+		provider: rawModel.provider,
+		id,
 		thinkingLevel: chat?.thinkingLevel ?? strong?.thinkingLevel,
 	};
 }
@@ -150,8 +152,9 @@ export function resolveRoleSpec(role: ModelRole, record: UserSettings | null): E
  *  to ride without the factory floor). */
 export function resolveSlot(slot: ModelSlot | undefined): EffectiveSlot | null {
 	if (!slot?.model) return null;
+	const id = isFakeModel(slot.model.id) ? healFakeModel(slot.model.provider, slot.model.id) : slot.model.id;
 	return {
-		provider: slot.model.provider, id: slot.model.id, thinkingLevel: slot.thinkingLevel,
+		provider: slot.model.provider, id, thinkingLevel: slot.thinkingLevel,
 		...(slot.cacheRetention !== undefined ? { cacheRetention: slot.cacheRetention } : {}),
 	};
 }
@@ -169,11 +172,12 @@ export function resolveModelSpec(
 ): EffectiveModelSpec | undefined {
 	const slotName = ROLE_SLOT[role] as ModelSlotName | undefined;
 	const slot = slotName ? slots?.[slotName] : undefined;
-	const model = override?.model ?? slot?.model;
-	if (!model) return undefined;
+	const rawModel = override?.model ?? slot?.model;
+	if (!rawModel) return undefined;
+	const id = isFakeModel(rawModel.id) ? healFakeModel(rawModel.provider, rawModel.id) : rawModel.id;
 	return {
-		provider: model.provider,
-		id: model.id,
+		provider: rawModel.provider,
+		id,
 		thinkingLevel: override?.thinkingLevel ?? slot?.thinkingLevel,
 	};
 }

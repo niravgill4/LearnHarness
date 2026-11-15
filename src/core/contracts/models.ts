@@ -73,3 +73,43 @@ export interface CatalogProvider {
 	 * Custom keyless connections can be available without an API key. */
 	keyPresent: boolean;
 }
+
+/** Identifies fictional/speculative models (e.g. speculative GPT-6, GPT-5, Claude-5, Gemini-4 models). */
+export function isFakeModel(id: string, name?: string): boolean {
+	const text = `${id} ${name ?? ""}`.toLowerCase();
+	// Speculative GPT models
+	if (/\bgpt-(?:5|6|4\.1|daybreak)/i.test(text)) return true;
+	if (/(?:terra|tera|sol|luna|astra)/i.test(text)) return true;
+	if (/\bo4-|\bo3-pro\b/i.test(text)) return true;
+	// Speculative Claude models
+	if (/claude-(?:fable|.*[45]-[0-9]|.*-5$)/i.test(text)) return true;
+	// Speculative Gemini/Google models
+	if (/gemini-(?:3|4|2\.5)|gemma-4|deep-research/i.test(text)) return true;
+	return false;
+}
+
+/** Heals any historical or legacy fake model ID into a real, verified model ID. */
+export function healFakeModel(provider: string, id: string, slot?: "strong" | "cheap" | "vision"): string {
+	if (!isFakeModel(id)) return id;
+	if (provider === "chatgpt") {
+		if (slot === "cheap" || /mini|flash|tera/i.test(id)) return "chatgpt-4o-mini";
+		return "chatgpt-4o";
+	}
+	if (provider === "openai") {
+		if (slot === "cheap" || /mini|flash|tera/i.test(id)) return "gpt-4o-mini";
+		return "gpt-4o";
+	}
+	if (provider === "claude-code") {
+		if (slot === "cheap") return "haiku";
+		return "sonnet";
+	}
+	if (provider === "anthropic") {
+		if (slot === "cheap") return "claude-3-5-haiku-20241022";
+		return "claude-3-7-sonnet-20250219";
+	}
+	if (provider === "google") {
+		if (slot === "cheap") return "gemini-2.0-flash-lite";
+		return "gemini-2.0-flash";
+	}
+	return "chatgpt-4o";
+}

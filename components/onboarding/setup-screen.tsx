@@ -15,12 +15,12 @@ export function recommendSlotsForProvider(
 	availableModels: { id: string; name: string; vision: boolean }[]
 ): Record<"strong" | "cheap" | "vision", string> {
 	if (!availableModels.length) return { strong: "", cheap: "", vision: "" };
-	const strong = availableModels.find(m => /sol|sonnet|opus|o1|pro|gpt-4o(?!-mini)/i.test(m.name || m.id)) ?? availableModels[0];
-	const cheap = availableModels.find(m => m.id !== strong?.id && /tera|terra|haiku|mini|flash/i.test(m.name || m.id))
-		?? availableModels.find(m => /tera|terra|haiku|mini|flash/i.test(m.name || m.id))
+	const strong = availableModels.find(m => /chatgpt-?4o(?!-mini)|gpt-?4o(?!-mini)|sonnet|opus|o1\b|pro|gpt-?4-turbo|claude-3-5/i.test(`${m.name} ${m.id}`)) ?? availableModels[0];
+	const cheap = availableModels.find(m => m.id !== strong?.id && /haiku|mini|flash|gpt-?3\.5/i.test(`${m.name} ${m.id}`))
+		?? availableModels.find(m => /haiku|mini|flash|gpt-?3\.5/i.test(`${m.name} ${m.id}`))
 		?? availableModels[1]
 		?? availableModels[0];
-	const vision = availableModels.find(m => m.vision && (m.id === strong?.id || /astra|sol|sonnet|gpt-4o|flash|pro/i.test(m.name || m.id)))
+	const vision = availableModels.find(m => m.vision && (m.id === strong?.id || /chatgpt-?4o|gpt-?4o|sonnet|opus|flash|pro/i.test(`${m.name} ${m.id}`)))
 		?? availableModels.find(m => m.vision)
 		?? availableModels[0];
 
@@ -36,9 +36,9 @@ export function isModelRecommended(
 	slot: "strong" | "cheap" | "vision"
 ): boolean {
 	const n = (model.name + " " + model.id).toLowerCase();
-	if (slot === "strong") return /sol|sonnet|opus|o1|pro|gpt-4o(?!-mini)/i.test(n);
-	if (slot === "cheap") return /tera|terra|haiku|mini|flash/i.test(n);
-	if (slot === "vision") return model.vision && /astra|sol|sonnet|gpt-4o|flash|pro/i.test(n);
+	if (slot === "strong") return /chatgpt-?4o(?!-mini)|gpt-?4o(?!-mini)|sonnet|opus|o1\b|pro|gpt-?4-turbo|claude-3-5/i.test(n);
+	if (slot === "cheap") return /haiku|mini|flash|gpt-?3\.5/i.test(n);
+	if (slot === "vision") return model.vision && /chatgpt-?4o|gpt-?4o|sonnet|opus|flash|pro/i.test(n);
 	return false;
 }
 

@@ -3,6 +3,7 @@ import { onWebSubscriptionPacket, webSubscriptionRequest, webSubscriptionsEnable
 import type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 import type { AdmissionScope, NoDispatchKind } from "./chatgpt-request-cycle.ts";
 import { getActiveUserKeys } from "../core/user-auth-context.ts";
+import { isFakeModel } from "../core/contracts/models.ts";
 export type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 export interface Stamp { epoch: number; authorityRevision: number; revision: number }
 interface StatusValue extends Stamp { status: ChatGPTStatus }
@@ -81,16 +82,12 @@ export function chatGPTRequest<T>(op: "status" | "models" | "lease", fields: Rec
  });
 }
 export const DEFAULT_CHATGPT_MODELS: Model<"openai-responses">[] = [
-	{ id: "gpt-6.1-sol", name: "GPT 6.1 Sol", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-	{ id: "gpt-6-sol", name: "GPT 6 Sol", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-	{ id: "gpt-5.6-tera", name: "GPT 5.6 Tera", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-	{ id: "gpt-5.6-terra", name: "GPT 5.6 Terra", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-	{ id: "gpt-6-tera", name: "GPT 6 Tera", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
-	{ id: "gpt-6-astra", name: "GPT 6 Astra", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "chatgpt-4o", name: "ChatGPT 4o", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "chatgpt-4o-mini", name: "ChatGPT 4o mini", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "chatgpt-4o-latest", name: "ChatGPT 4o Latest", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "o1", name: "o1", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 	{ id: "o3-mini", name: "o3-mini", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
+	{ id: "o1-mini", name: "o1-mini", provider: "chatgpt", api: "openai-responses", baseUrl: "https://api.openai.com/v1", reasoning: true, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384 },
 ];
 
 export function chatGPTStatus(): ChatGPTStatus { return bridge().status; }
@@ -115,8 +112,9 @@ export function chatGPTBackgroundAllowed(): boolean {
 }
 export function onChatGPTChange(listener: () => void): () => void { bridge().listeners.add(listener); return () => { bridge().listeners.delete(listener); }; }
 export function chatGPTModels(): Model<"openai-responses">[] {
-	if (bridge().models.length > 0) return bridge().models;
-	if (chatGPTConnected()) return DEFAULT_CHATGPT_MODELS;
+	const live = bridge().models.filter((m) => !isFakeModel(m.id, m.name));
+	if (live.length > 0) return live;
+	if (chatGPTConnected()) return DEFAULT_CHATGPT_MODELS.filter((m) => !isFakeModel(m.id, m.name));
 	return [];
 }
 export function chatGPTModel(id: string): Model<"openai-responses"> | undefined { return chatGPTModels().find((m) => m.id === id); }
@@ -189,7 +187,7 @@ export async function refreshChatGPTModels(supported: Model<"openai-responses">[
   acceptStatus(state, value);
   if (value.epoch !== state.stamp.epoch || value.authorityRevision !== state.stamp.authorityRevision || value.accountId !== state.status.activeId || !chatGPTConnected()) return;
   state.catalogAccount = value.accountId;
-  state.models = value.models.map((entry) => {
+  state.models = value.models.filter((entry) => !isFakeModel(entry.id, entry.name)).map((entry) => {
    const known = supported.find((m) => m.id === entry.id && m.api === "openai-responses");
    if (known) {
     return { ...known, provider: "chatgpt", name: entry.name, headers: undefined, samplingParams: undefined, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };

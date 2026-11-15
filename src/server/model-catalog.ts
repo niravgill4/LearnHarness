@@ -41,13 +41,14 @@ import { effectiveSettings } from "./stores.ts";
 import { keyValue } from "./keys.ts";
 import { getActiveUserKeys } from "./user-auth-context.ts";
 import type { ChatSettings } from "../core/contracts/chat.ts";
-import type {
-	CatalogDefaults,
-	CatalogProvider,
-	ModelCatalogEntry,
-	ModelCatalogResponse,
-	RolePins,
-	SlotPins,
+import {
+	isFakeModel,
+	type CatalogDefaults,
+	type CatalogProvider,
+	type ModelCatalogEntry,
+	type ModelCatalogResponse,
+	type RolePins,
+	type SlotPins,
 } from "../core/contracts/models.ts";
 import type { EffectiveModelSpec, EffectiveSlot } from "../core/settings-resolution.ts";
 import { AUTH_PROVIDER_KEYS, CUSTOM_PROVIDER } from "../core/auth-keys.ts";
@@ -235,9 +236,10 @@ export function modelCatalog(): ModelCatalogResponse {
 		.getProviders()
 		.filter((p) => keyed.has(p.id))
 		.flatMap((p) => piModels().getModels(p.id))
+		.filter((m) => !isFakeModel(m.id, m.name))
 		.map(toModelDto)
 		.sort((a, b) => (a.provider === b.provider ? a.id.localeCompare(b.id) : a.provider.localeCompare(b.provider)))
-		.concat([...chatGPTModels(), ...nativeSubscriptionModels()].map(toModelDto));
+		.concat([...chatGPTModels(), ...nativeSubscriptionModels()].filter((m) => !isFakeModel(m.id, m.name)).map(toModelDto));
 	return {
 		models,
 		defaults: catalogDefaults(),

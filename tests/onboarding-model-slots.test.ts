@@ -12,18 +12,18 @@ const models = [
 
 test("recommendSlotsForProvider picks strong, cheap, and vision models", () => {
 	const chatgptModels = [
-		{ id: "gpt-6-sol", name: "GPT 6 Sol", vision: true },
-		{ id: "gpt-6-astra", name: "GPT 6 Astra", vision: true },
-		{ id: "gpt-6-tera", name: "GPT 6 Tera", vision: true },
+		{ id: "chatgpt-4o", name: "ChatGPT 4o", vision: true },
+		{ id: "o1", name: "o1", vision: true },
+		{ id: "chatgpt-4o-mini", name: "ChatGPT 4o mini", vision: true },
 	];
 	const recs = recommendSlotsForProvider("chatgpt", chatgptModels);
-	assert.equal(recs.strong, "gpt-6-sol");
-	assert.equal(recs.cheap, "gpt-6-tera");
-	assert.ok(recs.vision === "gpt-6-astra" || recs.vision === "gpt-6-sol");
+	assert.equal(recs.strong, "chatgpt-4o");
+	assert.equal(recs.cheap, "chatgpt-4o-mini");
+	assert.ok(recs.vision === "chatgpt-4o" || recs.vision === "o1");
 
 	assert.equal(isModelRecommended(chatgptModels[0]!, "strong"), true);
 	assert.equal(isModelRecommended(chatgptModels[2]!, "cheap"), true);
-	assert.equal(isModelRecommended(chatgptModels[1]!, "vision"), true);
+	assert.equal(isModelRecommended(chatgptModels[0]!, "vision"), true);
 });
 
 test("onboarding needs all three choices and an image-capable vision model", () => {

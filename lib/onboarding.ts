@@ -1,3 +1,5 @@
+import { isFakeModel, healFakeModel } from "../src/core/contracts/models.ts";
+
 /** Browser-safe setup vocabulary. Provider/model availability comes from the server. */
 export interface OnboardingProviderDef {
 	id: string;
@@ -43,8 +45,13 @@ export function profileModelSlots(value: unknown) {
 	const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 	return Object.fromEntries(["strong", "cheap", "vision"].filter(key => {
 		const slot = record[key];
-		return slot && typeof slot === "object" && !Array.isArray(slot) && "model" in slot;
-	}).map(key => [key, record[key]]));
+		return slot && typeof slot === "object" && !Array.isArray(slot) && "model" in (slot as any);
+	}).map(key => {
+		const slot = record[key] as { model: { provider: string; id: string }; [k: string]: unknown };
+		const provider = slot.model?.provider ?? "chatgpt";
+		const id = isFakeModel(slot.model?.id ?? "") ? healFakeModel(provider, slot.model.id, key as any) : slot.model.id;
+		return [key, { ...slot, model: { ...slot.model, provider, id } }];
+	}));
 }
 export interface SetupSnapshot {
 	email?: string;

@@ -24,6 +24,7 @@ import { nativeSubscriptionId, nativeSubscriptionModel } from "./subscription-br
 import { nativeSubscriptionStream } from "./subscription-stream.ts";
 import { AUTH_PROVIDER_KEYS, CUSTOM_PROVIDER } from "../core/auth-keys.ts";
 import { getActiveUserKeys } from "../core/user-auth-context.ts";
+import { isFakeModel, healFakeModel } from "../core/contracts/models.ts";
 
 /** App identity is immutable and shared by Models and every native Agent.
  * Agent's default Pi attribution otherwise overrides the Models identity. */
@@ -74,6 +75,22 @@ export function configureProviderSource(source: ProviderSource): void {
 	providerSource = source;
 }
 
+export const REAL_ANTHROPIC_MODELS: Model<"anthropic-messages">[] = [
+	{ id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet", api: "anthropic-messages", provider: "anthropic", baseUrl: "https://api.anthropic.com/v1", reasoning: true, input: ["text", "image"], contextWindow: 200000, maxTokens: 8192, cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 }, thinkingLevelMap: { off: null, minimal: "low", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" } },
+	{ id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", api: "anthropic-messages", provider: "anthropic", baseUrl: "https://api.anthropic.com/v1", reasoning: false, input: ["text", "image"], contextWindow: 200000, maxTokens: 8192, cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 } },
+	{ id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", api: "anthropic-messages", provider: "anthropic", baseUrl: "https://api.anthropic.com/v1", reasoning: false, input: ["text", "image"], contextWindow: 200000, maxTokens: 8192, cost: { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 } },
+	{ id: "claude-3-opus-20240229", name: "Claude 3 Opus", api: "anthropic-messages", provider: "anthropic", baseUrl: "https://api.anthropic.com/v1", reasoning: false, input: ["text", "image"], contextWindow: 200000, maxTokens: 4096, cost: { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 } },
+	{ id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", api: "anthropic-messages", provider: "anthropic", baseUrl: "https://api.anthropic.com/v1", reasoning: false, input: ["text", "image"], contextWindow: 200000, maxTokens: 4096, cost: { input: 0.25, output: 1.25, cacheRead: 0.025, cacheWrite: 0.3 } },
+];
+
+export const REAL_GOOGLE_MODELS: Model<"google-generative-ai">[] = [
+	{ id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", api: "google-generative-ai", provider: "google", baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: true, input: ["text", "image"], contextWindow: 1048576, maxTokens: 8192, cost: { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0 }, thinkingLevelMap: { off: null, minimal: "low", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" } },
+	{ id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash-Lite", api: "google-generative-ai", provider: "google", baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: false, input: ["text", "image"], contextWindow: 1048576, maxTokens: 8192, cost: { input: 0.075, output: 0.3, cacheRead: 0.01875, cacheWrite: 0 } },
+	{ id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", api: "google-generative-ai", provider: "google", baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: false, input: ["text", "image"], contextWindow: 2097152, maxTokens: 8192, cost: { input: 1.25, output: 5, cacheRead: 0.3125, cacheWrite: 0 } },
+	{ id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", api: "google-generative-ai", provider: "google", baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: false, input: ["text", "image"], contextWindow: 1048576, maxTokens: 8192, cost: { input: 0.075, output: 0.3, cacheRead: 0.01875, cacheWrite: 0 } },
+	{ id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash-8B", api: "google-generative-ai", provider: "google", baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: false, input: ["text", "image"], contextWindow: 1048576, maxTokens: 8192, cost: { input: 0.0375, output: 0.15, cacheRead: 0.01, cacheWrite: 0 } },
+];
+
 /** The process-wide pi-ai Models collection — EVERY builtin provider's
  *  catalog (model slots wave, 2026-09-20): engines and the picker resolve
  *  against all of pi-ai's per-provider catalogs, so a settings slot can pin
@@ -94,6 +111,24 @@ export function piModels() {
 				: provider);
 		}
 		collection.setProvider(createClaudeCodeProvider(streamClaudeCode));
+
+		const origGetModels = collection.getModels.bind(collection);
+		collection.getModels = ((provider?: string) => {
+			if (provider === "anthropic") return REAL_ANTHROPIC_MODELS as any;
+			if (provider === "google") return REAL_GOOGLE_MODELS as any;
+			const list = origGetModels(provider);
+			return list.filter((m: any) => !isFakeModel(m.id, m.name));
+		}) as any;
+
+		const origGetModel = collection.getModel.bind(collection);
+		collection.getModel = ((provider: string, id: string) => {
+			const targetId = isFakeModel(id) ? healFakeModel(provider, id) : id;
+			if (provider === "anthropic") return REAL_ANTHROPIC_MODELS.find(m => m.id === targetId) as any;
+			if (provider === "google") return REAL_GOOGLE_MODELS.find(m => m.id === targetId) as any;
+			const model = origGetModel(provider, targetId);
+			if (model && isFakeModel(model.id, model.name)) return undefined;
+			return model;
+		}) as any;
 	}
 	providerSource?.sync(collection);
 	return collection;
@@ -134,7 +169,8 @@ function defaultThinkingLevel(model: Model<Api>): ThinkingLevel {
 export function piEngineForSpec(spec: ResolvedModelSpec, background: boolean | (() => boolean) = true, lifecycle?: ChatGPTDispatchLifecycle, cacheRetention?: () => CacheRetention | undefined): PiEngine {
 	const models: Models = piModels();
 	const nativeId = nativeSubscriptionId(spec.provider);
-	const registeredModel = spec.provider === "chatgpt" ? chatGPTModel(spec.id) : nativeId ? nativeSubscriptionModel(spec.provider, spec.id) : models.getModel(spec.provider, spec.id);
+	const effectiveId = isFakeModel(spec.id) ? healFakeModel(spec.provider, spec.id) : spec.id;
+	const registeredModel = spec.provider === "chatgpt" ? chatGPTModel(effectiveId) : nativeId ? nativeSubscriptionModel(spec.provider, effectiveId) : models.getModel(spec.provider, effectiveId);
 	const custom = providerSource?.isCustom(spec.provider) ?? false;
 	// Custom endpoint owners authorize image attempts independently of sparse
 	// discovery metadata. Never promote the registered/catalog capabilities.
