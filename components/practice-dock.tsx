@@ -12,6 +12,8 @@ import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { PathInput } from "@/components/path-input";
 import type { PrepareThinkingSubmission } from "./plugin-submission-adapters";
 import { cn } from "@/lib/utils";
+import { PracticeDrawing } from "./practice-drawing";
+import type { ImageContent } from "@earendil-works/pi-ai";
 
 /**
  * The practice dock (practice sessions, owner design 2026-10-04): an
@@ -69,6 +71,20 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 	const controller = useOptionalInteractionLayers();
 	const rootRef = useRef<HTMLElement>(null);
 	const [nativeThinking, setNativeThinking] = useState("");
+	const [answerMode, setAnswerMode] = useState<"type" | "draw">("type");
+	const [drawing, setDrawing] = useState<ImageContent>();
+	const drawingRef = useRef<ImageContent | undefined>(undefined);
+	const acceptedDrawing = useRef<string | undefined>(undefined);
+	const [acceptedImage, setAcceptedImage] = useState<string>();
+	const [drawingActive, setDrawingActive] = useState(false);
+	const drawingActiveRef = useRef(false);
+	const currentProblem = useRef(problemCallId); currentProblem.current = problemCallId;
+	const hasDrawing = !!drawing && drawing.data !== acceptedImage;
+	useLayoutEffect(() => {
+		drawingRef.current = undefined; acceptedDrawing.current = undefined;
+		setDrawing(undefined); setAcceptedImage(undefined);
+		drawingActiveRef.current = false; setDrawingActive(false);
+	}, [problemCallId]);
 	const custom = useRef(customInput); custom.current = customInput;
 	const thinking = customInput ? customInput.thinking : nativeThinking;
 	const setThinking = (value: string) => { if (custom.current) custom.current.onThinkingChange(value); else setNativeThinking(value); };
@@ -98,13 +114,20 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 
 	useLayoutEffect(() => { viewReader?.changed?.(); }, [viewReader, thinking]);
 	const submit = () => {
-		if (compactionRunning || preparing) return;
+		if (compactionRunning || preparing || drawingActiveRef.current) return;
 		const prepare = customInput?.prepare ?? onPrepareSubmission;
 		if (prepare) {
-			if (customInput ? !customInput.ready : (!thinkingRef.current.trim() && !hasPendingInput)) return;
+			if (customInput ? !customInput.ready : (!thinkingRef.current.trim() && !hasPendingInput && (!drawingRef.current || drawingRef.current.data === acceptedDrawing.current))) return;
 			let capturedRevision = editRevision.current;
+			let capturedDrawing: ImageContent | undefined;
+			const submittedProblem = problemCallId;
 			prepare(() => { capturedRevision = editRevision.current; return customInput ? thinkingRef.current : thinkingRef.current.trim(); }, captured => {
+				if (submittedProblem !== currentProblem.current) return;
 				if (editRevision.current === capturedRevision && (customInput ? thinkingRef.current : thinkingRef.current.trim()) === captured) { thinkingRef.current = ""; setThinking(""); }
+				if (capturedDrawing) { acceptedDrawing.current = capturedDrawing.data; setAcceptedImage(capturedDrawing.data); }
+			}, () => {
+				capturedDrawing = !customInput && drawingRef.current?.data !== acceptedDrawing.current ? drawingRef.current : undefined;
+				return capturedDrawing ? [capturedDrawing] : [];
 			});
 			return;
 		}
@@ -124,7 +147,6 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 	/* ── the collapsed bar ── */
 	const bar = (
 			<button
-				ref={element => { if (!customInput) rootRef.current = element; }}
 				type="button"
 				data-testid="practice-dock-bar"
 				onClick={onExpand}
@@ -135,7 +157,6 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 				<span className="min-w-0 flex-1 truncate">{input.statement}</span>
 			</button>
 		);
-	if (!expanded && !customInput) return bar;
 
 	/* ── the expanded form ── */
 	return (
@@ -154,6 +175,10 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 			</div>
 
 			{customInput?.editor}
+			{!customInput && onPrepareSubmission && <div className="practice-answer-tools">
+				<div className="practice-answer-modes" role="group" aria-label="Answer method"><button type="button" aria-pressed={answerMode === "type"} onClick={() => setAnswerMode("type")}>Type</button><button type="button" aria-pressed={answerMode === "draw"} onClick={() => setAnswerMode("draw")}>Draw your answer</button>{hasDrawing && <span>Drawing ready to submit</span>}</div>
+				<div hidden={answerMode !== "draw"}><PracticeDrawing key={problemCallId} disabled={preparing || compactionRunning} onDrawing={active => { drawingActiveRef.current = active; setDrawingActive(active); }} onChange={image => { drawingRef.current = image; setDrawing(image); }} /><p className="practice-drawing-guidance">Submit your working without typing. Use a model that supports images so your tutor can review the steps and help you find mistakes.</p></div>
+			</div>}
 
 			{/* The learner's half: Enter SENDS (owner round 2, 2026-10-05);
 			    Shift+Enter makes a newline — less to decide about. */}
@@ -204,11 +229,11 @@ export function PracticeDock({ viewReader, problemCallId, input, expanded, onExp
 					<Button
 						type="button"
 						data-testid="practice-send"
-						disabled={(customInput ? !customInput.ready : (!thinking.trim() && !hasPendingInput)) || compactionRunning || preparing}
+						disabled={(customInput ? !customInput.ready : (!thinking.trim() && !hasPendingInput && !hasDrawing)) || compactionRunning || preparing || drawingActive}
 						onClick={() => submit()}
 						className="ml-auto h-9 rounded-[6px] px-3.5 text-sm font-medium"
 					>
-						{customInput ? "Submit" : "Submit thinking"}
+						{customInput ? "Submit" : hasDrawing ? "Submit written work" : "Submit thinking"}
 					</Button>
 				</div>
 			</div>

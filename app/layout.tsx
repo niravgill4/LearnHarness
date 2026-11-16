@@ -9,6 +9,7 @@ import { WorkspaceFrame } from "@/components/workspace-frame";
 import { readThemeBoot } from "@/src/server";
 import { LandscapeProvider } from "@/components/ascii-landscape";
 import "./ascii-landscape.css";
+import "./practice-drawing.css";
 
 // Inter is the locally bundled interface face (globals.css). Existing reading
 // and code font choices stay available without build-time network downloads.

@@ -159,15 +159,17 @@ describe("measured question/practice DOM and observer lifecycle", () => {
 			await render({ expanded: true, inspected: block => assert.equal(block.style.getPropertyValue("--dock-max-h"), "406px") });
 		});
 	});
-	it("reconnects to practice's newly mounted question after collapsing and revealing", async () => {
+	it("reconnects to practice's retained question after collapsing and revealing", async () => {
 		await withFixture(async (host, render) => {
 			Object.assign(sizes, { block: 104, viewport: 44, body: 44, shell: 44, content: 42 });
 			await render({ practice: true, expanded: false });
 			const collapsedObserver = observers.at(-1)!;
-			assert.equal(host.querySelector('[data-dock-scroll-area]'), null);
+			const retainedQuestion = host.querySelector('[data-dock-scroll-area]');
+			assert.ok(retainedQuestion?.closest('[hidden]'), "practice draft remains mounted while collapsed");
 			resetSizes();
 			await render({ practice: true, expanded: true });
 			assert.equal(collapsedObserver.disconnected, true);
+			assert.equal(host.querySelector('[data-dock-scroll-area]'), retainedQuestion);
 			assert.ok(observers.at(-1)!.elements.has(host.querySelector('[data-dock-scroll-area]')!));
 			assert.equal(part(host, "block").style.getPropertyValue("--dock-max-h"), "406px");
 		});

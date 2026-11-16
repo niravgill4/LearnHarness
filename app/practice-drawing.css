@@ -1,0 +1,25 @@
+.practice-answer-tools { padding:8px 12px 0; }
+.practice-answer-modes { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px; font-size:12px; }
+.practice-answer-modes button { border:1px solid var(--border); border-radius:8px; min-height:40px; padding:8px 13px; cursor:pointer; color:var(--muted-foreground); }
+.practice-answer-modes button[aria-pressed="true"] { background:var(--accent); color:var(--foreground); }
+.practice-answer-modes span { margin-left:auto; color:var(--muted-foreground); font-size:11px; }
+.practice-drawing { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.practice-drawing-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:6px; background:var(--card); }
+.practice-drawing-toolbar [role="group"] { display:flex; align-items:center; gap:3px; }
+.practice-drawing-toolbar button { display:grid; place-items:center; width:40px; height:40px; border:1px solid transparent; border-radius:8px; cursor:pointer; }
+.practice-drawing-toolbar button:hover { background:var(--accent); }
+.practice-drawing-toolbar button[aria-pressed="true"] { border-color:var(--foreground); }
+.practice-drawing-toolbar button:disabled { opacity:.4; cursor:default; }
+.practice-drawing-toolbar svg { width:17px; height:17px; }
+.practice-drawing-toolbar button span { width:19px; height:19px; border:1px solid #a7aaa7; border-radius:50%; }
+.practice-drawing-toolbar label { display:flex; align-items:center; gap:7px; font-size:11px; }
+.practice-drawing-toolbar select { padding:8px; min-height:40px; border:1px solid var(--border); border-radius:7px; color:var(--foreground); background:var(--background); font-size:12px; }
+.practice-drawing-sheet { position:relative; aspect-ratio:2/1; background:#fff; }
+.practice-drawing-sheet canvas { display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+.practice-drawing-placeholder { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; font-size:16px; color:#67716b; }
+.practice-drawing-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 10px; background:var(--card); font-size:10px; color:var(--muted-foreground); }
+.practice-drawing-footer label { display:flex; align-items:center; gap:7px; min-height:30px; cursor:pointer; }
+.practice-drawing-guidance { margin:8px 0 10px; color:var(--muted-foreground); font-size:11px; line-height:1.6; }
+.practice-drawing-error { color:var(--destructive); font-size:12px; padding:10px; }
+.practice-answer-tools button:focus-visible,.practice-answer-tools select:focus-visible,.practice-answer-tools input:focus-visible { outline:2px solid var(--foreground); outline-offset:2px; }
+@media(pointer:coarse) { .practice-drawing-toolbar button { width:44px; height:44px; } .practice-answer-modes button { min-height:44px; } }

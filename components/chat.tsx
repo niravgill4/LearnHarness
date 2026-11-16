@@ -749,11 +749,11 @@ export function Chat({
 		if (!surfaceTarget || !activeProblem || activeProblem.pluginProblem || !occurrence) return;
 		return { type: "thinking", sessionId: chatId, sessionKind: kind === "practice" ? "practice" : "teaching", surfaceTarget, channels: ["content"], problem: { occurrence, statement: (activeProblem.input as { statement: string }).statement } };
 	};
-	const prepareThinking: PrepareThinkingSubmission = (capture, clear) => {
+	const prepareThinking: PrepareThinkingSubmission = (capture, clear, captureImages) => {
 		const target = thinkingTarget();
 		if (!target || busyRef.current || compacting) return;
 		let captured = "";
-		void runSubmission(target, () => ({ type: "thinking", content: { text: captured = capture(), images: [] } }), () => !busyRef.current && JSON.stringify(activeProblemOccurrenceOf(submissionLive.current.nativeMessages)) === JSON.stringify(target.problem.occurrence), async (prepared, attempt) => {
+		void runSubmission(target, () => ({ type: "thinking", content: { text: captured = capture(), images: captureImages?.() ?? [] } }), () => !busyRef.current && JSON.stringify(activeProblemOccurrenceOf(submissionLive.current.nativeMessages)) === JSON.stringify(target.problem.occurrence), async (prepared, attempt) => {
 			if (prepared.type !== "thinking") return false;
 			if (!prepared.content.text.trim() && !prepared.content.images.length) throw new Error("Thinking text or images are required. Your input has been kept.");
 			attempt.deliver();
