@@ -11,6 +11,7 @@ export type NotePage = {
 	sectionId: string;
 	title: string;
 	paper: "plain" | "ruled" | "grid";
+	tone?: "light" | "dark";
 	blocks: NoteBlock[];
 	strokes: InkStroke[];
 	updatedAt: string;
@@ -25,6 +26,7 @@ export const newNotePage = (sectionId: string): NotePage => ({
 	sectionId,
 	title: "Untitled page",
 	paper: "plain",
+	tone: "dark",
 	blocks: [],
 	strokes: [],
 	updatedAt: new Date().toISOString(),
@@ -46,6 +48,8 @@ export function notebookFingerprint(value: unknown): string {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const color = /^#[0-9a-f]{6}$/i;
 const finite = (v: unknown, max: number) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max;
+const coordinate = (v: unknown) =>
+	typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER;
 const title = (v: unknown) => typeof v === "string" && v.length <= 250;
 export function validateNotebook(value: unknown): value is NotebookData {
 	if (!value || typeof value !== "object") return false;
@@ -68,6 +72,7 @@ export function validateNotebook(value: unknown): value is NotebookData {
 		if (
 			!d.sections.some((s) => s.id === p.sectionId) ||
 			!["plain", "ruled", "grid"].includes(p.paper) ||
+			(p.tone !== undefined && !["light", "dark"].includes(p.tone)) ||
 			typeof p.updatedAt !== "string" ||
 			Number.isNaN(Date.parse(p.updatedAt))
 		)
@@ -85,9 +90,9 @@ export function validateNotebook(value: unknown): value is NotebookData {
 				!b ||
 				!uuid.test(b.id) ||
 				blockIds.has(b.id) ||
-				!finite(b.x, 1400) ||
-				!finite(b.y, 2000) ||
-				!finite(b.width, 1400) ||
+				!coordinate(b.x) ||
+				!coordinate(b.y) ||
+				!finite(b.width, 10000) ||
 				b.width < 100 ||
 				!validContent(b.content)
 			)
@@ -102,7 +107,7 @@ export function validateNotebook(value: unknown): value is NotebookData {
 				finite(s.width, 80) &&
 				Array.isArray(s.points) &&
 				s.points.length <= 15000 &&
-				s.points.every((pt) => pt && finite(pt.x, 1400) && finite(pt.y, 2000) && finite(pt.p, 1)),
+				s.points.every((pt) => pt && coordinate(pt.x) && coordinate(pt.y) && finite(pt.p, 1)),
 		);
 	});
 }

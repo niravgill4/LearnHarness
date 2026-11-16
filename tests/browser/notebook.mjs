@@ -35,7 +35,9 @@ try {
 	await page.waitForFunction(
 		() => document.querySelector(".nb-save").textContent === "Saved on this computer",
 	);
+	await page.click(".nb-paper-menu summary");
 	await page.select('[aria-label="Paper style"]', "grid");
+	await page.click(".nb-paper-menu summary");
 	await page.evaluate(() =>
 		[...document.querySelectorAll(".nb-tools button")].find((e) => e.textContent === "Draw").click(),
 	);
@@ -43,6 +45,7 @@ try {
 		const c = document.querySelector(".nb-ink"),
 			r = c.getBoundingClientRect();
 		c.setPointerCapture = () => {};
+		c.closest(".nb-viewport").setPointerCapture = () => {};
 		for (const [type, x, y] of [
 			["pointerdown", 0.1, 0.2],
 			["pointermove", 0.3, 0.3],
@@ -72,7 +75,7 @@ try {
 	await page.waitForSelector(".tiptap");
 	assert.match(await page.$eval(".tiptap", (e) => e.textContent), /Synapses strengthen/);
 	assert.equal(await page.$eval(".nb-title", (e) => e.value), "Neurons and memory");
-	assert.ok(await page.$eval(".nb-paper", (e) => e.classList.contains("paper-grid")));
+	assert.ok(await page.$eval(".nb-viewport", (e) => e.classList.contains("paper-grid")));
 	assert.match(await page.$eval(".nb-footer", (e) => e.textContent), /1 strokes/);
 	// Image uploads use the private asset endpoint and survive a document reload.
 	const temp = await mkdtemp(`${tmpdir()}/notebook-browser-`);
@@ -93,6 +96,7 @@ try {
 	);
 	const cdp = await page.createCDPSession();
 	await cdp.send("Page.setDownloadBehavior", { behavior: "allow", downloadPath: temp });
+	await page.click(".nb-actions-menu summary");
 	await page.click('[title="Export editable backup"]');
 	await page.waitForFunction(() => !document.querySelector('[title="Export editable backup"]').disabled);
 	let backup;
@@ -106,6 +110,7 @@ try {
 	}
 	assert.equal(backup.format, "cognera-notebook-v1");
 	assert.ok(Object.keys(backup.assets).length >= 1, "backup includes actual image bytes");
+	await page.click(".nb-actions-menu summary");
 	// Offline work reaches IndexedDB before the failed transport, then retries online.
 	await page.setOfflineMode(true);
 	await page.click(".tiptap");
@@ -166,7 +171,7 @@ try {
 	if (process.env.NOTEBOOK_SCREENSHOT)
 		await page.screenshot({ path: process.env.NOTEBOOK_SCREENSHOT, fullPage: true });
 	await page.setViewport({ width: 768, height: 1024, hasTouch: true });
-	await page.select('[aria-label="Page zoom"]', "35");
+	await page.click('[aria-label="Fit content"]');
 	assert.ok(
 		await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
 		"tablet shell does not overflow",

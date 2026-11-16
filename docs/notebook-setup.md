@@ -44,8 +44,15 @@ ink, and embedded image bytes. **Restore** replaces the current notebook library
 after confirmation. It uploads images into the current account's private storage.
 
 **Print / PDF** prints the current page with text, ink, images, and paper pattern.
-Use the browser's Save as PDF destination. Pages are finite sheets, 1400 × 2000
-document units. Zoom changes the view, not saved stroke positions.
+Use the browser's Save as PDF destination. The canvas has no fixed paper edges;
+print fits the content bounds onto A4 with light paper and print-safe ink colors.
+Zoom changes the view, not saved stroke
+positions. Existing notes retain their original coordinates and light paper;
+new notes start on dark paper. Paper appearance is adjustable in the palette.
+
+Use two fingers to pan and pinch to zoom, or select Hand to drag with a mouse.
+Trackpad/Ctrl-wheel zoom, zoom buttons, and Fit content are also available. The
+view is remembered per page and device. Camera changes do not rewrite your notes.
 
 ## Checks
 
@@ -59,6 +66,7 @@ Browser coverage should run against a disposable local workspace:
 ```sh
 LH_DATA_DIR=/tmp/cognera-notebook-test npx next dev -p 3012
 NOTEBOOK_TEST_URL=http://localhost:3012 node tests/browser/notebook.mjs
+NOTEBOOK_TEST_URL=http://localhost:3012 node tests/browser/notebook-canvas.mjs
 ```
 
 Leave Supabase variables unset for that local browser test. It creates test notes,

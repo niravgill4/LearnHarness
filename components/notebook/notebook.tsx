@@ -15,6 +15,8 @@ import {
 	ImageIcon,
 	PrinterIcon,
 	DownloadIcon,
+	HandIcon,
+	MoreHorizontalIcon,
 } from "lucide-react";
 import { SidebarToggle } from "@/components/sidebar";
 import {
@@ -31,7 +33,9 @@ import {
 } from "@/lib/notebook";
 import { recoveryRead, recoveryWrite } from "@/lib/notebook-recovery";
 import { notebookBackup, restoreNotebookBackup } from "@/lib/notebook-backup";
-import { NotebookInk, type InkTool } from "./ink";
+import type { InkTool } from "./ink";
+import { NotebookCanvas } from "./canvas";
+import { worldPoint } from "@/lib/notebook-camera";
 import { TextBlock } from "./text-block";
 
 export function Notebook() {
@@ -47,11 +51,10 @@ export function Notebook() {
 		[navigation, setNavigation] = useState(true);
 	const [recent, setRecent] = useState(false),
 		[exporting, setExporting] = useState(false);
-	const [mode, setMode] = useState<"write" | "draw">("write"),
+	const [mode, setMode] = useState<"write" | "draw" | "hand">("write"),
 		[finger, setFinger] = useState(false);
 	const [tool, setTool] = useState<InkTool>({ tool: "pen", color: "#223b32", width: 3 });
-	const [zoom, setZoom] = useState(60),
-		[selected, setSelected] = useState("");
+	const [selected, setSelected] = useState("");
 	const [busy, setBusy] = useState(false),
 		[recoveryError, setRecoveryError] = useState("");
 	const editor = useRef<Editor | null>(null),
@@ -73,6 +76,12 @@ export function Notebook() {
 	const activePage = data.pages.find((p) => p.id === pageId),
 		activeBook = data.notebooks.find((n) => n.id === book),
 		activeSection = data.sections.find((s) => s.id === section);
+	useEffect(() => {
+		if (innerWidth < 700) setNavigation(false);
+	}, []);
+	useEffect(() => {
+		setTool((v) => ({ ...v, color: activePage?.tone === "dark" ? "#e5ece7" : "#223b32" }));
+	}, [pageId, activePage?.tone]);
 	const update = useCallback(
 		(change: (current: NotebookData) => NotebookData) => {
 			const state = live.current;
@@ -360,13 +369,16 @@ export function Notebook() {
 	function addText() {
 		if (!activePage) return;
 		const id = crypto.randomUUID();
+		const viewport = document.querySelector<HTMLElement>(".nb-viewport");
+		const camera = viewport?.dataset.camera ? JSON.parse(viewport.dataset.camera) : { x: 0, y: 0, zoom: 1 };
+		const origin = worldPoint(camera, { x: 70, y: 140 });
 		changePage({
 			blocks: [
 				...activePage.blocks,
 				{
 					id,
-					x: 80,
-					y: Math.min(1700, 160 + activePage.blocks.length * 180),
+					x: origin.x,
+					y: origin.y,
 					width: 900,
 					content: { type: "doc", content: [{ type: "paragraph" }] },
 				},
@@ -490,28 +502,35 @@ export function Notebook() {
 				<span className="nb-save" role="status">
 					{status}
 				</span>
-				<button onClick={() => void flush()} disabled={!loaded}>
-					Save now
-				</button>
-				<button
-					title="Export editable backup"
-					onClick={() => void download()}
-					disabled={!loaded || exporting}
-				>
-					<DownloadIcon size={16} />
-					<span>{exporting ? "Exporting…" : "Backup"}</span>
-				</button>
-				<button
-					aria-label="Restore notebook backup"
-					onClick={() => backupInput.current?.click()}
-					disabled={!loaded}
-				>
-					Restore
-				</button>
-				<button onClick={() => window.print()} disabled={!activePage}>
-					<PrinterIcon size={16} />
-					<span>Print / PDF</span>
-				</button>
+				<details className="nb-actions-menu">
+					<summary aria-label="Notebook actions">
+						<MoreHorizontalIcon size={20} />
+					</summary>
+					<div>
+						<button onClick={() => void flush()} disabled={!loaded}>
+							Save now
+						</button>
+						<button
+							title="Export editable backup"
+							onClick={() => void download()}
+							disabled={!loaded || exporting}
+						>
+							<DownloadIcon size={16} />
+							<span>{exporting ? "Exporting…" : "Backup"}</span>
+						</button>
+						<button
+							aria-label="Restore notebook backup"
+							onClick={() => backupInput.current?.click()}
+							disabled={!loaded}
+						>
+							Restore
+						</button>
+						<button onClick={() => window.print()} disabled={!activePage}>
+							<PrinterIcon size={16} />
+							<span>Print / PDF</span>
+						</button>
+					</div>
+				</details>
 			</header>
 			{(error || recoveryError) && (
 				<div className="nb-error" role="alert">
@@ -557,24 +576,27 @@ export function Notebook() {
 						</button>
 					</div>
 					{activeBook && (
-						<div className="nb-small-actions">
-							<button onClick={() => rename("book")}>Rename</button>
-							<button onClick={() => remove("book")}>Delete</button>
-							<button
-								aria-label="Move notebook up"
-								disabled={data.notebooks[0]?.id === book}
-								onClick={() => reorderBook(-1)}
-							>
-								↑
-							</button>
-							<button
-								aria-label="Move notebook down"
-								disabled={data.notebooks.at(-1)?.id === book}
-								onClick={() => reorderBook(1)}
-							>
-								↓
-							</button>
-						</div>
+						<details className="nb-library-menu">
+							<summary>Notebook options</summary>
+							<div className="nb-small-actions">
+								<button onClick={() => rename("book")}>Rename</button>
+								<button onClick={() => remove("book")}>Delete</button>
+								<button
+									aria-label="Move notebook up"
+									disabled={data.notebooks[0]?.id === book}
+									onClick={() => reorderBook(-1)}
+								>
+									↑
+								</button>
+								<button
+									aria-label="Move notebook down"
+									disabled={data.notebooks.at(-1)?.id === book}
+									onClick={() => reorderBook(1)}
+								>
+									↓
+								</button>
+							</div>
+						</details>
 					)}
 					<label className="nb-search">
 						<SearchIcon size={16} />
@@ -743,6 +765,10 @@ export function Notebook() {
 										<PencilIcon size={16} />
 										Draw
 									</button>
+									<button aria-pressed={mode === "hand"} onClick={() => setMode("hand")}>
+										<HandIcon size={16} />
+										Hand
+									</button>
 								</div>
 								{mode === "write" ? (
 									<>
@@ -750,45 +776,55 @@ export function Notebook() {
 											<PlusIcon size={16} />
 											Text block
 										</button>
-										<button title="Bold" onClick={() => run((e) => e.chain().focus().toggleBold().run())}>
-											<b>B</b>
-										</button>
-										<button title="Italic" onClick={() => run((e) => e.chain().focus().toggleItalic().run())}>
-											<i>I</i>
-										</button>
-										<button onClick={() => run((e) => e.chain().focus().toggleHeading({ level: 2 }).run())}>
-											Heading
-										</button>
-										<button onClick={() => run((e) => e.chain().focus().toggleBulletList().run())}>
-											List
-										</button>
-										<button onClick={() => run((e) => e.chain().focus().toggleTaskList().run())}>
-											Checklist
-										</button>
-										<button
-											onClick={() =>
-												run((e) =>
-													e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-												)
-											}
-										>
-											Table
-										</button>
-										<button
-											onClick={() =>
-												run((e) => {
-													const url = window.prompt("Link URL (https://…)");
-													if (url && /^(https?:\/\/|mailto:)/i.test(url))
-														e.chain().focus().setLink({ href: url }).run();
-												})
-											}
-										>
-											Link
-										</button>
-										<button onClick={() => assetInput.current?.click()}>
-											<ImageIcon size={16} />
-											Image
-										</button>
+										<details className="nb-format-menu">
+											<summary>Format & insert</summary>
+											<div>
+												<button title="Bold" onClick={() => run((e) => e.chain().focus().toggleBold().run())}>
+													<b>B</b>
+												</button>
+												<button
+													title="Italic"
+													onClick={() => run((e) => e.chain().focus().toggleItalic().run())}
+												>
+													<i>I</i>
+												</button>
+												<button
+													onClick={() => run((e) => e.chain().focus().toggleHeading({ level: 2 }).run())}
+												>
+													Heading
+												</button>
+												<button onClick={() => run((e) => e.chain().focus().toggleBulletList().run())}>
+													List
+												</button>
+												<button onClick={() => run((e) => e.chain().focus().toggleTaskList().run())}>
+													Checklist
+												</button>
+												<button
+													onClick={() =>
+														run((e) =>
+															e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+														)
+													}
+												>
+													Table
+												</button>
+												<button
+													onClick={() =>
+														run((e) => {
+															const url = window.prompt("Link URL (https://…)");
+															if (url && /^(https?:\/\/|mailto:)/i.test(url))
+																e.chain().focus().setLink({ href: url }).run();
+														})
+													}
+												>
+													Link
+												</button>
+												<button onClick={() => assetInput.current?.click()}>
+													<ImageIcon size={16} />
+													Image
+												</button>
+											</div>
+										</details>
 										<button title="Undo text edit" onClick={() => run((e) => e.chain().focus().undo().run())}>
 											<Undo2Icon size={16} />
 										</button>
@@ -796,7 +832,7 @@ export function Notebook() {
 											<Redo2Icon size={16} />
 										</button>
 									</>
-								) : (
+								) : mode === "draw" ? (
 									<>
 										<div className="nb-tool-group">
 											{(["pen", "highlighter", "eraser"] as const).map((t, i) => (
@@ -847,115 +883,120 @@ export function Notebook() {
 										>
 											<Redo2Icon size={16} />
 										</button>
-										<label>
-											<input type="checkbox" checked={finger} onChange={(e) => setFinger(e.target.checked)} />
-											Finger drawing
-										</label>
-										<button
-											disabled={busy || !activePage.strokes.length}
-											onClick={() => {
-												if (window.confirm("Clear all handwriting on this page? You can undo this."))
-													inkChange([]);
-											}}
-										>
-											Clear ink
-										</button>
+										<details className="nb-ink-options">
+											<summary aria-label="More drawing options">
+												<MoreHorizontalIcon size={17} />
+											</summary>
+											<div>
+												<label>
+													<input
+														type="checkbox"
+														checked={finger}
+														onChange={(e) => setFinger(e.target.checked)}
+													/>
+													Finger drawing
+												</label>
+												<button
+													disabled={busy || !activePage.strokes.length}
+													onClick={() => {
+														if (window.confirm("Clear all handwriting on this page? You can undo this."))
+															inkChange([]);
+													}}
+												>
+													Clear ink
+												</button>
+											</div>
+										</details>
 									</>
+								) : (
+									<span className="nb-hand-hint">Drag to explore</span>
 								)}
-								<label className="nb-paper-control">
-									Paper
-									<select
-										aria-label="Paper style"
-										value={activePage.paper}
-										onChange={(e) => changePage({ paper: e.target.value as NotePage["paper"] })}
-									>
-										<option value="plain">Plain</option>
-										<option value="ruled">Ruled</option>
-										<option value="grid">Grid</option>
-									</select>
-								</label>
-								<label>
-									Zoom
-									<select
-										aria-label="Page zoom"
-										value={zoom}
-										onChange={(e) => setZoom(Number(e.target.value))}
-									>
-										{[35, 50, 60, 75, 100, 125].map((z) => (
-											<option key={z} value={z}>
-												{z}%
-											</option>
-										))}
-									</select>
-								</label>
+								<details className="nb-paper-menu">
+									<summary>Paper</summary>
+									<div>
+										<label className="nb-paper-control">
+											Paper
+											<select
+												aria-label="Paper style"
+												value={activePage.paper}
+												onChange={(e) => changePage({ paper: e.target.value as NotePage["paper"] })}
+											>
+												<option value="plain">Plain</option>
+												<option value="ruled">Ruled</option>
+												<option value="grid">Grid</option>
+											</select>
+										</label>
+										<label>
+											Appearance
+											<select
+												aria-label="Paper appearance"
+												value={activePage.tone ?? "light"}
+												onChange={(e) => changePage({ tone: e.target.value as "light" | "dark" })}
+											>
+												<option value="dark">Dark</option>
+												<option value="light">Light</option>
+											</select>
+										</label>
+									</div>
+								</details>
 							</div>
-							<div className="nb-scroll">
-								<div
-									className="nb-page-size"
-									style={{ width: (1400 * zoom) / 100, height: (2000 * zoom) / 100 }}
-								>
-									<article
-										className={`nb-paper paper-${activePage.paper} mode-${mode}`}
-										style={{ transform: `scale(${zoom / 100})` }}
-									>
-										<input
-											className="nb-title"
-											aria-label="Page title"
-											maxLength={250}
-											value={activePage.title}
-											onChange={(e) => changePage({ title: e.target.value })}
-										/>
-										{!activePage.blocks.length && mode === "write" && (
-											<button className="nb-start-writing" onClick={addText}>
-												Start writing, or switch to Draw for handwritten notes.
-											</button>
-										)}
-										{activePage.blocks.map((block) => (
-											<TextBlock
-												key={`${pageId}:${block.id}`}
-												block={block}
-												selected={selected === block.id && mode === "write"}
-												onSelect={() => setSelected(block.id)}
-												onEditor={(e) => {
-													editor.current = e;
-												}}
-												onChange={(content) =>
-													update((d) => ({
-														...d,
-														pages: d.pages.map((p) =>
-															p.id === pageId
-																? {
-																		...p,
-																		updatedAt: new Date().toISOString(),
-																		blocks: p.blocks.map((b) => (b.id === block.id ? { ...b, content } : b)),
-																	}
-																: p,
-														),
-													}))
-												}
-												onMove={(x, y) =>
-													changePage({
-														blocks: activePage.blocks.map((b) => (b.id === block.id ? { ...b, x, y } : b)),
-													})
-												}
-												onDelete={() => {
-													if (window.confirm("Delete this text block?"))
-														changePage({ blocks: activePage.blocks.filter((b) => b.id !== block.id) });
-												}}
-											/>
-										))}
-										<NotebookInk
-											key={pageId}
-											strokes={activePage.strokes}
-											active={mode === "draw"}
-											tool={tool}
-											finger={finger}
-											onChange={inkChange}
-											onBusy={setBusy}
-										/>
-									</article>
-								</div>
-							</div>
+							<NotebookCanvas
+								key={pageId}
+								page={activePage}
+								account={live.current.account}
+								mode={mode}
+								tool={tool}
+								finger={finger}
+								onChange={inkChange}
+								onBusy={setBusy}
+							>
+								<input
+									className="nb-title"
+									aria-label="Page title"
+									maxLength={250}
+									value={activePage.title}
+									onChange={(e) => changePage({ title: e.target.value })}
+								/>
+								{!activePage.blocks.length && mode === "write" && (
+									<button className="nb-start-writing" onClick={addText}>
+										Start writing, or switch to Draw for handwritten notes.
+									</button>
+								)}
+								{activePage.blocks.map((block) => (
+									<TextBlock
+										key={`${pageId}:${block.id}`}
+										block={block}
+										selected={selected === block.id && mode === "write"}
+										onSelect={() => setSelected(block.id)}
+										onEditor={(e) => {
+											editor.current = e;
+										}}
+										onChange={(content) =>
+											update((d) => ({
+												...d,
+												pages: d.pages.map((p) =>
+													p.id === pageId
+														? {
+																...p,
+																updatedAt: new Date().toISOString(),
+																blocks: p.blocks.map((b) => (b.id === block.id ? { ...b, content } : b)),
+															}
+														: p,
+												),
+											}))
+										}
+										onMove={(x, y) =>
+											changePage({
+												blocks: activePage.blocks.map((b) => (b.id === block.id ? { ...b, x, y } : b)),
+											})
+										}
+										onDelete={() => {
+											if (window.confirm("Delete this text block?"))
+												changePage({ blocks: activePage.blocks.filter((b) => b.id !== block.id) });
+										}}
+									/>
+								))}
+							</NotebookCanvas>
 							<footer className="nb-footer">
 								<span>
 									{mode === "draw"

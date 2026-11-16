@@ -67,6 +67,7 @@ export function TextBlock({
 	return (
 		<div
 			className={`nb-text-block ${selected ? "is-selected" : ""}`}
+			data-block-id={block.id}
 			style={{ left: block.x, top: block.y, width: block.width }}
 			onFocus={onSelect}
 		>
@@ -81,12 +82,10 @@ export function TextBlock({
 						const startX = event.clientX,
 							startY = event.clientY;
 						const element = event.currentTarget;
-						const scale = element.closest(".nb-paper")!.getBoundingClientRect().width / 1400;
+						const camera = JSON.parse(element.closest(".nb-viewport")!.getAttribute("data-camera")!);
+						const scale = camera.zoom;
 						const move = (e: globalThis.PointerEvent) => {
-							onMove(
-								Math.max(20, Math.min(1400 - block.width - 20, block.x + (e.clientX - startX) / scale)),
-								Math.max(100, Math.min(1800, block.y + (e.clientY - startY) / scale)),
-							);
+							onMove(block.x + (e.clientX - startX) / scale, block.y + (e.clientY - startY) / scale);
 						};
 						const end = () => {
 							element.removeEventListener("pointermove", move);
@@ -109,7 +108,7 @@ export function TextBlock({
 						aria-label="Text block width"
 						type="range"
 						min="240"
-						max={1400 - block.x - 20}
+						max={2400}
 						value={block.width}
 						onChange={(event) => {
 							editor?.commands.focus();
