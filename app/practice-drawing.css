@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Practice & Teach Whiteboard: iPad-First Apple PencilKit Experience
+   Practice & Teach Unlimited Whiteboard: iPad-First PencilKit Architecture
    ========================================================================== */
 
 /* Answer Mode Toggle Bar */
@@ -36,15 +36,12 @@
 	font-size: 11px;
 }
 
-/* Drawing Root Container */
-.practice-drawing-root {
+/* Drawing Root Container (Inline) */
+.practice-drawing-root.is-inline-view {
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-}
-
-.practice-drawing-root.is-inline-view {
 	border: 1px solid var(--border);
 	border-radius: 16px;
 	overflow: hidden;
@@ -53,20 +50,51 @@
 }
 
 /* ==========================================================================
-   Fullscreen Mode (Tablet & iPad optimized)
+   Inline 2-Row Responsive Toolbar
    ========================================================================== */
-.practice-drawing-root.is-fullscreen-view {
+.practice-inline-two-row-toolbar {
+	display: flex;
+	flex-direction: column;
+	background: var(--card);
+	border-bottom: 1px solid var(--border);
+	user-select: none;
+}
+
+.practice-inline-toolbar-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 6px 10px;
+}
+
+.practice-inline-toolbar-row.is-secondary-row {
+	border-top: 1px solid var(--border);
+	background: rgba(0, 0, 0, 0.02);
+	justify-content: space-between;
+}
+
+.practice-inline-actions-group {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+/* ==========================================================================
+   Fullscreen Portal Overlay (Attached to document.body)
+   ========================================================================== */
+.practice-fullscreen-portal-root {
 	position: fixed !important;
 	inset: 0 !important;
-	z-index: 99999 !important;
+	z-index: 999999 !important;
 	width: 100vw !important;
-	height: 100vh !important;
+	height: 100dvh !important;
 	max-width: 100vw !important;
-	max-height: 100vh !important;
+	max-height: 100dvh !important;
 	margin: 0 !important;
-	border-radius: 0 !important;
-	border: none !important;
-	background: #0b0f0d !important;
+	padding: 0 !important;
+	background: #090d0b !important;
 	overflow: hidden !important;
 	display: flex !important;
 	flex-direction: column !important;
@@ -91,13 +119,13 @@
 .practice-fs-question-card {
 	pointer-events: auto;
 	flex: 1;
-	max-width: 720px;
+	max-width: 740px;
 	border-radius: 16px;
-	background: rgba(18, 24, 20, 0.92);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
+	background: rgba(18, 24, 20, 0.94);
+	backdrop-filter: blur(28px);
+	-webkit-backdrop-filter: blur(28px);
 	border: 1px solid rgba(255, 255, 255, 0.16);
-	box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.25);
 	padding: 12px 18px;
 	color: #f2f5f2;
 	animation: practice-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -130,7 +158,7 @@
 	text-transform: uppercase;
 	padding: 3px 8px;
 	border-radius: 6px;
-	background: rgba(184, 213, 170, 0.2);
+	background: rgba(184, 213, 170, 0.22);
 	color: #b8d5aa;
 	border: 1px solid rgba(184, 213, 170, 0.35);
 }
@@ -180,11 +208,11 @@
 	color: #0b140e;
 	font-size: 14px;
 	font-weight: 700;
-	border: 1px solid rgba(255, 255, 255, 0.3);
+	border: 1px solid rgba(255, 255, 255, 0.35);
 	box-shadow: 0 8px 24px -2px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.2);
 	cursor: pointer;
 	user-select: none;
-	transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+	transition: transform 0.15s ease, background-color 0.15s ease;
 	flex-shrink: 0;
 }
 .practice-fs-done-btn:hover {
@@ -197,18 +225,8 @@
 }
 
 /* ==========================================================================
-   Apple PencilKit Floating Capsule Toolbar
+   Apple PencilKit Floating Capsule Toolbar (Fullscreen)
    ========================================================================== */
-.practice-inline-toolbar-wrap {
-	display: flex;
-	justify-content: center;
-	padding: 8px 12px;
-	background: var(--card);
-	border-bottom: 1px solid var(--border);
-	overflow-x: auto;
-	-webkit-overflow-scrolling: touch;
-}
-
 .practice-fullscreen-toolbar-float {
 	position: absolute;
 	bottom: max(20px, env(safe-area-inset-bottom, 20px));
@@ -220,32 +238,19 @@
 	pointer-events: auto;
 }
 
-.practice-pencilkit-toolbar {
+.practice-pencilkit-toolbar.is-fullscreen {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 6px 10px;
+	padding: 6px 12px;
 	border-radius: 9999px;
-	user-select: none;
-	transition: all 0.2s ease;
-}
-
-/* Fullscreen floating glass material */
-.practice-pencilkit-toolbar.is-fullscreen {
 	background: rgba(18, 24, 20, 0.92);
 	backdrop-filter: blur(28px);
 	-webkit-backdrop-filter: blur(28px);
-	border: 1px solid rgba(255, 255, 255, 0.15);
+	border: 1px solid rgba(255, 255, 255, 0.16);
 	box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.3);
 	color: #e4ebe5;
-}
-
-/* Inline card toolbar material */
-.practice-pencilkit-toolbar.is-inline {
-	background: var(--background);
-	border: 1px solid var(--border);
-	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-	color: var(--foreground);
+	user-select: none;
 }
 
 /* Segmented Tool Switcher */
@@ -254,7 +259,7 @@
 	align-items: center;
 	padding: 3px;
 	border-radius: 9999px;
-	background: rgba(0, 0, 0, 0.12);
+	background: rgba(0, 0, 0, 0.15);
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	gap: 2px;
 }
@@ -262,8 +267,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	min-height: 38px;
-	padding: 0 12px;
+	min-height: 36px;
+	padding: 0 11px;
 	border-radius: 9999px;
 	border: none;
 	background: transparent;
@@ -289,12 +294,12 @@
 /* Toolbar Divider */
 .practice-toolbar-separator {
 	width: 1px;
-	height: 24px;
+	height: 22px;
 	background: rgba(255, 255, 255, 0.12);
 	margin: 0 2px;
 	flex-shrink: 0;
 }
-.practice-pencilkit-toolbar.is-inline .practice-toolbar-separator {
+.practice-inline-two-row-toolbar .practice-toolbar-separator {
 	background: var(--border);
 }
 
@@ -308,8 +313,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 34px;
-	height: 34px;
+	width: 32px;
+	height: 32px;
 	border-radius: 50%;
 	border: 1px solid transparent;
 	background: transparent;
@@ -323,6 +328,10 @@
 .practice-size-chip.is-active {
 	border-color: rgba(255, 255, 255, 0.3);
 	background: rgba(255, 255, 255, 0.12);
+}
+.practice-inline-two-row-toolbar .practice-size-chip.is-active {
+	border-color: var(--border);
+	background: var(--accent);
 }
 .practice-pen-dot {
 	display: block;
@@ -339,13 +348,17 @@
 	border-color: #ffffff;
 	border-style: solid;
 }
+.practice-inline-two-row-toolbar .practice-size-chip.is-active .practice-eraser-ring {
+	border-color: var(--foreground);
+	border-style: solid;
+}
 
 /* Recenter Button */
 .practice-recenter-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	min-height: 34px;
+	min-height: 32px;
 	padding: 0 10px;
 	border-radius: 9999px;
 	border: 1px solid rgba(255, 255, 255, 0.14);
@@ -356,8 +369,9 @@
 	cursor: pointer;
 	transition: all 0.15s ease;
 }
-.practice-recenter-btn:hover {
-	background: rgba(255, 255, 255, 0.12);
+.practice-inline-two-row-toolbar .practice-recenter-btn {
+	border-color: var(--border);
+	background: var(--accent);
 }
 
 /* Color Swatches */
@@ -371,8 +385,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
 	border-radius: 50%;
 	border: 2px solid transparent;
 	background: transparent;
@@ -387,13 +401,13 @@
 	border-color: #ffffff;
 	transform: scale(1.15);
 }
-.practice-pencilkit-toolbar.is-inline .practice-color-swatch.is-active {
+.practice-inline-two-row-toolbar .practice-color-swatch.is-active {
 	border-color: var(--foreground);
 }
 .practice-color-fill {
 	display: block;
-	width: 18px;
-	height: 18px;
+	width: 17px;
+	height: 17px;
 	border-radius: 50%;
 	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
@@ -409,8 +423,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
+	width: 34px;
+	height: 34px;
 	border-radius: 8px;
 	border: 1px solid transparent;
 	background: transparent;
@@ -420,6 +434,9 @@
 }
 .practice-action-btn:hover:not(:disabled) {
 	background: rgba(255, 255, 255, 0.08);
+}
+.practice-inline-two-row-toolbar .practice-action-btn:hover:not(:disabled) {
+	background: var(--accent);
 }
 .practice-action-btn:disabled {
 	opacity: 0.3;
@@ -431,20 +448,21 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 44px;
-	height: 34px;
+	height: 32px;
 	padding: 0 6px;
 	font-size: 11px;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.12);
 	border-radius: 8px;
 	color: inherit;
 	cursor: pointer;
 	transition: background 0.15s;
 }
-.practice-zoom-pill:hover {
-	background: rgba(255, 255, 255, 0.12);
+.practice-inline-two-row-toolbar .practice-zoom-pill {
+	background: var(--card);
+	border-color: var(--border);
 }
 
 /* Finger Draw Toggle */
@@ -452,16 +470,20 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	min-height: 34px;
+	min-height: 32px;
 	padding: 0 10px;
 	border-radius: 9999px;
 	border: 1px solid rgba(255, 255, 255, 0.12);
 	background: rgba(255, 255, 255, 0.06);
 	color: inherit;
-	font-size: 11.5px;
+	font-size: 11px;
 	font-weight: 500;
 	cursor: pointer;
 	transition: all 0.15s ease;
+}
+.practice-inline-two-row-toolbar .practice-finger-toggle {
+	background: var(--card);
+	border-color: var(--border);
 }
 .practice-finger-dot {
 	width: 7px;
@@ -475,13 +497,13 @@
 	box-shadow: 0 0 6px #10b981;
 }
 
-/* Expand Fullscreen Button (Inline Toolbar) */
+/* Fullscreen Expand Button (Inline Toolbar) */
 .practice-expand-fullscreen-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	min-height: 36px;
-	padding: 0 12px;
+	min-height: 34px;
+	padding: 0 14px;
 	border-radius: 9999px;
 	background: #2563eb;
 	color: #ffffff;
@@ -491,6 +513,7 @@
 	cursor: pointer;
 	box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 	transition: all 0.15s ease;
+	margin-left: auto;
 }
 .practice-expand-fullscreen-btn:hover {
 	background: #1d4ed8;
@@ -498,55 +521,49 @@
 }
 
 /* ==========================================================================
-   Canvas Surface & Viewport
+   Infinite Whiteboard Viewport & Dot Grid
    ========================================================================== */
-.practice-canvas-viewport {
+.practice-infinite-viewport {
 	position: relative;
 	width: 100%;
-	height: 100%;
-	flex: 1;
 	overflow: hidden;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: #ffffff;
+	background-color: #ffffff;
+	background-image: radial-gradient(circle, #cbd5e1 1.2px, transparent 1.2px);
+	touch-action: none;
 	user-select: none;
 	-webkit-user-select: none;
 }
-.practice-drawing-root.is-fullscreen-view .practice-canvas-viewport {
-	background: #f7faf7;
+
+.practice-infinite-viewport.is-inline {
+	aspect-ratio: 2 / 1;
+	min-height: 260px;
+	max-height: 480px;
 }
 
-.practice-canvas-viewport.is-panning-mode {
+.practice-infinite-viewport.is-fullscreen {
+	flex: 1;
+	width: 100vw;
+	height: 100dvh;
+	background-color: #ffffff;
+	background-image: radial-gradient(circle, #cbd5e1 1.4px, transparent 1.4px);
+}
+
+.practice-infinite-viewport.is-panning {
 	cursor: grab !important;
 }
-.practice-canvas-viewport.is-panning-mode:active {
+.practice-infinite-viewport.is-panning:active {
 	cursor: grabbing !important;
 }
 
-.practice-canvas-surface {
-	position: relative;
-	width: 100%;
-	aspect-ratio: 2 / 1;
-	background: #ffffff;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-	touch-action: none;
-}
-.practice-drawing-root.is-fullscreen-view .practice-canvas-surface {
-	width: min(94vw, 188vh);
-	height: auto;
-	box-shadow: 0 16px 48px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08);
-	border-radius: 10px;
-}
-
-.practice-canvas-surface canvas {
-	display: block;
+.practice-infinite-canvas {
+	position: absolute;
+	inset: 0;
 	width: 100%;
 	height: 100%;
 	touch-action: none;
 	cursor: crosshair;
 }
-.practice-canvas-viewport.is-panning-mode canvas {
+.practice-infinite-viewport.is-panning .practice-infinite-canvas {
 	cursor: inherit !important;
 }
 
@@ -556,9 +573,9 @@
 	display: grid;
 	place-items: center;
 	pointer-events: none;
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: 500;
-	color: #8b9990;
+	color: #94a3b8;
 	letter-spacing: 0.02em;
 }
 
@@ -567,12 +584,12 @@
 	position: absolute;
 	pointer-events: none;
 	border-radius: 50%;
-	border: 1.5px solid rgba(0, 0, 0, 0.6);
+	border: 1.5px solid rgba(0, 0, 0, 0.65);
 	background: rgba(0, 0, 0, 0.08);
 	box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
 	transform: translate(-50%, -50%);
 	z-index: 20;
-	transition: width 0.08s, height 0.08s;
+	transition: width 0.06s, height 0.06s;
 }
 
 /* Inline Hint Footer */
@@ -593,28 +610,28 @@
 	padding: 10px;
 }
 
-/* Tablet & iPad coarse touch adjustments */
+/* Coarse Touch (iPad & Tablet) */
 @media (pointer: coarse) {
 	.practice-tool-segment {
-		min-height: 42px;
-		padding: 0 14px;
+		min-height: 40px;
+		padding: 0 13px;
 		font-size: 13px;
 	}
 	.practice-action-btn {
-		width: 42px;
-		height: 42px;
-	}
-	.practice-size-chip {
 		width: 40px;
 		height: 40px;
 	}
+	.practice-size-chip {
+		width: 38px;
+		height: 38px;
+	}
 	.practice-color-swatch {
-		width: 32px;
-		height: 32px;
+		width: 30px;
+		height: 30px;
 	}
 	.practice-color-fill {
-		width: 22px;
-		height: 22px;
+		width: 20px;
+		height: 20px;
 	}
 	.practice-fs-done-btn {
 		min-height: 46px;

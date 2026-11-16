@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
-	CheckIcon,
 	ChevronDownIcon,
 	ChevronUpIcon,
 	EraserIcon,
@@ -11,19 +11,17 @@ import {
 	Minimize2Icon,
 	PencilIcon,
 	RotateCcwIcon,
+	SparklesIcon,
 	Trash2Icon,
 	Undo2Icon,
 	ZoomInIcon,
 	ZoomOutIcon,
-	SparklesIcon,
 } from "lucide-react";
 import type { ImageContent } from "@earendil-works/pi-ai";
 
 type Point = { x: number; y: number; pressure: number };
 type Stroke = { color: string; width: number; points: Point[]; erase?: boolean };
 
-const WIDTH = 1400;
-const HEIGHT = 700;
 const COLORS = ["#17231a", "#1e40af", "#b91c1c", "#6b21a8", "#047857"];
 
 const PEN_WIDTHS = [
@@ -53,13 +51,23 @@ export function PracticeDrawing({
 	onDrawing,
 	question,
 }: PracticeDrawingProps) {
-	const canvas = useRef<HTMLCanvasElement>(null);
+	// Canvas ref for current visible view (inline or fullscreen)
+	const inlineCanvasRef = useRef<HTMLCanvasElement>(null);
+	const fsCanvasRef = useRef<HTMLCanvasElement>(null);
+
+	// All completed strokes in infinite world space
 	const history = useRef<Stroke[]>([]);
 	const gesture = useRef<{ id: number; stroke: Stroke } | null>(null);
 	const changed = useRef(onChange);
 	changed.current = onChange;
 
-	// Tool state: "pen" | "eraser" | "pan"
+	// Mounted state for SSR portal safety
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	// Tool states
 	const [activeTool, setActiveTool] = useState<"pen" | "eraser" | "pan">("pen");
 	const [color, setColor] = useState(COLORS[0]!);
 	const [penWidth, setPenWidth] = useState(4);
@@ -72,68 +80,206 @@ export function PracticeDrawing({
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [questionExpanded, setQuestionExpanded] = useState(true);
 
-	// Zoom and Pan
+	// Infinite Canvas Navigation: Zoom and Pan
 	const [zoom, setZoom] = useState(1);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
 
-	// Multi-touch gestures (Pinch-to-zoom & Two-finger Pan)
+	// Multi-touch gestures (Two-finger pan and pinch zoom)
 	const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
 	const prevCentroid = useRef<{ x: number; y: number } | null>(null);
 	const prevDistance = useRef<number | null>(null);
 
-	// Single-touch Pan dragging
-	const isPanning = useRef(false);
-	const lastPanPos = useRef<{ x: number; y: number } | null>(null);
+	// Single pointer Pan dragging
+	const isDraggingPan = useRef(false);
+	const lastPointerPos = useRef<{ x: number; y: number } | null>(null);
 
-	// Eraser visual cursor preview
+	// Eraser visual cursor
 	const [eraserCursor, setEraserCursor] = useState<{ x: number; y: number; visible: boolean }>({
 		x: 0,
 		y: 0,
 		visible: false,
 	});
 
-	function paintStroke(stroke: Stroke, start = 0) {
-		const context = canvas.current?.getContext("2d");
-		if (!context) return;
+	// Get active canvas element depending on mode
+	function getActiveCanvas(): HTMLCanvasElement | null {
+		return isFullscreen ? fsCanvasRef.current : inlineCanvasRef.current;
+	}
+
+	// World coordinates to Screen coordinates
+	function worldToScreen(p: Point, canvas: HTMLCanvasElement): { x: number; y: number } {
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: p.x * zoom + pan.x + rect.width / 2,
+			y: p.y * zoom + pan.y + rect.height / 2,
+		};
+	}
+
+	// Screen coordinates to World coordinates
+	function screenToWorld(clientX: number, clientY: number, canvas: HTMLCanvasElement): Point {
+		const rect = canvas.getBoundingClientRect();
+		const screenX = clientX - rect.left;
+		const screenY = clientY - rect.top;
+		return {
+			x: (screenX - rect.width / 2 - pan.x) / zoom,
+			y: (screenY - rect.height / 2 - pan.y) / zoom,
+			pressure: 0.5,
+		};
+	}
+
+	// Paint a single stroke onto the canvas context
+	function drawStroke(
+		context: CanvasRenderingContext2D,
+		stroke: Stroke,
+		canvas: HTMLCanvasElement,
+		startIdx = 0,
+	) {
+		if (!stroke.points.length) return;
+		context.save();
 		context.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
 		context.strokeStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
 		context.fillStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
 		context.lineCap = "round";
 		context.lineJoin = "round";
 
-		stroke.points.slice(start).forEach((p, offset) => {
-			const i = start + offset;
-			const prev = stroke.points[Math.max(0, i - 1)]!;
-			const baseWidth = stroke.erase ? stroke.width : stroke.width * (0.65 + 0.7 * p.pressure);
-			context.lineWidth = baseWidth;
+		const baseWidth = (stroke.erase ? stroke.width : stroke.width) * zoom;
+
+		stroke.points.slice(startIdx).forEach((p, offset) => {
+			const i = startIdx + offset;
+			const screenPt = worldToScreen(p, canvas);
+			const width = stroke.erase ? baseWidth : baseWidth * (0.65 + 0.7 * p.pressure);
+			context.lineWidth = Math.max(1, width);
 			context.beginPath();
+
 			if (i === 0) {
-				context.arc(p.x, p.y, baseWidth / 2, 0, Math.PI * 2);
+				context.arc(screenPt.x, screenPt.y, Math.max(0.5, width / 2), 0, Math.PI * 2);
 				context.fill();
 			} else {
-				context.moveTo(prev.x, prev.y);
-				context.lineTo(p.x, p.y);
+				const prevScreen = worldToScreen(stroke.points[i - 1]!, canvas);
+				context.moveTo(prevScreen.x, prevScreen.y);
+				context.lineTo(screenPt.x, screenPt.y);
 				context.stroke();
 			}
 		});
+
+		context.restore();
 	}
 
-	function repaintAll() {
-		const context = canvas.current?.getContext("2d");
+	// Redraw all strokes onto the active canvas
+	function repaint() {
+		const canvas = getActiveCanvas();
+		if (!canvas) return;
+		const rect = canvas.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) return;
+
+		const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+		if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
+			canvas.width = Math.round(rect.width * dpr);
+			canvas.height = Math.round(rect.height * dpr);
+		}
+
+		const context = canvas.getContext("2d");
 		if (!context) return;
-		context.clearRect(0, 0, WIDTH, HEIGHT);
-		history.current.forEach((stroke) => paintStroke(stroke));
+
+		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.scale(dpr, dpr);
+
+		for (const s of history.current) {
+			drawStroke(context, s, canvas, 0);
+		}
+
+		if (gesture.current) {
+			drawStroke(context, gesture.current.stroke, canvas, 0);
+		}
 	}
 
+	// Re-render when pan, zoom, or mode changes
+	useLayoutEffect(() => {
+		repaint();
+	}, [pan, zoom, isFullscreen]);
+
+	// Window resize handler to maintain sharp infinite canvas
+	useEffect(() => {
+		function onResize() {
+			repaint();
+		}
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, [isFullscreen]);
+
+	// Export bounded content to base64 PNG
 	function updateOutput() {
-		const c = canvas.current;
-		if (!c) return;
 		if (!history.current.length) {
 			changed.current(undefined);
 			return;
 		}
+
+		// Calculate world bounding box of all strokes
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+
+		for (const stroke of history.current) {
+			for (const p of stroke.points) {
+				if (p.x < minX) minX = p.x;
+				if (p.y < minY) minY = p.y;
+				if (p.x > maxX) maxX = p.x;
+				if (p.y > maxY) maxY = p.y;
+			}
+		}
+
+		if (!isFinite(minX) || !isFinite(minY)) {
+			changed.current(undefined);
+			return;
+		}
+
+		const padding = 50;
+		const contentW = Math.max(100, Math.ceil(maxX - minX + padding * 2));
+		const contentH = Math.max(100, Math.ceil(maxY - minY + padding * 2));
+
+		const exportCanvas = document.createElement("canvas");
+		exportCanvas.width = contentW;
+		exportCanvas.height = contentH;
+		const ctx = exportCanvas.getContext("2d");
+		if (!ctx) return;
+
+		// White background for submission export
+		ctx.fillStyle = "#ffffff";
+		ctx.fillRect(0, 0, contentW, contentH);
+
+		ctx.save();
+		ctx.translate(-minX + padding, -minY + padding);
+
+		// Render all strokes onto export canvas
+		for (const stroke of history.current) {
+			ctx.save();
+			ctx.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
+			ctx.strokeStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
+			ctx.fillStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+
+			stroke.points.forEach((p, i) => {
+				const w = stroke.erase ? stroke.width : stroke.width * (0.65 + 0.7 * p.pressure);
+				ctx.lineWidth = Math.max(1, w);
+				ctx.beginPath();
+				if (i === 0) {
+					ctx.arc(p.x, p.y, Math.max(0.5, w / 2), 0, Math.PI * 2);
+					ctx.fill();
+				} else {
+					const prev = stroke.points[i - 1]!;
+					ctx.moveTo(prev.x, prev.y);
+					ctx.lineTo(p.x, p.y);
+					ctx.stroke();
+				}
+			});
+			ctx.restore();
+		}
+		ctx.restore();
+
 		try {
-			const data = c.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+			const data = exportCanvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
 			changed.current({ type: "image", mimeType: "image/png", data });
 			setError("");
 		} catch (e) {
@@ -141,49 +287,43 @@ export function PracticeDrawing({
 		}
 	}
 
-	function getCanvasPoint(event: PointerEvent<HTMLCanvasElement>): Point {
-		const rect = canvas.current?.getBoundingClientRect();
-		if (!rect || rect.width === 0 || rect.height === 0) {
-			return { x: 0, y: 0, pressure: 0.5 };
-		}
-		const x = Math.max(0, Math.min(WIDTH, ((event.clientX - rect.left) / rect.width) * WIDTH));
-		const y = Math.max(0, Math.min(HEIGHT, ((event.clientY - rect.top) / rect.height) * HEIGHT));
-		return { x, y, pressure: event.pressure || 0.5 };
-	}
-
 	function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
 		if (disabled) return;
+		const canvas = getActiveCanvas();
+		if (!canvas) return;
 
-		// Track active pointers for multi-touch
 		activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-		// Multi-touch gesture initiated (2 fingers: Pan + Pinch Zoom)
+		// Two-finger gesture started: pan + pinch zoom
 		if (activePointers.current.size >= 2) {
 			if (gesture.current) finishStroke();
-			isPanning.current = false;
+			isDraggingPan.current = false;
 			const pts = Array.from(activePointers.current.values());
 			prevCentroid.current = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
 			prevDistance.current = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
 			return;
 		}
 
-		// Dedicated Pan Tool drag
+		// Dedicated Hand/Pan mode
 		if (activeTool === "pan") {
-			isPanning.current = true;
-			lastPanPos.current = { x: event.clientX, y: event.clientY };
+			isDraggingPan.current = true;
+			lastPointerPos.current = { x: event.clientX, y: event.clientY };
 			event.currentTarget.setPointerCapture(event.pointerId);
 			return;
 		}
 
-		// Ignore touch drawing if finger draw is disabled and pointer is touch
+		// Finger drawing check
 		if (event.pointerType === "touch" && !finger) {
 			return;
 		}
 
-		// Drawing stroke (Pen or Eraser)
+		// Drawing stroke
 		event.currentTarget.setPointerCapture(event.pointerId);
 		onDrawing(true);
-		const initialPoint = getCanvasPoint(event);
+
+		const worldPt = screenToWorld(event.clientX, event.clientY, canvas);
+		worldPt.pressure = event.pressure || 0.5;
+
 		const isEraser = activeTool === "eraser";
 		const strokeWidth = isEraser ? eraserSize : penWidth;
 
@@ -193,68 +333,88 @@ export function PracticeDrawing({
 				color: isEraser ? "rgba(0,0,0,1)" : color,
 				width: strokeWidth,
 				erase: isEraser,
-				points: [initialPoint],
+				points: [worldPt],
 			},
 		};
-		paintStroke(gesture.current.stroke, 0);
+
+		// Draw immediate point
+		const ctx = canvas.getContext("2d");
+		if (ctx) {
+			const dpr = window.devicePixelRatio || 1;
+			ctx.save();
+			ctx.scale(dpr, dpr);
+			drawStroke(ctx, gesture.current.stroke, canvas, 0);
+			ctx.restore();
+		}
 	}
 
 	function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
-		// Update active pointers
+		const canvas = getActiveCanvas();
+		if (!canvas) return;
+
 		if (activePointers.current.has(event.pointerId)) {
 			activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-			// Two-finger gesture active: compute centroid shift (pan) + distance shift (zoom)
+			// Two-finger pan & pinch zoom active
 			if (activePointers.current.size >= 2) {
 				const pts = Array.from(activePointers.current.values());
-				const currentCentroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
-				const currentDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+				const currCentroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
+				const currDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
 
 				if (prevCentroid.current) {
-					const dx = currentCentroid.x - prevCentroid.current.x;
-					const dy = currentCentroid.y - prevCentroid.current.y;
+					const dx = currCentroid.x - prevCentroid.current.x;
+					const dy = currCentroid.y - prevCentroid.current.y;
 					setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
 				}
 
 				if (prevDistance.current && prevDistance.current > 0) {
-					const factor = currentDist / prevDistance.current;
-					setZoom((prev) => Math.min(3.5, Math.max(0.5, prev * factor)));
+					const factor = currDist / prevDistance.current;
+					setZoom((prev) => Math.min(4, Math.max(0.2, prev * factor)));
 				}
 
-				prevCentroid.current = currentCentroid;
-				prevDistance.current = currentDist;
+				prevCentroid.current = currCentroid;
+				prevDistance.current = currDist;
 				return;
 			}
 		}
 
-		// Single pointer Pan tool drag
-		if (isPanning.current && lastPanPos.current) {
-			const dx = event.clientX - lastPanPos.current.x;
-			const dy = event.clientY - lastPanPos.current.y;
+		// Single pointer Move/Pan tool
+		if (isDraggingPan.current && lastPointerPos.current) {
+			const dx = event.clientX - lastPointerPos.current.x;
+			const dy = event.clientY - lastPointerPos.current.y;
 			setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-			lastPanPos.current = { x: event.clientX, y: event.clientY };
+			lastPointerPos.current = { x: event.clientX, y: event.clientY };
 			return;
 		}
 
-		// Update eraser cursor position
+		// Update eraser cursor ring
 		if (activeTool === "eraser") {
-			const rect = canvas.current?.getBoundingClientRect();
-			if (rect) {
-				setEraserCursor({
-					x: event.clientX - rect.left,
-					y: event.clientY - rect.top,
-					visible: true,
-				});
-			}
+			const rect = canvas.getBoundingClientRect();
+			setEraserCursor({
+				x: event.clientX - rect.left,
+				y: event.clientY - rect.top,
+				visible: true,
+			});
 		}
 
 		// Continue drawing stroke
 		if (!gesture.current || gesture.current.id !== event.pointerId) return;
-		const nextPoint = getCanvasPoint(event);
+
+		const worldPt = screenToWorld(event.clientX, event.clientY, canvas);
+		worldPt.pressure = event.pressure || 0.5;
+
 		const stroke = gesture.current.stroke;
 		const startIdx = Math.max(0, stroke.points.length - 1);
-		stroke.points.push(nextPoint);
-		paintStroke(stroke, startIdx);
+		stroke.points.push(worldPt);
+
+		const ctx = canvas.getContext("2d");
+		if (ctx) {
+			const dpr = window.devicePixelRatio || 1;
+			ctx.save();
+			ctx.scale(dpr, dpr);
+			drawStroke(ctx, stroke, canvas, startIdx);
+			ctx.restore();
+		}
 	}
 
 	function finishStroke(event?: PointerEvent<HTMLCanvasElement>) {
@@ -266,9 +426,9 @@ export function PracticeDrawing({
 			prevDistance.current = null;
 		}
 
-		if (isPanning.current) {
-			isPanning.current = false;
-			lastPanPos.current = null;
+		if (isDraggingPan.current) {
+			isDraggingPan.current = false;
+			lastPointerPos.current = null;
 			return;
 		}
 
@@ -279,6 +439,7 @@ export function PracticeDrawing({
 		gesture.current = null;
 		setStrokeCount(history.current.length);
 		onDrawing(false);
+		repaint();
 		updateOutput();
 	}
 
@@ -289,25 +450,25 @@ export function PracticeDrawing({
 	function handleUndo() {
 		if (!history.current.length || disabled) return;
 		history.current.pop();
-		repaintAll();
 		setStrokeCount(history.current.length);
+		repaint();
 		updateOutput();
 	}
 
 	function handleClear() {
 		if (!history.current.length || disabled) return;
 		history.current = [];
-		repaintAll();
 		setStrokeCount(0);
+		repaint();
 		updateOutput();
 	}
 
 	function zoomIn() {
-		setZoom((prev) => Math.min(3.5, Number((prev + 0.25).toFixed(2))));
+		setZoom((prev) => Math.min(4, Number((prev + 0.25).toFixed(2))));
 	}
 
 	function zoomOut() {
-		setZoom((prev) => Math.max(0.5, Number((prev - 0.25).toFixed(2))));
+		setZoom((prev) => Math.max(0.2, Number((prev - 0.25).toFixed(2))));
 	}
 
 	function resetView() {
@@ -326,154 +487,145 @@ export function PracticeDrawing({
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [isFullscreen]);
 
-	// Lock body scroll when in fullscreen
+	// Prevent document body scrolling in fullscreen
 	useEffect(() => {
 		if (isFullscreen) {
-			const originalOverflow = document.body.style.overflow;
+			const original = document.body.style.overflow;
 			document.body.style.overflow = "hidden";
 			return () => {
-				document.body.style.overflow = originalOverflow;
+				document.body.style.overflow = original;
 			};
 		}
 	}, [isFullscreen]);
 
-	/* ── Apple PencilKit Floating Capsule Toolbar ── */
-	const toolbar = (
-		<nav
-			className={`practice-pencilkit-toolbar ${isFullscreen ? "is-fullscreen" : "is-inline"}`}
-			aria-label="Drawing tools"
-		>
-			{/* Segmented Tool Switcher: Pen | Eraser | Hand */}
-			<div className="practice-segmented-tools" role="radiogroup" aria-label="Tool selection">
-				<button
-					type="button"
-					role="radio"
-					aria-checked={activeTool === "pen"}
-					className={`practice-tool-segment ${activeTool === "pen" ? "is-active" : ""}`}
-					onClick={() => setActiveTool("pen")}
-					title="Pen (Draw)"
-				>
-					<PencilIcon className="size-4" aria-hidden="true" />
-					<span className="practice-segment-label">Pen</span>
-				</button>
-				<button
-					type="button"
-					role="radio"
-					aria-checked={activeTool === "eraser"}
-					className={`practice-tool-segment ${activeTool === "eraser" ? "is-active" : ""}`}
-					onClick={() => setActiveTool("eraser")}
-					title="Eraser"
-				>
-					<EraserIcon className="size-4" aria-hidden="true" />
-					<span className="practice-segment-label">Eraser</span>
-				</button>
-				<button
-					type="button"
-					role="radio"
-					aria-checked={activeTool === "pan"}
-					className={`practice-tool-segment ${activeTool === "pan" ? "is-active" : ""}`}
-					onClick={() => setActiveTool("pan")}
-					title="Hand tool (Drag to move canvas)"
-				>
-					<HandIcon className="size-4" aria-hidden="true" />
-					<span className="practice-segment-label">Move</span>
-				</button>
-			</div>
+	/* ── Shared Tool Selection Component ── */
+	const toolSwitcher = (
+		<div className="practice-segmented-tools" role="radiogroup" aria-label="Tool selection">
+			<button
+				type="button"
+				role="radio"
+				aria-checked={activeTool === "pen"}
+				className={`practice-tool-segment ${activeTool === "pen" ? "is-active" : ""}`}
+				onClick={() => setActiveTool("pen")}
+				title="Pen (Draw)"
+			>
+				<PencilIcon className="size-4" aria-hidden="true" />
+				<span>Pen</span>
+			</button>
+			<button
+				type="button"
+				role="radio"
+				aria-checked={activeTool === "eraser"}
+				className={`practice-tool-segment ${activeTool === "eraser" ? "is-active" : ""}`}
+				onClick={() => setActiveTool("eraser")}
+				title="Eraser"
+			>
+				<EraserIcon className="size-4" aria-hidden="true" />
+				<span>Eraser</span>
+			</button>
+			<button
+				type="button"
+				role="radio"
+				aria-checked={activeTool === "pan"}
+				className={`practice-tool-segment ${activeTool === "pan" ? "is-active" : ""}`}
+				onClick={() => setActiveTool("pan")}
+				title="Move canvas (Drag with finger or stylus)"
+			>
+				<HandIcon className="size-4" aria-hidden="true" />
+				<span>Move</span>
+			</button>
+		</div>
+	);
 
-			<div className="practice-toolbar-separator" aria-hidden="true" />
+	/* ── Shared Size Presets Component ── */
+	const sizePresets = (
+		<div className="practice-size-presets" role="radiogroup" aria-label="Tool size presets">
+			{activeTool === "pen" &&
+				PEN_WIDTHS.map((w) => (
+					<button
+						key={w.value}
+						type="button"
+						role="radio"
+						aria-checked={penWidth === w.value}
+						className={`practice-size-chip ${penWidth === w.value ? "is-active" : ""}`}
+						onClick={() => setPenWidth(w.value)}
+						title={`Pen thickness: ${w.label}`}
+					>
+						<span
+							className="practice-pen-dot"
+							style={{
+								width: `${w.dotSize}px`,
+								height: `${w.dotSize}px`,
+								backgroundColor: color,
+							}}
+						/>
+					</button>
+				))}
 
-			{/* Sub-tool Preset Dots / Chips */}
-			{activeTool === "pen" && (
-				<div className="practice-size-presets" role="radiogroup" aria-label="Pen thickness">
-					{PEN_WIDTHS.map((w) => (
-						<button
-							key={w.value}
-							type="button"
-							role="radio"
-							aria-checked={penWidth === w.value}
-							className={`practice-size-chip ${penWidth === w.value ? "is-active" : ""}`}
-							onClick={() => setPenWidth(w.value)}
-							title={`Pen: ${w.label}`}
-						>
-							<span
-								className="practice-pen-dot"
-								style={{
-									width: `${w.dotSize}px`,
-									height: `${w.dotSize}px`,
-									backgroundColor: color,
-								}}
-							/>
-						</button>
-					))}
-				</div>
-			)}
-
-			{activeTool === "eraser" && (
-				<div className="practice-size-presets" role="radiogroup" aria-label="Eraser diameter">
-					{ERASER_SIZES.map((es) => (
-						<button
-							key={es.value}
-							type="button"
-							role="radio"
-							aria-checked={eraserSize === es.value}
-							className={`practice-size-chip ${eraserSize === es.value ? "is-active" : ""}`}
-							onClick={() => setEraserSize(es.value)}
-							title={`Eraser: ${es.label}`}
-						>
-							<span
-								className="practice-eraser-ring"
-								style={{
-									width: `${es.ringSize}px`,
-									height: `${es.ringSize}px`,
-								}}
-							/>
-						</button>
-					))}
-				</div>
-			)}
+			{activeTool === "eraser" &&
+				ERASER_SIZES.map((es) => (
+					<button
+						key={es.value}
+						type="button"
+						role="radio"
+						aria-checked={eraserSize === es.value}
+						className={`practice-size-chip ${eraserSize === es.value ? "is-active" : ""}`}
+						onClick={() => setEraserSize(es.value)}
+						title={`Eraser size: ${es.label}`}
+					>
+						<span
+							className="practice-eraser-ring"
+							style={{
+								width: `${es.ringSize}px`,
+								height: `${es.ringSize}px`,
+							}}
+						/>
+					</button>
+				))}
 
 			{activeTool === "pan" && (
 				<button
 					type="button"
 					className="practice-recenter-btn"
 					onClick={resetView}
-					title="Recenter canvas position and 100% zoom"
+					title="Recenter view and 100% zoom"
 				>
 					<RotateCcwIcon className="size-3.5" aria-hidden="true" />
 					<span>Recenter</span>
 				</button>
 			)}
+		</div>
+	);
 
-			<div className="practice-toolbar-separator" aria-hidden="true" />
+	/* ── Shared Color Swatches Component ── */
+	const colorSwatches = (
+		<div className="practice-color-swatches" role="radiogroup" aria-label="Ink color">
+			{COLORS.map((swatch) => (
+				<button
+					key={swatch}
+					type="button"
+					role="radio"
+					aria-checked={color === swatch && activeTool === "pen"}
+					className={`practice-color-swatch ${color === swatch && activeTool === "pen" ? "is-active" : ""}`}
+					onClick={() => {
+						setColor(swatch);
+						if (activeTool !== "pen") setActiveTool("pen");
+					}}
+					title={`Ink color ${swatch}`}
+				>
+					<span className="practice-color-fill" style={{ backgroundColor: swatch }} />
+				</button>
+			))}
+		</div>
+	);
 
-			{/* Color Swatches */}
-			<div className="practice-color-swatches" role="radiogroup" aria-label="Colors">
-				{COLORS.map((swatch) => (
-					<button
-						key={swatch}
-						type="button"
-						role="radio"
-						aria-checked={color === swatch && activeTool === "pen"}
-						className={`practice-color-swatch ${color === swatch && activeTool === "pen" ? "is-active" : ""}`}
-						style={{ "--swatch-bg": swatch } as React.CSSProperties}
-						onClick={() => {
-							setColor(swatch);
-							if (activeTool !== "pen") setActiveTool("pen");
-						}}
-						title={`Color ${swatch}`}
-					>
-						<span className="practice-color-fill" style={{ backgroundColor: swatch }} />
-					</button>
-				))}
-			</div>
-
-			<div className="practice-toolbar-separator" aria-hidden="true" />
-
-			{/* Canvas Actions: Undo & Clear */}
+	/* ── Action & Zoom Utilities ── */
+	const actionAndZoom = (
+		<>
 			<div className="practice-action-buttons">
 				<button
 					type="button"
-					aria-label="Undo stroke"
+					aria-label="Undo"
 					disabled={disabled || !strokeCount}
 					className="practice-action-btn"
 					onClick={handleUndo}
@@ -487,7 +639,7 @@ export function PracticeDrawing({
 					disabled={disabled || !strokeCount}
 					className="practice-action-btn"
 					onClick={handleClear}
-					title="Clear canvas"
+					title="Clear"
 				>
 					<Trash2Icon className="size-4" aria-hidden="true" />
 				</button>
@@ -495,12 +647,11 @@ export function PracticeDrawing({
 
 			<div className="practice-toolbar-separator" aria-hidden="true" />
 
-			{/* Zoom Controls */}
 			<div className="practice-zoom-cluster">
 				<button
 					type="button"
 					aria-label="Zoom out"
-					disabled={disabled || zoom <= 0.5}
+					disabled={disabled || zoom <= 0.2}
 					className="practice-action-btn"
 					onClick={zoomOut}
 					title="Zoom out"
@@ -509,18 +660,18 @@ export function PracticeDrawing({
 				</button>
 				<button
 					type="button"
-					aria-label="Reset zoom and center"
+					aria-label="Reset zoom"
 					disabled={disabled}
 					className="practice-zoom-pill"
 					onClick={resetView}
-					title="Tap to reset zoom and center"
+					title="Tap to recenter and reset 100%"
 				>
 					{Math.round(zoom * 100)}%
 				</button>
 				<button
 					type="button"
 					aria-label="Zoom in"
-					disabled={disabled || zoom >= 3.5}
+					disabled={disabled || zoom >= 4}
 					className="practice-action-btn"
 					onClick={zoomIn}
 					title="Zoom in"
@@ -531,152 +682,212 @@ export function PracticeDrawing({
 
 			<div className="practice-toolbar-separator" aria-hidden="true" />
 
-			{/* Finger Draw Toggle */}
 			<button
 				type="button"
 				aria-pressed={finger}
 				className={`practice-finger-toggle ${finger ? "is-active" : ""}`}
 				onClick={() => setFinger((prev) => !prev)}
-				title={finger ? "Drawing with finger enabled" : "Apple Pencil / Stylus only (finger draws disabled)"}
+				title={finger ? "Finger drawing ON" : "Apple Pencil only"}
 			>
 				<span className="practice-finger-dot" />
-				<span className="practice-finger-text">{finger ? "Finger On" : "Pencil Only"}</span>
+				<span>{finger ? "Finger On" : "Pencil Only"}</span>
 			</button>
+		</>
+	);
 
-			{/* Inline Expand button (only shown when not in fullscreen) */}
-			{!isFullscreen && (
-				<>
+	/* ── Fullscreen Overlay Rendered Via React Portal ── */
+	const fullscreenOverlay = isFullscreen && mounted && createPortal(
+		<div className="practice-fullscreen-portal-root" role="dialog" aria-modal="true" aria-label="Unlimited Whiteboard">
+			{/* Fixed Top Bar */}
+			<header className="practice-fs-topbar" role="banner">
+				{/* Question Card */}
+				<div className={`practice-fs-question-card ${questionExpanded ? "is-expanded" : "is-collapsed"}`}>
+					<div className="practice-fs-question-meta">
+						<span className="practice-fs-question-badge">
+							<SparklesIcon className="size-3" aria-hidden="true" />
+							Question
+						</span>
+						{question && (
+							<button
+								type="button"
+								className="practice-fs-collapse-toggle"
+								onClick={() => setQuestionExpanded((prev) => !prev)}
+								aria-label={questionExpanded ? "Collapse question" : "Expand question"}
+							>
+								{questionExpanded ? (
+									<>
+										<ChevronUpIcon className="size-3.5" aria-hidden="true" />
+										<span>Hide</span>
+									</>
+								) : (
+									<>
+										<ChevronDownIcon className="size-3.5" aria-hidden="true" />
+										<span>Show Question</span>
+									</>
+								)}
+							</button>
+						)}
+					</div>
+					{questionExpanded && (
+						<div className="practice-fs-question-content">
+							{question || <p className="text-muted-foreground text-xs italic">No question statement attached.</p>}
+						</div>
+					)}
+				</div>
+
+				{/* Prominent iPad "Done" Exit Button */}
+				<button
+					type="button"
+					className="practice-fs-done-btn"
+					onClick={() => setIsFullscreen(false)}
+					aria-label="Exit full screen whiteboard"
+					title="Exit full screen (Esc)"
+				>
+					<Minimize2Icon className="size-4" aria-hidden="true" />
+					<span>Done</span>
+				</button>
+			</header>
+
+			{/* Infinite Whiteboard Canvas Viewport */}
+			<div
+				className={`practice-infinite-viewport is-fullscreen ${activeTool === "pan" ? "is-panning" : ""}`}
+				style={{
+					backgroundPosition: `${pan.x}px ${pan.y}px`,
+					backgroundSize: `${32 * zoom}px ${32 * zoom}`,
+				}}
+			>
+				<canvas
+					ref={fsCanvasRef}
+					className="practice-infinite-canvas"
+					aria-label="Unlimited Whiteboard. Write with Apple Pencil, mouse, or touch."
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={finishStroke}
+					onPointerCancel={finishStroke}
+					onLostPointerCapture={finishStroke}
+					onPointerLeave={handlePointerLeave}
+				/>
+
+				{!strokeCount && (
+					<div className="practice-canvas-placeholder" aria-hidden="true">
+						<span>Unlimited Whiteboard · Pan and zoom anywhere</span>
+					</div>
+				)}
+
+				{/* Eraser Cursor Preview Ring */}
+				{activeTool === "eraser" && eraserCursor.visible && (
+					<div
+						className="practice-eraser-cursor-ring"
+						style={{
+							left: `${eraserCursor.x}px`,
+							top: `${eraserCursor.y}px`,
+							width: `${eraserSize * zoom}px`,
+							height: `${eraserSize * zoom}px`,
+						}}
+						aria-hidden="true"
+					/>
+				)}
+			</div>
+
+			{/* Floating Apple PencilKit Capsule Toolbar */}
+			<div className="practice-fullscreen-toolbar-float">
+				<nav className="practice-pencilkit-toolbar is-fullscreen" aria-label="Drawing tools">
+					{toolSwitcher}
 					<div className="practice-toolbar-separator" aria-hidden="true" />
+					{sizePresets}
+					<div className="practice-toolbar-separator" aria-hidden="true" />
+					{colorSwatches}
+					<div className="practice-toolbar-separator" aria-hidden="true" />
+					{actionAndZoom}
+				</nav>
+			</div>
+		</div>,
+		document.body,
+	);
+
+	return (
+		<section className="practice-drawing-root is-inline-view" aria-label="Handwritten answer workspace">
+			{/* Inline 2-Row Responsive Toolbar */}
+			<div className="practice-inline-two-row-toolbar">
+				{/* Row 1: Tools, Sizes & Colors */}
+				<div className="practice-inline-toolbar-row">
+					{toolSwitcher}
+					<div className="practice-toolbar-separator" aria-hidden="true" />
+					{sizePresets}
+					<div className="practice-toolbar-separator" aria-hidden="true" />
+					{colorSwatches}
+				</div>
+
+				{/* Row 2: Actions, Zoom & Prominent Fullscreen Button */}
+				<div className="practice-inline-toolbar-row is-secondary-row">
+					<div className="practice-inline-actions-group">
+						{actionAndZoom}
+					</div>
+
+					{/* Prominent Fullscreen Expand Button */}
 					<button
 						type="button"
-						aria-label="Full screen whiteboard"
 						className="practice-expand-fullscreen-btn"
 						onClick={() => setIsFullscreen(true)}
-						title="Open full screen whiteboard"
+						title="Open unlimited full screen whiteboard"
+						aria-label="Open unlimited full screen whiteboard"
 					>
 						<Maximize2Icon className="size-4" aria-hidden="true" />
 						<span>Fullscreen</span>
 					</button>
-				</>
-			)}
-		</nav>
-	);
-
-	return (
-		<section
-			className={`practice-drawing-root ${isFullscreen ? "is-fullscreen-view" : "is-inline-view"}`}
-			aria-label="Handwritten answer workspace"
-		>
-			{/* Fixed Top Bar (Fullscreen Only) */}
-			{isFullscreen && (
-				<header className="practice-fs-topbar" role="banner">
-					{/* Left / Center: Readable Question Card */}
-					<div className={`practice-fs-question-card ${questionExpanded ? "is-expanded" : "is-collapsed"}`}>
-						<div className="practice-fs-question-meta">
-							<span className="practice-fs-question-badge">
-								<SparklesIcon className="size-3" aria-hidden="true" />
-								Question
-							</span>
-							{question && (
-								<button
-									type="button"
-									className="practice-fs-collapse-toggle"
-									onClick={() => setQuestionExpanded((prev) => !prev)}
-									aria-label={questionExpanded ? "Collapse question" : "Expand question"}
-								>
-									{questionExpanded ? (
-										<>
-											<ChevronUpIcon className="size-3.5" aria-hidden="true" />
-											<span>Collapse</span>
-										</>
-									) : (
-										<>
-											<ChevronDownIcon className="size-3.5" aria-hidden="true" />
-											<span>View Question</span>
-										</>
-									)}
-								</button>
-							)}
-						</div>
-						{questionExpanded && (
-							<div className="practice-fs-question-content">
-								{question || <p className="text-muted-foreground text-xs italic">No question statement attached.</p>}
-							</div>
-						)}
-					</div>
-
-					{/* Right: Prominent Native iPad "Done" Button (ALWAYS visible) */}
-					<button
-						type="button"
-						className="practice-fs-done-btn"
-						onClick={() => setIsFullscreen(false)}
-						aria-label="Exit full screen whiteboard"
-						title="Exit full screen"
-					>
-						<Minimize2Icon className="size-4" aria-hidden="true" />
-						<span>Done</span>
-					</button>
-				</header>
-			)}
-
-			{/* Inline Toolbar (placed above sheet when inline) */}
-			{!isFullscreen && <div className="practice-inline-toolbar-wrap">{toolbar}</div>}
-
-			{/* Whiteboard Canvas Viewport */}
-			<div className={`practice-canvas-viewport ${activeTool === "pan" ? "is-panning-mode" : ""}`}>
-				<div
-					className="practice-canvas-surface"
-					style={{
-						transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-						transformOrigin: "center center",
-						transition: activePointers.current.size >= 2 || isPanning.current ? "none" : "transform 0.12s ease-out",
-					}}
-				>
-					<canvas
-						ref={canvas}
-						width={WIDTH}
-						height={HEIGHT}
-						aria-label="Whiteboard canvas. Draw with Apple Pencil, mouse, or touch."
-						onPointerDown={handlePointerDown}
-						onPointerMove={handlePointerMove}
-						onPointerUp={finishStroke}
-						onPointerCancel={finishStroke}
-						onLostPointerCapture={finishStroke}
-						onPointerLeave={handlePointerLeave}
-					/>
-					{!strokeCount && (
-						<div className="practice-canvas-placeholder" aria-hidden="true">
-							<span>Write or draw your solution here</span>
-						</div>
-					)}
-
-					{/* Eraser Visual Cursor Preview Ring */}
-					{activeTool === "eraser" && eraserCursor.visible && (
-						<div
-							className="practice-eraser-cursor-ring"
-							style={{
-								left: `${eraserCursor.x}px`,
-								top: `${eraserCursor.y}px`,
-								width: `${eraserSize * (WIDTH / (canvas.current?.getBoundingClientRect().width || WIDTH)) * 0.5}px`,
-								height: `${eraserSize * (WIDTH / (canvas.current?.getBoundingClientRect().width || WIDTH)) * 0.5}px`,
-							}}
-							aria-hidden="true"
-						/>
-					)}
 				</div>
 			</div>
 
-			{/* Fullscreen Floating Bottom Capsule Toolbar */}
-			{isFullscreen && <div className="practice-fullscreen-toolbar-float">{toolbar}</div>}
+			{/* Inline Infinite Canvas Viewport */}
+			<div
+				className={`practice-infinite-viewport is-inline ${activeTool === "pan" ? "is-panning" : ""}`}
+				style={{
+					backgroundPosition: `${pan.x}px ${pan.y}px`,
+					backgroundSize: `${28 * zoom}px ${28 * zoom}`,
+				}}
+			>
+				<canvas
+					ref={inlineCanvasRef}
+					className="practice-infinite-canvas"
+					aria-label="Whiteboard canvas. Draw with Apple Pencil, mouse, or touch."
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={finishStroke}
+					onPointerCancel={finishStroke}
+					onLostPointerCapture={finishStroke}
+					onPointerLeave={handlePointerLeave}
+				/>
+
+				{!strokeCount && (
+					<div className="practice-canvas-placeholder" aria-hidden="true">
+						<span>Write or draw your solution here</span>
+					</div>
+				)}
+
+				{/* Eraser Cursor Preview Ring */}
+				{activeTool === "eraser" && eraserCursor.visible && (
+					<div
+						className="practice-eraser-cursor-ring"
+						style={{
+							left: `${eraserCursor.x}px`,
+							top: `${eraserCursor.y}px`,
+							width: `${eraserSize * zoom}px`,
+							height: `${eraserSize * zoom}px`,
+						}}
+						aria-hidden="true"
+					/>
+				)}
+			</div>
 
 			{/* Inline Hint Footer */}
-			{!isFullscreen && (
-				<footer className="practice-inline-footer">
-					<span>Pinch or 2-finger drag to zoom & pan · Apple Pencil supported</span>
-				</footer>
-			)}
+			<footer className="practice-inline-footer">
+				<span>Pinch or 2-finger drag to pan & zoom · Unlimited canvas</span>
+			</footer>
 
 			{error && <p role="alert" className="practice-error-banner">{error}</p>}
+
+			{/* Fullscreen Portal */}
+			{fullscreenOverlay}
 		</section>
 	);
 }
