@@ -925,7 +925,18 @@ function QuestionDockForm({
 						{hasDrawing && <span>Drawing ready to submit</span>}
 					</div>
 					<div hidden={answerMode !== "draw"}>
-						<PracticeDrawing key={toolCallId} disabled={preparing || compactionRunning} onDrawing={active => { drawingActiveRef.current = active; setDrawingActive(active); }} onChange={image => { drawingRef.current = image; setDrawing(image); }} />
+						<PracticeDrawing
+							key={toolCallId}
+							question={
+								<div className="space-y-1">
+									<div className="text-sm font-medium leading-relaxed">{qd.question}</div>
+									{qd.context && <div className="text-xs text-muted-foreground">{qd.context}</div>}
+								</div>
+							}
+							disabled={preparing || compactionRunning}
+							onDrawing={active => { drawingActiveRef.current = active; setDrawingActive(active); }}
+							onChange={image => { drawingRef.current = image; setDrawing(image); }}
+						/>
 						<p className="practice-drawing-guidance">Submit your handwritten working or diagram. Your tutor will review the steps.</p>
 					</div>
 				</div>

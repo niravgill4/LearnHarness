@@ -1,25 +1,445 @@
-.practice-answer-tools { padding:8px 12px 0; }
-.practice-answer-modes { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px; font-size:12px; }
-.practice-answer-modes button { border:1px solid var(--border); border-radius:8px; min-height:40px; padding:8px 13px; cursor:pointer; color:var(--muted-foreground); }
-.practice-answer-modes button[aria-pressed="true"] { background:var(--accent); color:var(--foreground); }
-.practice-answer-modes span { margin-left:auto; color:var(--muted-foreground); font-size:11px; }
-.practice-drawing { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-.practice-drawing-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:6px; background:var(--card); }
-.practice-drawing-toolbar [role="group"] { display:flex; align-items:center; gap:3px; }
-.practice-drawing-toolbar button { display:grid; place-items:center; width:40px; height:40px; border:1px solid transparent; border-radius:8px; cursor:pointer; }
-.practice-drawing-toolbar button:hover { background:var(--accent); }
-.practice-drawing-toolbar button[aria-pressed="true"] { border-color:var(--foreground); }
-.practice-drawing-toolbar button:disabled { opacity:.4; cursor:default; }
-.practice-drawing-toolbar svg { width:17px; height:17px; }
-.practice-drawing-toolbar button span { width:19px; height:19px; border:1px solid #a7aaa7; border-radius:50%; }
-.practice-drawing-toolbar label { display:flex; align-items:center; gap:7px; font-size:11px; }
-.practice-drawing-toolbar select { padding:8px; min-height:40px; border:1px solid var(--border); border-radius:7px; color:var(--foreground); background:var(--background); font-size:12px; }
-.practice-drawing-sheet { position:relative; aspect-ratio:2/1; background:#fff; }
-.practice-drawing-sheet canvas { display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
-.practice-drawing-placeholder { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; font-size:16px; color:#67716b; }
-.practice-drawing-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 10px; background:var(--card); font-size:10px; color:var(--muted-foreground); }
-.practice-drawing-footer label { display:flex; align-items:center; gap:7px; min-height:30px; cursor:pointer; }
-.practice-drawing-guidance { margin:8px 0 10px; color:var(--muted-foreground); font-size:11px; line-height:1.6; }
-.practice-drawing-error { color:var(--destructive); font-size:12px; padding:10px; }
-.practice-answer-tools button:focus-visible,.practice-answer-tools select:focus-visible,.practice-answer-tools input:focus-visible { outline:2px solid var(--foreground); outline-offset:2px; }
-@media(pointer:coarse) { .practice-drawing-toolbar button { width:44px; height:44px; } .practice-answer-modes button { min-height:44px; } }
+/* Practice & Teach Drawing Whiteboard Styles */
+.practice-answer-tools {
+	padding: 8px 12px 0;
+}
+.practice-answer-modes {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 8px;
+	font-size: 12px;
+}
+.practice-answer-modes button {
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	min-height: 40px;
+	padding: 8px 13px;
+	cursor: pointer;
+	color: var(--muted-foreground);
+	background: transparent;
+	transition: all 0.15s ease;
+}
+.practice-answer-modes button[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--foreground);
+	font-weight: 500;
+	border-color: var(--foreground);
+}
+.practice-answer-modes span {
+	margin-left: auto;
+	color: var(--muted-foreground);
+	font-size: 11px;
+}
+
+/* Whiteboard container */
+.practice-drawing {
+	position: relative;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	overflow: hidden;
+	background: var(--background);
+	box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Fullscreen Whiteboard Overlay */
+.practice-drawing-fullscreen-mode {
+	position: fixed !important;
+	inset: 0 !important;
+	z-index: 9999 !important;
+	width: 100vw !important;
+	height: 100vh !important;
+	max-width: 100vw !important;
+	max-height: 100vh !important;
+	margin: 0 !important;
+	border-radius: 0 !important;
+	border: none !important;
+	background: #0d120f !important;
+	display: flex !important;
+	flex-direction: column !important;
+	overflow: hidden !important;
+}
+
+/* Floating Glass Question Card (Fullscreen) */
+.practice-drawing-fs-question-card {
+	position: absolute;
+	top: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 30;
+	width: calc(100% - 32px);
+	max-width: 760px;
+	background: rgba(18, 24, 20, 0.88);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 16px;
+	padding: 12px 18px;
+	box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.2);
+	color: #f3f5f3;
+	animation: practice-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes practice-slide-down {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -10px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+}
+
+.practice-drawing-fs-question-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.practice-drawing-fs-badge {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: rgba(184, 213, 170, 0.18);
+	color: #b8d5aa;
+	border: 1px solid rgba(184, 213, 170, 0.3);
+}
+.practice-drawing-fs-toggle,
+.practice-drawing-fs-close {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: none;
+	background: transparent;
+	color: #a5b3a8;
+	font-size: 11px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+.practice-drawing-fs-toggle:hover,
+.practice-drawing-fs-close:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+}
+.practice-drawing-fs-toggle svg,
+.practice-drawing-fs-close svg {
+	width: 14px;
+	height: 14px;
+}
+.practice-drawing-fs-close {
+	margin-left: auto;
+}
+.practice-drawing-fs-question-body {
+	margin-top: 8px;
+	font-size: 13.5px;
+	line-height: 1.55;
+	color: #e4ebe5;
+	max-height: 22vh;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+/* Whiteboard Toolbars */
+.practice-drawing-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	background: var(--card);
+	border-bottom: 1px solid var(--border);
+	user-select: none;
+}
+
+.practice-drawing-toolbar-glass {
+	background: rgba(18, 24, 20, 0.9) !important;
+	backdrop-filter: blur(20px) !important;
+	-webkit-backdrop-filter: blur(20px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.15) !important;
+	border-radius: 18px !important;
+	box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.25) !important;
+	color: #f3f5f3 !important;
+	padding: 8px 14px !important;
+}
+
+.practice-drawing-fs-toolbar-float {
+	position: absolute;
+	bottom: 24px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 30;
+	width: max-content;
+	max-width: calc(100vw - 32px);
+}
+
+.practice-drawing-tool-group {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.practice-tool-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 36px;
+	padding: 6px 10px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--foreground);
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.practice-drawing-toolbar-glass .practice-tool-btn {
+	border-color: rgba(255, 255, 255, 0.12);
+	color: #d1ddd3;
+}
+.practice-tool-btn:hover:not(:disabled) {
+	background: var(--accent);
+}
+.practice-drawing-toolbar-glass .practice-tool-btn:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.1);
+	color: #fff;
+}
+.practice-tool-btn.is-active,
+.practice-tool-btn[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--foreground);
+	border-color: var(--foreground);
+}
+.practice-drawing-toolbar-glass .practice-tool-btn.is-active,
+.practice-drawing-toolbar-glass .practice-tool-btn[aria-pressed="true"] {
+	background: #b8d5aa;
+	color: #121c15;
+	border-color: #b8d5aa;
+	font-weight: 600;
+}
+.practice-tool-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.practice-tool-btn svg {
+	width: 16px;
+	height: 16px;
+	shrink: 0;
+}
+
+.practice-icon-only {
+	width: 36px;
+	height: 36px;
+	padding: 0;
+}
+
+.practice-tool-select {
+	min-height: 36px;
+	padding: 4px 8px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--background);
+	color: var(--foreground);
+	font-size: 12px;
+	cursor: pointer;
+	outline: none;
+}
+.practice-drawing-toolbar-glass .practice-tool-select {
+	background: rgba(28, 36, 30, 0.8);
+	border-color: rgba(255, 255, 255, 0.14);
+	color: #e4ebe5;
+}
+
+.practice-drawing-swatches {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 4px;
+}
+.practice-color-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	background: transparent;
+	padding: 0;
+	cursor: pointer;
+	transition: transform 0.15s, border-color 0.15s;
+}
+.practice-color-btn span {
+	display: block;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.practice-color-btn:hover {
+	transform: scale(1.15);
+}
+.practice-color-btn.is-selected {
+	border-color: var(--foreground);
+	transform: scale(1.15);
+}
+.practice-drawing-toolbar-glass .practice-color-btn.is-selected {
+	border-color: #fff;
+}
+
+.practice-zoom-readout {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	height: 36px;
+	padding: 0 4px;
+	font-size: 11px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	background: transparent;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	color: var(--foreground);
+	cursor: pointer;
+}
+.practice-drawing-toolbar-glass .practice-zoom-readout {
+	border-color: rgba(255, 255, 255, 0.12);
+	color: #d1ddd3;
+}
+
+.practice-drawing-divider {
+	width: 1px;
+	height: 22px;
+	background: var(--border);
+	margin: 0 3px;
+}
+.practice-drawing-toolbar-glass .practice-drawing-divider {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.practice-fullscreen-btn {
+	margin-left: auto;
+}
+
+/* Viewport & Sheet */
+.practice-drawing-sheet-viewport {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.practice-drawing-fullscreen-mode .practice-drawing-sheet-viewport {
+	flex: 1;
+	height: 100%;
+	width: 100%;
+	background: #f7f9f7;
+}
+
+.practice-drawing-sheet {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 2 / 1;
+	background: #ffffff;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+	cursor: crosshair;
+	touch-action: none;
+}
+
+.practice-drawing-fullscreen-mode .practice-drawing-sheet {
+	width: min(94vw, 188vh);
+	height: auto;
+	box-shadow: 0 12px 48px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
+	border-radius: 8px;
+}
+
+.practice-drawing-sheet canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	touch-action: none;
+}
+
+.practice-drawing-placeholder {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	pointer-events: none;
+	font-size: 16px;
+	font-weight: 500;
+	color: #7b8880;
+	letter-spacing: 0.02em;
+}
+
+/* Eraser preview ring */
+.practice-eraser-cursor {
+	position: absolute;
+	pointer-events: none;
+	border-radius: 50%;
+	border: 1.5px solid rgba(0, 0, 0, 0.55);
+	background: rgba(0, 0, 0, 0.06);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+	transform: translate(-50%, -50%);
+	z-index: 10;
+	transition: width 0.1s, height 0.1s;
+}
+
+/* Footer & Guidance */
+.practice-drawing-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 8px 12px;
+	background: var(--card);
+	font-size: 11px;
+	color: var(--muted-foreground);
+	border-top: 1px solid var(--border);
+}
+.practice-drawing-footer label {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 28px;
+	cursor: pointer;
+}
+.practice-drawing-guidance {
+	margin: 8px 0 10px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+	line-height: 1.6;
+}
+.practice-drawing-error {
+	color: var(--destructive);
+	font-size: 12px;
+	padding: 10px;
+}
+
+@media (pointer: coarse) {
+	.practice-tool-btn,
+	.practice-icon-only {
+		min-height: 42px;
+		min-width: 42px;
+	}
+	.practice-drawing-swatches .practice-color-btn {
+		width: 30px;
+		height: 30px;
+	}
+	.practice-drawing-swatches .practice-color-btn span {
+		width: 20px;
+		height: 20px;
+	}
+}
