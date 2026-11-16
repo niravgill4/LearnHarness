@@ -65,6 +65,7 @@ export function KeyboardShortcuts() {
 
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.target instanceof Element && e.target.closest('[data-native-keyboard]')) return;
 			if (pluginQuestionKeySuppressed(e) || composingQuestionKey(e)) return;
 			// Provider capture already suppressed native Tab without stopping
 			// target propagation. Keep the legacy unprovided fixture fallback.

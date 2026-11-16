@@ -353,7 +353,7 @@ export function createInteractionLayers() {
 			// a foreground must not expose the background to the same key.
 			snapshotEscape(event);
 			capturePluginQuestionKey(event);
-			if (event.key === "Tab") event.preventDefault();
+			if (event.key === "Tab" && !(typeof Element !== "undefined" && event.target instanceof Element && event.target.closest('[data-native-keyboard]'))) event.preventDefault();
 		},
 		getEventOwner(event: KeyEvent): InteractionLayer | null { return snapshotEscape(event).owner; },
 		isEscapeOwned(event: KeyEvent): boolean {

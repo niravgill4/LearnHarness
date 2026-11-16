@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MenuShell } from "@/components/menu-shell";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
 import type { ChatDeleteMode, ThemeMode } from "@/src/core";
-import { DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, WaypointsIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import { BookOpenIcon, DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, WaypointsIcon, SearchIcon, SettingsIcon } from "lucide-react";
 import { ActivitySection } from "@/components/activity-dock";
 import { CoverageMenuBlock } from "@/components/extraction-coverage";
 import { CogneraMark } from "@/components/cognera-mark";
@@ -764,6 +764,9 @@ function SessionsSidebar() {
 				>
 					<WaypointsIcon aria-hidden="true" className="size-4" />
 					Knowledge
+				</Link>
+				<Link href="/notebook" prefetch={true} className={cn("mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs transition-colors hover:bg-accent hover:text-foreground", pathname === "/notebook" ? "bg-accent text-foreground font-medium" : "text-muted-foreground")}>
+					<BookOpenIcon aria-hidden="true" className="size-4" />Notebook
 				</Link>
 
 				<div className="sidebar-search px-3 mb-3">
