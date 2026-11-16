@@ -12,6 +12,8 @@ import { PathInput } from "@/components/path-input";
 import { MalformedQuestion } from "@/components/malformed-question";
 import { ToolContentResponse } from "@/components/ai-elements/message";
 import { QuestionPreview } from "@/components/question-preview";
+import { PracticeDrawing } from "./practice-drawing";
+import type { ImageContent } from "@earendil-works/pi-ai";
 import { cn } from "@/lib/utils";
 import {
 	buildAnswer,
@@ -364,6 +366,13 @@ function QuestionDockForm({
 	const [confIdx, setConfIdx] = useState<number>(initialDraft?.confidenceIndex ?? DEFAULT_CONFIDENCE_INDEX);
 	const selectMode: SelectMode = qd.mode === "multi-select" ? "multi-select" : "single-select";
 
+	const [answerMode, setAnswerMode] = useState<"type" | "draw">("type");
+	const [drawing, setDrawing] = useState<ImageContent | undefined>(undefined);
+	const drawingRef = useRef<ImageContent | undefined>(undefined);
+	const [drawingActive, setDrawingActive] = useState(false);
+	const drawingActiveRef = useRef(false);
+	const hasDrawing = !!drawing;
+
 	// The PRIMARY dictation input (owner, STT round 1): while a question
 	// waits, dictated finals land HERE, never in the hidden composer — text
 	// mode owns "Your answer", select modes own "Your thinking". The claim
@@ -396,8 +405,8 @@ function QuestionDockForm({
 
 	const nativeCanSubmit =
 		qd.mode === "text"
-			? text.trim().length > 0
-			: sel.dontKnow || (sel.otherSelected && other.trim().length > 0) || sel.selected.size > 0;
+			? text.trim().length > 0 || (answerMode === "draw" && hasDrawing)
+			: sel.dontKnow || (sel.otherSelected && other.trim().length > 0) || sel.selected.size > 0 || (answerMode === "draw" && hasDrawing);
 
 	const canSubmit = nativeCanSubmit || hasPendingInput?.(qd) === true;
 	const currentQuestion = useRef(qd); currentQuestion.current = qd;
@@ -421,7 +430,12 @@ function QuestionDockForm({
 	const submit = () => {
 		if (!canSubmit || compactionRunning || preparing) return;
 		if (onPrepareSubmission) {
-			onPrepareSubmission({ question: qd, isCurrent: () => mounted.current && currentQuestion.current === qd && isInteractionScopeEligible(rootRef.current, controller), capture: captureRequest });
+			onPrepareSubmission({
+				question: qd,
+				isCurrent: () => mounted.current && currentQuestion.current === qd && isInteractionScopeEligible(rootRef.current, controller),
+				capture: captureRequest,
+				captureImages: () => drawingRef.current ? [drawingRef.current] : []
+			});
 			return;
 		}
 		/* FINISH DICTATION FIRST (owner, 2026-10-01): Enter may arrive while
@@ -461,7 +475,11 @@ function QuestionDockForm({
 	};
 	const doSubmit = () => {
 		if (!canSubmit) return;
-		onSubmit(buildAnswer(qd, captureRequest(), toolName));
+		const ans = buildAnswer(qd, captureRequest(), toolName);
+		if (drawingRef.current) {
+			ans.images = { answer: [drawingRef.current] };
+		}
+		onSubmit(ans);
 	};
 
 	/* ENTER SUBMITS FROM ANYWHERE (owner round 6, 2026-10-05): the same
@@ -530,6 +548,7 @@ function QuestionDockForm({
 	useEffect(() => {
 		if (!active || rowCount === 0) return;
 		const onKeyDown = (e: KeyboardEvent) => {
+			if (drawingActiveRef.current) return;
 			// Tab is already default-prevented by provider capture; do not
 			// treat that as a claim. Eligibility, not focus alone, owns rows.
 			if (!isInteractionScopeEligible(rootRef.current, controller)) return;
@@ -899,8 +918,21 @@ function QuestionDockForm({
 					submit();
 				}}
 			>
+				<div className="practice-answer-tools">
+					<div className="practice-answer-modes" role="group" aria-label="Answer method">
+						<button type="button" aria-pressed={answerMode === "type"} onClick={() => setAnswerMode("type")}>Type</button>
+						<button type="button" aria-pressed={answerMode === "draw"} onClick={() => setAnswerMode("draw")}>Draw your answer</button>
+						{hasDrawing && <span>Drawing ready to submit</span>}
+					</div>
+					<div hidden={answerMode !== "draw"}>
+						<PracticeDrawing key={toolCallId} disabled={preparing || compactionRunning} onDrawing={active => { drawingActiveRef.current = active; setDrawingActive(active); }} onChange={image => { drawingRef.current = image; setDrawing(image); }} />
+						<p className="practice-drawing-guidance">Submit your handwritten working or diagram. Your tutor will review the steps.</p>
+					</div>
+				</div>
+
 				<div
 					data-testid={qd.mode === "text" ? "answer-field" : "thinking-field"}
+					hidden={answerMode === "draw" && hasDrawing}
 					className="rounded-[10px] border border-border/70 bg-background/60 transition-colors focus-within:border-primary/50"
 				>
 					<div className="px-2.5 pt-2 text-xs font-medium tracking-normal text-muted-foreground">

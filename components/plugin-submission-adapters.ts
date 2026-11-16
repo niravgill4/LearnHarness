@@ -4,6 +4,7 @@ export interface BuiltinSubmissionCapture {
 	question: QuestionData;
 	capture(): AnswerRequest;
 	isCurrent(): boolean;
+	captureImages?(): ImageContent[];
 }
 export type PrepareBuiltinSubmission = (capture: BuiltinSubmissionCapture) => void;
 export type PrepareThinkingSubmission = (capture: () => string, onAccepted: (captured: string) => void, captureImages?: () => ImageContent[]) => void;

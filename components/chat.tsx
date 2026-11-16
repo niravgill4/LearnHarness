@@ -719,16 +719,17 @@ export function Chat({
 			question: { ...toClientQuestion(question), occurrence: { messageId: pending.messageId, contentIndex: pending.contentIndex, toolCallId: pending.toolCallId, toolName: pending.tool }, ...(question.questionType ? { questionType: question.questionType } : {}) },
 		};
 	};
-	const prepareBuiltin: PrepareBuiltinSubmission = ({ question, capture, isCurrent }: BuiltinSubmissionCapture) => {
+	const prepareBuiltin: PrepareBuiltinSubmission = ({ question, capture, isCurrent, captureImages }: BuiltinSubmissionCapture) => {
 		const target = builtinTarget(question), original = pending;
 		if (!target || !original || busyRef.current || compacting) return;
 		void runSubmission(target, () => {
 			const raw = capture();
+			const capturedImages = captureImages ? captureImages() : [];
 			saveQuestionDraft(original.key, { readingThinking: readingThinkingRef.current });
 			return { type: "answer", answer: {
 				...(raw.dontKnow !== undefined ? { dontKnow: raw.dontKnow } : {}), ...(raw.values !== undefined ? { values: raw.values } : {}),
 				...(raw.other !== undefined ? { other: raw.other } : {}), ...(raw.text !== undefined ? { text: raw.text } : {}),
-				...(raw.confidence !== undefined ? { confidence: raw.confidence } : {}), images: [],
+				...(raw.confidence !== undefined ? { confidence: raw.confidence } : {}), images: capturedImages,
 			}, thinking: { text: raw.thinking ?? "", images: [] }, readingThinking: { text: requiresReveal ? readingThinkingRef.current : "", images: [] } };
 		}, () => {
 			const now = pendingQuestionOf(submissionLive.current.nativeMessages);
