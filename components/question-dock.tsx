@@ -929,7 +929,7 @@ function QuestionDockForm({
 							key={toolCallId}
 							question={
 								<div className="space-y-1">
-									<div className="text-sm font-medium leading-relaxed">{qd.question}</div>
+									<div className="lh-prose text-sm leading-relaxed"><ToolContentResponse>{qd.question}</ToolContentResponse></div>
 									{qd.context && <div className="text-xs text-muted-foreground">{qd.context}</div>}
 								</div>
 							}

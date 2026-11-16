@@ -1,4 +1,8 @@
-/* Practice & Teach Drawing Whiteboard Styles */
+/* ==========================================================================
+   Practice & Teach Whiteboard: iPad-First Apple PencilKit Experience
+   ========================================================================== */
+
+/* Answer Mode Toggle Bar */
 .practice-answer-tools {
 	padding: 8px 12px 0;
 }
@@ -14,16 +18,16 @@
 	border: 1px solid var(--border);
 	border-radius: 8px;
 	min-height: 40px;
-	padding: 8px 13px;
+	padding: 8px 14px;
 	cursor: pointer;
 	color: var(--muted-foreground);
 	background: transparent;
+	font-weight: 500;
 	transition: all 0.15s ease;
 }
 .practice-answer-modes button[aria-pressed="true"] {
 	background: var(--accent);
 	color: var(--foreground);
-	font-weight: 500;
 	border-color: var(--foreground);
 }
 .practice-answer-modes span {
@@ -32,22 +36,29 @@
 	font-size: 11px;
 }
 
-/* Whiteboard container */
-.practice-drawing {
+/* Drawing Root Container */
+.practice-drawing-root {
 	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
+
+.practice-drawing-root.is-inline-view {
 	border: 1px solid var(--border);
-	border-radius: 14px;
+	border-radius: 16px;
 	overflow: hidden;
 	background: var(--background);
 	box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Fullscreen Whiteboard Overlay */
-.practice-drawing-fullscreen-mode {
+/* ==========================================================================
+   Fullscreen Mode (Tablet & iPad optimized)
+   ========================================================================== */
+.practice-drawing-root.is-fullscreen-view {
 	position: fixed !important;
 	inset: 0 !important;
-	z-index: 9999 !important;
+	z-index: 99999 !important;
 	width: 100vw !important;
 	height: 100vh !important;
 	max-width: 100vw !important;
@@ -55,323 +66,491 @@
 	margin: 0 !important;
 	border-radius: 0 !important;
 	border: none !important;
-	background: #0d120f !important;
+	background: #0b0f0d !important;
+	overflow: hidden !important;
 	display: flex !important;
 	flex-direction: column !important;
-	overflow: hidden !important;
 }
 
-/* Floating Glass Question Card (Fullscreen) */
-.practice-drawing-fs-question-card {
+/* Fixed Top Bar (Fullscreen Only) */
+.practice-fs-topbar {
 	position: absolute;
-	top: 16px;
-	left: 50%;
-	transform: translateX(-50%);
-	z-index: 30;
-	width: calc(100% - 32px);
-	max-width: 760px;
-	background: rgba(18, 24, 20, 0.88);
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	border-radius: 16px;
-	padding: 12px 18px;
-	box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.2);
-	color: #f3f5f3;
-	animation: practice-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 60;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: max(16px, env(safe-area-inset-top, 16px)) max(20px, env(safe-area-inset-right, 20px)) 0 max(20px, env(safe-area-inset-left, 20px));
+	pointer-events: none;
 }
 
-@keyframes practice-slide-down {
+/* Readable Question Card */
+.practice-fs-question-card {
+	pointer-events: auto;
+	flex: 1;
+	max-width: 720px;
+	border-radius: 16px;
+	background: rgba(18, 24, 20, 0.92);
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.2);
+	padding: 12px 18px;
+	color: #f2f5f2;
+	animation: practice-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	transition: all 0.2s ease;
+}
+
+@keyframes practice-slide-in {
 	from {
 		opacity: 0;
-		transform: translate(-50%, -10px);
+		transform: translateY(-8px);
 	}
 	to {
 		opacity: 1;
-		transform: translate(-50%, 0);
+		transform: translateY(0);
 	}
 }
 
-.practice-drawing-fs-question-header {
+.practice-fs-question-meta {
 	display: flex;
 	align-items: center;
 	gap: 10px;
 }
-.practice-drawing-fs-badge {
-	font-size: 10px;
+.practice-fs-question-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 10.5px;
 	font-weight: 700;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	padding: 3px 8px;
 	border-radius: 6px;
-	background: rgba(184, 213, 170, 0.18);
+	background: rgba(184, 213, 170, 0.2);
 	color: #b8d5aa;
-	border: 1px solid rgba(184, 213, 170, 0.3);
+	border: 1px solid rgba(184, 213, 170, 0.35);
 }
-.practice-drawing-fs-toggle,
-.practice-drawing-fs-close {
+.practice-fs-collapse-toggle {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
 	border: none;
 	background: transparent;
-	color: #a5b3a8;
-	font-size: 11px;
-	padding: 4px 8px;
+	color: #a4b3a7;
+	font-size: 11.5px;
+	font-weight: 500;
+	padding: 3px 8px;
 	border-radius: 6px;
 	cursor: pointer;
 	transition: background 0.15s, color 0.15s;
 }
-.practice-drawing-fs-toggle:hover,
-.practice-drawing-fs-close:hover {
+.practice-fs-collapse-toggle:hover {
 	background: rgba(255, 255, 255, 0.08);
-	color: #fff;
+	color: #ffffff;
 }
-.practice-drawing-fs-toggle svg,
-.practice-drawing-fs-close svg {
-	width: 14px;
-	height: 14px;
-}
-.practice-drawing-fs-close {
-	margin-left: auto;
-}
-.practice-drawing-fs-question-body {
+.practice-fs-question-content {
 	margin-top: 8px;
 	font-size: 13.5px;
 	line-height: 1.55;
 	color: #e4ebe5;
-	max-height: 22vh;
+	max-height: 24vh;
 	overflow-y: auto;
-	padding-right: 4px;
+	padding-right: 6px;
+}
+.practice-fs-question-content .lh-prose p {
+	color: #e4ebe5 !important;
+	margin: 0 !important;
 }
 
-/* Whiteboard Toolbars */
-.practice-drawing-toolbar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 6px;
-	padding: 8px 12px;
-	background: var(--card);
-	border-bottom: 1px solid var(--border);
-	user-select: none;
-}
-
-.practice-drawing-toolbar-glass {
-	background: rgba(18, 24, 20, 0.9) !important;
-	backdrop-filter: blur(20px) !important;
-	-webkit-backdrop-filter: blur(20px) !important;
-	border: 1px solid rgba(255, 255, 255, 0.15) !important;
-	border-radius: 18px !important;
-	box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.25) !important;
-	color: #f3f5f3 !important;
-	padding: 8px 14px !important;
-}
-
-.practice-drawing-fs-toolbar-float {
-	position: absolute;
-	bottom: 24px;
-	left: 50%;
-	transform: translateX(-50%);
-	z-index: 30;
-	width: max-content;
-	max-width: calc(100vw - 32px);
-}
-
-.practice-drawing-tool-group {
-	display: flex;
-	align-items: center;
-	gap: 3px;
-}
-
-.practice-tool-btn {
+/* Prominent Native iPad "Done" Button */
+.practice-fs-done-btn {
+	pointer-events: auto;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	min-height: 36px;
+	min-height: 44px;
+	padding: 0 20px;
+	border-radius: 9999px;
+	background: #10b981;
+	color: #0b140e;
+	font-size: 14px;
+	font-weight: 700;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	box-shadow: 0 8px 24px -2px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.2);
+	cursor: pointer;
+	user-select: none;
+	transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+	flex-shrink: 0;
+}
+.practice-fs-done-btn:hover {
+	background: #059669;
+	color: #ffffff;
+	transform: scale(1.03);
+}
+.practice-fs-done-btn:active {
+	transform: scale(0.96);
+}
+
+/* ==========================================================================
+   Apple PencilKit Floating Capsule Toolbar
+   ========================================================================== */
+.practice-inline-toolbar-wrap {
+	display: flex;
+	justify-content: center;
+	padding: 8px 12px;
+	background: var(--card);
+	border-bottom: 1px solid var(--border);
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.practice-fullscreen-toolbar-float {
+	position: absolute;
+	bottom: max(20px, env(safe-area-inset-bottom, 20px));
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 60;
+	width: max-content;
+	max-width: calc(100vw - 32px);
+	pointer-events: auto;
+}
+
+.practice-pencilkit-toolbar {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	padding: 6px 10px;
+	border-radius: 9999px;
+	user-select: none;
+	transition: all 0.2s ease;
+}
+
+/* Fullscreen floating glass material */
+.practice-pencilkit-toolbar.is-fullscreen {
+	background: rgba(18, 24, 20, 0.92);
+	backdrop-filter: blur(28px);
+	-webkit-backdrop-filter: blur(28px);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.3);
+	color: #e4ebe5;
+}
+
+/* Inline card toolbar material */
+.practice-pencilkit-toolbar.is-inline {
+	background: var(--background);
 	border: 1px solid var(--border);
-	border-radius: 8px;
-	background: transparent;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 	color: var(--foreground);
+}
+
+/* Segmented Tool Switcher */
+.practice-segmented-tools {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px;
+	border-radius: 9999px;
+	background: rgba(0, 0, 0, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	gap: 2px;
+}
+.practice-tool-segment {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 38px;
+	padding: 0 12px;
+	border-radius: 9999px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	opacity: 0.75;
 	font-size: 12px;
 	font-weight: 500;
 	cursor: pointer;
 	transition: all 0.15s ease;
 }
-.practice-drawing-toolbar-glass .practice-tool-btn {
-	border-color: rgba(255, 255, 255, 0.12);
-	color: #d1ddd3;
+.practice-tool-segment:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.08);
 }
-.practice-tool-btn:hover:not(:disabled) {
-	background: var(--accent);
-}
-.practice-drawing-toolbar-glass .practice-tool-btn:hover:not(:disabled) {
-	background: rgba(255, 255, 255, 0.1);
-	color: #fff;
-}
-.practice-tool-btn.is-active,
-.practice-tool-btn[aria-pressed="true"] {
-	background: var(--accent);
-	color: var(--foreground);
-	border-color: var(--foreground);
-}
-.practice-drawing-toolbar-glass .practice-tool-btn.is-active,
-.practice-drawing-toolbar-glass .practice-tool-btn[aria-pressed="true"] {
+.practice-tool-segment.is-active {
+	opacity: 1;
 	background: #b8d5aa;
-	color: #121c15;
-	border-color: #b8d5aa;
+	color: #0e1711 !important;
 	font-weight: 600;
-}
-.practice-tool-btn:disabled {
-	opacity: 0.35;
-	cursor: not-allowed;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-.practice-tool-btn svg {
-	width: 16px;
-	height: 16px;
-	shrink: 0;
+/* Toolbar Divider */
+.practice-toolbar-separator {
+	width: 1px;
+	height: 24px;
+	background: rgba(255, 255, 255, 0.12);
+	margin: 0 2px;
+	flex-shrink: 0;
+}
+.practice-pencilkit-toolbar.is-inline .practice-toolbar-separator {
+	background: var(--border);
 }
 
-.practice-icon-only {
-	width: 36px;
-	height: 36px;
-	padding: 0;
-}
-
-.practice-tool-select {
-	min-height: 36px;
-	padding: 4px 8px;
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	background: var(--background);
-	color: var(--foreground);
-	font-size: 12px;
-	cursor: pointer;
-	outline: none;
-}
-.practice-drawing-toolbar-glass .practice-tool-select {
-	background: rgba(28, 36, 30, 0.8);
-	border-color: rgba(255, 255, 255, 0.14);
-	color: #e4ebe5;
-}
-
-.practice-drawing-swatches {
-	display: flex;
+/* Size Presets: Dot Chips & Ring Chips */
+.practice-size-presets {
+	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 0 4px;
+	gap: 3px;
 }
-.practice-color-btn {
+.practice-size-chip {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	border: 1px solid transparent;
+	background: transparent;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	padding: 0;
+}
+.practice-size-chip:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+.practice-size-chip.is-active {
+	border-color: rgba(255, 255, 255, 0.3);
+	background: rgba(255, 255, 255, 0.12);
+}
+.practice-pen-dot {
+	display: block;
+	border-radius: 50%;
+	transition: transform 0.15s ease;
+}
+.practice-eraser-ring {
+	display: block;
+	border-radius: 50%;
+	border: 1.5px dashed #a4b3a7;
+	transition: transform 0.15s ease;
+}
+.practice-size-chip.is-active .practice-eraser-ring {
+	border-color: #ffffff;
+	border-style: solid;
+}
+
+/* Recenter Button */
+.practice-recenter-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 34px;
+	padding: 0 10px;
+	border-radius: 9999px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(255, 255, 255, 0.06);
+	color: inherit;
+	font-size: 11.5px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.practice-recenter-btn:hover {
+	background: rgba(255, 255, 255, 0.12);
+}
+
+/* Color Swatches */
+.practice-color-swatches {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 2px;
+}
+.practice-color-swatch {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	border: 2px solid transparent;
 	background: transparent;
 	padding: 0;
 	cursor: pointer;
-	transition: transform 0.15s, border-color 0.15s;
+	transition: transform 0.15s ease, border-color 0.15s ease;
 }
-.practice-color-btn span {
-	display: block;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
-}
-.practice-color-btn:hover {
+.practice-color-swatch:hover {
 	transform: scale(1.15);
 }
-.practice-color-btn.is-selected {
+.practice-color-swatch.is-active {
+	border-color: #ffffff;
+	transform: scale(1.15);
+}
+.practice-pencilkit-toolbar.is-inline .practice-color-swatch.is-active {
 	border-color: var(--foreground);
-	transform: scale(1.15);
 }
-.practice-drawing-toolbar-glass .practice-color-btn.is-selected {
-	border-color: #fff;
+.practice-color-fill {
+	display: block;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
-.practice-zoom-readout {
+/* Canvas Action & Zoom Buttons */
+.practice-action-buttons,
+.practice-zoom-cluster {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+.practice-action-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.practice-action-btn:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.08);
+}
+.practice-action-btn:disabled {
+	opacity: 0.3;
+	cursor: not-allowed;
+}
+
+.practice-zoom-pill {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	min-width: 44px;
-	height: 36px;
-	padding: 0 4px;
+	height: 34px;
+	padding: 0 6px;
 	font-size: 11px;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
-	background: transparent;
-	border: 1px solid var(--border);
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
 	border-radius: 8px;
-	color: var(--foreground);
+	color: inherit;
 	cursor: pointer;
+	transition: background 0.15s;
 }
-.practice-drawing-toolbar-glass .practice-zoom-readout {
-	border-color: rgba(255, 255, 255, 0.12);
-	color: #d1ddd3;
-}
-
-.practice-drawing-divider {
-	width: 1px;
-	height: 22px;
-	background: var(--border);
-	margin: 0 3px;
-}
-.practice-drawing-toolbar-glass .practice-drawing-divider {
-	background: rgba(255, 255, 255, 0.15);
+.practice-zoom-pill:hover {
+	background: rgba(255, 255, 255, 0.12);
 }
 
-.practice-fullscreen-btn {
-	margin-left: auto;
+/* Finger Draw Toggle */
+.practice-finger-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 34px;
+	padding: 0 10px;
+	border-radius: 9999px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: rgba(255, 255, 255, 0.06);
+	color: inherit;
+	font-size: 11.5px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.practice-finger-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #6b7280;
+	transition: background-color 0.2s ease;
+}
+.practice-finger-toggle.is-active .practice-finger-dot {
+	background: #10b981;
+	box-shadow: 0 0 6px #10b981;
 }
 
-/* Viewport & Sheet */
-.practice-drawing-sheet-viewport {
+/* Expand Fullscreen Button (Inline Toolbar) */
+.practice-expand-fullscreen-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 36px;
+	padding: 0 12px;
+	border-radius: 9999px;
+	background: #2563eb;
+	color: #ffffff;
+	font-size: 12px;
+	font-weight: 600;
+	border: none;
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+	transition: all 0.15s ease;
+}
+.practice-expand-fullscreen-btn:hover {
+	background: #1d4ed8;
+	transform: scale(1.02);
+}
+
+/* ==========================================================================
+   Canvas Surface & Viewport
+   ========================================================================== */
+.practice-canvas-viewport {
 	position: relative;
 	width: 100%;
+	height: 100%;
+	flex: 1;
 	overflow: hidden;
-	background: #ffffff;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	background: #ffffff;
+	user-select: none;
+	-webkit-user-select: none;
 }
-.practice-drawing-fullscreen-mode .practice-drawing-sheet-viewport {
-	flex: 1;
-	height: 100%;
-	width: 100%;
-	background: #f7f9f7;
+.practice-drawing-root.is-fullscreen-view .practice-canvas-viewport {
+	background: #f7faf7;
 }
 
-.practice-drawing-sheet {
+.practice-canvas-viewport.is-panning-mode {
+	cursor: grab !important;
+}
+.practice-canvas-viewport.is-panning-mode:active {
+	cursor: grabbing !important;
+}
+
+.practice-canvas-surface {
 	position: relative;
 	width: 100%;
 	aspect-ratio: 2 / 1;
 	background: #ffffff;
 	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-	cursor: crosshair;
 	touch-action: none;
 }
-
-.practice-drawing-fullscreen-mode .practice-drawing-sheet {
+.practice-drawing-root.is-fullscreen-view .practice-canvas-surface {
 	width: min(94vw, 188vh);
 	height: auto;
-	box-shadow: 0 12px 48px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
-	border-radius: 8px;
+	box-shadow: 0 16px 48px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08);
+	border-radius: 10px;
 }
 
-.practice-drawing-sheet canvas {
+.practice-canvas-surface canvas {
 	display: block;
 	width: 100%;
 	height: 100%;
 	touch-action: none;
+	cursor: crosshair;
+}
+.practice-canvas-viewport.is-panning-mode canvas {
+	cursor: inherit !important;
 }
 
-.practice-drawing-placeholder {
+.practice-canvas-placeholder {
 	position: absolute;
 	inset: 0;
 	display: grid;
@@ -379,67 +558,67 @@
 	pointer-events: none;
 	font-size: 16px;
 	font-weight: 500;
-	color: #7b8880;
+	color: #8b9990;
 	letter-spacing: 0.02em;
 }
 
-/* Eraser preview ring */
-.practice-eraser-cursor {
+/* Eraser Preview Ring */
+.practice-eraser-cursor-ring {
 	position: absolute;
 	pointer-events: none;
 	border-radius: 50%;
-	border: 1.5px solid rgba(0, 0, 0, 0.55);
-	background: rgba(0, 0, 0, 0.06);
-	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+	border: 1.5px solid rgba(0, 0, 0, 0.6);
+	background: rgba(0, 0, 0, 0.08);
+	box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
 	transform: translate(-50%, -50%);
-	z-index: 10;
-	transition: width 0.1s, height 0.1s;
+	z-index: 20;
+	transition: width 0.08s, height 0.08s;
 }
 
-/* Footer & Guidance */
-.practice-drawing-footer {
+/* Inline Hint Footer */
+.practice-inline-footer {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 8px;
-	padding: 8px 12px;
+	padding: 8px 14px;
 	background: var(--card);
 	font-size: 11px;
 	color: var(--muted-foreground);
 	border-top: 1px solid var(--border);
 }
-.practice-drawing-footer label {
-	display: flex;
-	align-items: center;
-	gap: 7px;
-	min-height: 28px;
-	cursor: pointer;
-}
-.practice-drawing-guidance {
-	margin: 8px 0 10px;
-	color: var(--muted-foreground);
-	font-size: 11px;
-	line-height: 1.6;
-}
-.practice-drawing-error {
+
+.practice-error-banner {
 	color: var(--destructive);
 	font-size: 12px;
 	padding: 10px;
 }
 
+/* Tablet & iPad coarse touch adjustments */
 @media (pointer: coarse) {
-	.practice-tool-btn,
-	.practice-icon-only {
+	.practice-tool-segment {
 		min-height: 42px;
-		min-width: 42px;
+		padding: 0 14px;
+		font-size: 13px;
 	}
-	.practice-drawing-swatches .practice-color-btn {
-		width: 30px;
-		height: 30px;
+	.practice-action-btn {
+		width: 42px;
+		height: 42px;
 	}
-	.practice-drawing-swatches .practice-color-btn span {
-		width: 20px;
-		height: 20px;
+	.practice-size-chip {
+		width: 40px;
+		height: 40px;
+	}
+	.practice-color-swatch {
+		width: 32px;
+		height: 32px;
+	}
+	.practice-color-fill {
+		width: 22px;
+		height: 22px;
+	}
+	.practice-fs-done-btn {
+		min-height: 46px;
+		padding: 0 22px;
+		font-size: 15px;
 	}
 }
