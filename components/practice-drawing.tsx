@@ -113,8 +113,11 @@ export function PracticeDrawing({
 	const panRef = useRef(pan);
 	panRef.current = pan;
 
-	// Multi-touch gestures (Two-finger pan and pinch zoom)
-	const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+	// Dedicated stylus/pen tracking for hardware palm rejection
+	const activePenId = useRef<number | null>(null);
+
+	// Multi-touch gestures (Two-finger pan and pinch zoom - touch only, never pen)
+	const activeTouches = useRef<Map<number, { x: number; y: number }>>(new Map());
 	const prevCentroid = useRef<{ x: number; y: number } | null>(null);
 	const prevDistance = useRef<number | null>(null);
 
@@ -312,56 +315,117 @@ export function PracticeDrawing({
 		const canvas = getActiveCanvas();
 		if (!canvas) return;
 
+		// Clear any accidental browser text selection
+		if (typeof window !== "undefined" && window.getSelection) {
+			const sel = window.getSelection();
+			if (sel && sel.rangeCount > 0) {
+				sel.removeAllRanges();
+			}
+		}
+
 		const rect = updateCachedRect(canvas);
-		activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-		// Two-finger gesture (pan + pinch zoom)
-		if (activePointers.current.size >= 2) {
-			if (gesture.current) finishStroke();
-			isDraggingPan.current = false;
-			const pts = Array.from(activePointers.current.values());
-			prevCentroid.current = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
-			prevDistance.current = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+		// 1. APPLE PENCIL / STYLUS or MOUSE (Highest Priority)
+		if (event.pointerType === "pen" || event.pointerType === "mouse") {
+			activePenId.current = event.pointerId;
+			// Discard any previous touch pointers so palm touches never trigger pinch zoom
+			activeTouches.current.clear();
+			prevCentroid.current = null;
+			prevDistance.current = null;
+
+			// Dedicated Move/Pan mode
+			if (activeToolRef.current === "pan") {
+				isDraggingPan.current = true;
+				lastPointerPos.current = { x: event.clientX, y: event.clientY };
+				try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+				return;
+			}
+
+			// Drawing stroke
+			try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+			onDrawing(true);
+
+			const worldPt = screenToWorld(event.clientX, event.clientY, rect);
+			worldPt.pressure = event.pressure || 0.5;
+
+			const isEraser = activeToolRef.current === "eraser";
+			const strokeWidth = isEraser ? eraserSizeRef.current : penWidthRef.current;
+
+			gesture.current = {
+				id: event.pointerId,
+				stroke: {
+					color: isEraser ? "rgba(0,0,0,1)" : colorRef.current,
+					width: strokeWidth,
+					erase: isEraser,
+					points: [worldPt],
+				},
+			};
+
+			const ctx = canvas.getContext("2d");
+			if (ctx) {
+				applyTransform(ctx, canvas);
+				drawStrokeInWorld(ctx, gesture.current.stroke, 0);
+			}
 			return;
 		}
 
-		// Dedicated Move/Pan mode
-		if (activeToolRef.current === "pan") {
-			isDraggingPan.current = true;
-			lastPointerPos.current = { x: event.clientX, y: event.clientY };
-			event.currentTarget.setPointerCapture(event.pointerId);
-			return;
-		}
+		// 2. TOUCH POINTER (Finger or Palm)
+		if (event.pointerType === "touch") {
+			// Palm rejection: If Apple Pencil is currently active, ignore all touch contact completely!
+			if (activePenId.current !== null) {
+				return;
+			}
 
-		// Finger drawing gate
-		if (event.pointerType === "touch" && !fingerRef.current) {
-			return;
-		}
+			activeTouches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-		// Drawing stroke: Direct immediate painting without React latency
-		event.currentTarget.setPointerCapture(event.pointerId);
-		onDrawing(true);
+			// Two-finger gesture (pan + pinch zoom)
+			if (activeTouches.current.size >= 2) {
+				if (gesture.current) finishStroke();
+				isDraggingPan.current = false;
+				const pts = Array.from(activeTouches.current.values());
+				prevCentroid.current = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
+				prevDistance.current = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+				return;
+			}
 
-		const worldPt = screenToWorld(event.clientX, event.clientY, rect);
-		worldPt.pressure = event.pressure || 0.5;
+			// Dedicated Move/Pan mode with single touch
+			if (activeToolRef.current === "pan") {
+				isDraggingPan.current = true;
+				lastPointerPos.current = { x: event.clientX, y: event.clientY };
+				try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+				return;
+			}
 
-		const isEraser = activeToolRef.current === "eraser";
-		const strokeWidth = isEraser ? eraserSizeRef.current : penWidthRef.current;
+			// Finger drawing gate (if finger drawing is OFF, reject touch input as accidental palm/hand)
+			if (!fingerRef.current) {
+				return;
+			}
 
-		gesture.current = {
-			id: event.pointerId,
-			stroke: {
-				color: isEraser ? "rgba(0,0,0,1)" : colorRef.current,
-				width: strokeWidth,
-				erase: isEraser,
-				points: [worldPt],
-			},
-		};
+			// Single finger drawing
+			try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+			onDrawing(true);
 
-		const ctx = canvas.getContext("2d");
-		if (ctx) {
-			applyTransform(ctx, canvas);
-			drawStrokeInWorld(ctx, gesture.current.stroke, 0);
+			const worldPt = screenToWorld(event.clientX, event.clientY, rect);
+			worldPt.pressure = event.pressure || 0.5;
+
+			const isEraser = activeToolRef.current === "eraser";
+			const strokeWidth = isEraser ? eraserSizeRef.current : penWidthRef.current;
+
+			gesture.current = {
+				id: event.pointerId,
+				stroke: {
+					color: isEraser ? "rgba(0,0,0,1)" : colorRef.current,
+					width: strokeWidth,
+					erase: isEraser,
+					points: [worldPt],
+				},
+			};
+
+			const ctx = canvas.getContext("2d");
+			if (ctx) {
+				applyTransform(ctx, canvas);
+				drawStrokeInWorld(ctx, gesture.current.stroke, 0);
+			}
 		}
 	}
 
@@ -381,32 +445,40 @@ export function PracticeDrawing({
 			}
 		}
 
-		if (activePointers.current.has(event.pointerId)) {
-			activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-			// Two-finger pan & pinch zoom (batched via RAF)
-			if (activePointers.current.size >= 2) {
-				const pts = Array.from(activePointers.current.values());
-				const currCentroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
-				const currDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
-
-				if (!rafId.current) {
-					rafId.current = requestAnimationFrame(() => {
-						rafId.current = null;
-						if (prevCentroid.current) {
-							const dx = currCentroid.x - prevCentroid.current.x;
-							const dy = currCentroid.y - prevCentroid.current.y;
-							setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-						}
-						if (prevDistance.current && prevDistance.current > 0) {
-							const factor = currDist / prevDistance.current;
-							setZoom((prev) => Math.min(4, Math.max(0.2, prev * factor)));
-						}
-						prevCentroid.current = currCentroid;
-						prevDistance.current = currDist;
-					});
-				}
+		// 1. TOUCH POINTER MOVE
+		if (event.pointerType === "touch") {
+			// Palm rejection: if pencil is drawing, ignore touch movements!
+			if (activePenId.current !== null) {
 				return;
+			}
+
+			if (activeTouches.current.has(event.pointerId)) {
+				activeTouches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+				// Two-finger pan & pinch zoom (batched via RAF)
+				if (activeTouches.current.size >= 2) {
+					const pts = Array.from(activeTouches.current.values());
+					const currCentroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
+					const currDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+
+					if (!rafId.current) {
+						rafId.current = requestAnimationFrame(() => {
+							rafId.current = null;
+							if (prevCentroid.current) {
+								const dx = currCentroid.x - prevCentroid.current.x;
+								const dy = currCentroid.y - prevCentroid.current.y;
+								setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+							}
+							if (prevDistance.current && prevDistance.current > 0) {
+								const factor = currDist / prevDistance.current;
+								setZoom((prev) => Math.min(4, Math.max(0.2, prev * factor)));
+							}
+							prevCentroid.current = currCentroid;
+							prevDistance.current = currDist;
+						});
+					}
+					return;
+				}
 			}
 		}
 
@@ -438,16 +510,37 @@ export function PracticeDrawing({
 
 	function finishStroke(event?: PointerEvent<HTMLCanvasElement>) {
 		if (event) {
-			activePointers.current.delete(event.pointerId);
+			if (event.pointerType === "pen" || event.pointerType === "mouse") {
+				if (activePenId.current === event.pointerId) {
+					activePenId.current = null;
+				}
+			} else if (event.pointerType === "touch") {
+				activeTouches.current.delete(event.pointerId);
+				// Palm rejection: If pen is active, ignore touch lift completely
+				if (activePenId.current !== null) {
+					return;
+				}
+			}
+			try {
+				if (event.currentTarget && event.currentTarget.hasPointerCapture(event.pointerId)) {
+					event.currentTarget.releasePointerCapture(event.pointerId);
+				}
+			} catch {}
+		} else {
+			activePenId.current = null;
+			activeTouches.current.clear();
 		}
-		if (activePointers.current.size < 2) {
+
+		if (activeTouches.current.size < 2) {
 			prevCentroid.current = null;
 			prevDistance.current = null;
 		}
 
 		if (isDraggingPan.current) {
-			isDraggingPan.current = false;
-			lastPointerPos.current = null;
+			if (!event || activeTouches.current.size === 0) {
+				isDraggingPan.current = false;
+				lastPointerPos.current = null;
+			}
 			return;
 		}
 
@@ -506,13 +599,32 @@ export function PracticeDrawing({
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [isFullscreen]);
 
-	// Prevent document body scrolling in fullscreen
+	// Prevent document body scrolling and text selection while in fullscreen whiteboard
 	useEffect(() => {
 		if (isFullscreen) {
-			const original = document.body.style.overflow;
+			const originalOverflow = document.body.style.overflow;
+			const originalUserSelect = document.body.style.userSelect;
+			const originalWebkitUserSelect = (document.body.style as unknown as { webkitUserSelect?: string }).webkitUserSelect;
 			document.body.style.overflow = "hidden";
+			document.body.style.userSelect = "none";
+			(document.body.style as unknown as { webkitUserSelect?: string }).webkitUserSelect = "none";
+
+			// Clear any accidental selection
+			if (typeof window !== "undefined" && window.getSelection) {
+				const sel = window.getSelection();
+				if (sel && sel.rangeCount > 0) sel.removeAllRanges();
+			}
+
+			function handleSelectStart(e: Event) {
+				e.preventDefault();
+			}
+			window.addEventListener("selectstart", handleSelectStart);
+
 			return () => {
-				document.body.style.overflow = original;
+				document.body.style.overflow = originalOverflow;
+				document.body.style.userSelect = originalUserSelect;
+				(document.body.style as unknown as { webkitUserSelect?: string }).webkitUserSelect = originalWebkitUserSelect;
+				window.removeEventListener("selectstart", handleSelectStart);
 			};
 		}
 	}, [isFullscreen]);
@@ -716,11 +828,19 @@ export function PracticeDrawing({
 
 	/* ── Fullscreen Overlay Rendered Via React Portal ── */
 	const fullscreenOverlay = isFullscreen && mounted && createPortal(
-		<div className="practice-fullscreen-portal-root" role="dialog" aria-modal="true" aria-label="Unlimited Whiteboard">
+		<div
+			className="practice-fullscreen-portal-root"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Unlimited Whiteboard"
+			onContextMenu={(e) => e.preventDefault()}
+		>
 			{/* Fixed Top Bar */}
 			<header className="practice-fs-topbar" role="banner">
 				{/* Question Card */}
-				<div className={`practice-fs-question-card ${questionExpanded ? "is-expanded" : "is-collapsed"}`}>
+				<div
+					className={`practice-fs-question-card ${questionExpanded ? "is-expanded" : "is-collapsed"}`}
+				>
 					<div className="practice-fs-question-meta">
 						<span className="practice-fs-question-badge">
 							<SparklesIcon className="size-3" aria-hidden="true" />
@@ -748,7 +868,9 @@ export function PracticeDrawing({
 						)}
 					</div>
 					{questionExpanded && (
-						<div className="practice-fs-question-content">
+						<div
+							className="practice-fs-question-content"
+						>
 							{question || <p className="text-muted-foreground text-xs italic">No question statement attached.</p>}
 						</div>
 					)}
@@ -785,6 +907,7 @@ export function PracticeDrawing({
 					onPointerCancel={finishStroke}
 					onLostPointerCapture={finishStroke}
 					onPointerLeave={handlePointerLeave}
+					onContextMenu={(e) => e.preventDefault()}
 				/>
 
 				{!strokeCount && (
@@ -873,6 +996,7 @@ export function PracticeDrawing({
 					onPointerCancel={finishStroke}
 					onLostPointerCapture={finishStroke}
 					onPointerLeave={handlePointerLeave}
+					onContextMenu={(e) => e.preventDefault()}
 				/>
 
 				{!strokeCount && (
