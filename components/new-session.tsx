@@ -11,6 +11,7 @@ import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { SidebarToggle } from "@/components/sidebar";
 import { SetupDialog } from "@/components/setup-dialog";
+import { TeachTimingDialog, type TeachTimingValues } from "@/components/teach-timing-dialog";
 import { useModelSetup, selectedModelUnavailable, openModelPicker, ZeroKeysPill } from "@/components/setup-cta";
 import { StatsBar } from "@/components/stats-bar";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
@@ -50,6 +51,7 @@ export async function startDraftSession(
 	picks?: readonly DraftPick[],
 	starter = new SessionStarter(),
 	settingsIdentity?: string,
+	openingPrompt?: string,
 ): Promise<string | null> {
 	const t = text.trim();
 	if (!t) return null;
@@ -59,8 +61,8 @@ export async function startDraftSession(
 	// [id] name: statement lines, target validation's truth set).
 	return starter.start(
 		mode === "practice"
-			? { title: t, kind: "practice", ...(picks && picks.length > 0 ? { graphContext: { propositions: picks } } : {}) }
-			: { title: t },
+			? { title: t, kind: "practice", openingPrompt, ...(picks && picks.length > 0 ? { graphContext: { propositions: picks } } : {}) }
+			: { title: t, openingPrompt },
 		fetchLike,
 		settingsIdentity,
 	);
@@ -197,7 +199,7 @@ export function DraftShell({
 									setup={setupCta}
 								/>
 								{startError && <p role="alert" className="pointer-events-auto mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
-								<div data-attachment-composer="" className="composer-surface pointer-events-auto overflow-hidden">
+								<div data-attachment-composer="" className="composer-surface rounded-2xl pointer-events-auto overflow-hidden">
                                         <Composer
                                             busy={busy}
                                             value={text}
@@ -282,6 +284,35 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 	// the learner sends the draft themselves.
 	const { catalog, configured, zeroKeys } = useModelSetup(initialConfigured);
 	const [setupOpen, setSetupOpen] = useState(false);
+	const [timingOpen, setTimingOpen] = useState(false);
+	const [pendingDraft, setPendingDraft] = useState("");
+
+	const executeSend = useCallback((draft: string, timings?: TeachTimingValues) => {
+		startingRef.current = true;
+		setBusy(true);
+		setStartError(false);
+		const openingPrompt = timings
+			? `${draft}\n\nSession Time Budget:\n- Diagnostic Probing: ${timings.probingTime}\n- Deep Learning & Teaching: ${timings.learningTime}`
+			: draft;
+		void startDraftSession(
+			draft,
+			fetch,
+			mode === "practice" ? "practice" : undefined,
+			mode === "practice" ? picksRef.current : undefined,
+			starterRef.current,
+			JSON.stringify(catalog?.slots.strong),
+			openingPrompt,
+		)
+			.then((target) => {
+				if (target) router.push(target);
+				else { startingRef.current = false; setBusy(false); }
+			})
+			.catch(() => {
+				startingRef.current = false;
+				setBusy(false);
+				setStartError(true);
+			});
+	}, [router, catalog, mode]);
 
 	const send = useCallback(() => {
 		const draft = textRef.current.trim();
@@ -305,21 +336,15 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 			openModelPicker();
 			return; // The learner replaces it explicitly, then sends again.
 		}
-		startingRef.current = true;
-		setBusy(true);
-		setStartError(false);
-		void startDraftSession(draft, fetch, mode === "practice" ? "practice" : undefined, mode === "practice" ? picksRef.current : undefined,
-			starterRef.current, JSON.stringify(catalog?.slots.strong))
-			.then((target) => {
-				if (target) router.push(target);
-				else { startingRef.current = false; setBusy(false); }
-			})
-			.catch(() => {
-				startingRef.current = false;
-				setBusy(false);
-				setStartError(true);
-			});
-	}, [router, configured, zeroKeys, catalog, mode]);
+
+		if (mode !== "practice") {
+			setPendingDraft(draft);
+			setTimingOpen(true);
+			return;
+		}
+
+		executeSend(draft);
+	}, [configured, zeroKeys, catalog, mode, executeSend]);
 
 	return (
 		<>
@@ -374,6 +399,15 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 						)
 					)
 				}
+			/>
+			<TeachTimingDialog
+				open={timingOpen}
+				topic={pendingDraft}
+				onClose={() => setTimingOpen(false)}
+				onConfirm={(timings) => {
+					setTimingOpen(false);
+					executeSend(pendingDraft, timings);
+				}}
 			/>
 			{/* First-run setup: the send interception's landing surface — stage
 			    1 is the self-contained first-key screen (zero-keys wave). */}

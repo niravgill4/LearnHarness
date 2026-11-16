@@ -8,6 +8,7 @@ import { type AttachedImage } from "@/lib/file-attachments";
 import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
 import { SetupDialog } from "@/components/setup-dialog";
+import { TeachTimingDialog, type TeachTimingValues } from "@/components/teach-timing-dialog";
 import { ComposerActions, NodePickerControl } from "@/components/composer-actions";
 import { useModelSetup, selectedModelUnavailable, openModelPicker, ZeroKeysPill } from "@/components/setup-cta";
 import { DictationBar, joinDictation, useDictation } from "@/components/dictation";
@@ -59,6 +60,8 @@ export function Home({
 	// stores slots only; the learner sends the message themselves).
 	const { catalog, configured, zeroKeys } = useModelSetup(initialConfigured);
 	const [setupOpen, setSetupOpen] = useState(false);
+	const [timingOpen, setTimingOpen] = useState(false);
+	const [pendingTeachTopic, setPendingTeachTopic] = useState("");
 	// Voice dictation (STT wave, 2026-09-17): finals append at the end of the
 	// topic draft; the strip lives in the stats bar's middle slot.
 	const dictation = useDictation({
@@ -122,6 +125,33 @@ export function Home({
 		}
 		void dictation.finish().then(() => begin());
 	};
+	const executeStart = async (topic: string, timings?: TeachTimingValues) => {
+		startingRef.current = true;
+		setBusy(true);
+		setStartError(false);
+		try {
+			// The map context (owner, 2026-10-04): picks in EITHER mode ride
+			// the CREATION as graphContext — the server writes a
+			// graph-context marker as message[0] (a separate custom message
+			// before the learner's first user message, propositions + the
+			// chains among them); the prompt stays the learner's own words.
+			const openingPrompt = timings
+				? `${topic}\n\nSession Time Budget:\n- Diagnostic Probing: ${timings.probingTime}\n- Deep Learning & Teaching: ${timings.learningTime}`
+				: topic;
+			const target = await starterRef.current.start({
+				title: topic,
+				openingPrompt,
+				...(mode === "practice" ? { kind: "practice" } : {}),
+				...(practiceProps.length > 0 ? { graphContext: { propositions: practiceProps } } : {}),
+			}, fetch, JSON.stringify(catalog?.slots.strong));
+			router.push(target);
+		} catch {
+			startingRef.current = false;
+			setBusy(false);
+			setStartError(true);
+		}
+	};
+
 	const begin = async () => {
 		const t = topicRef.current.trim() || (attachedImages.length > 0 ? `Study: ${attachedImages[0]?.name || "image"}` : "");
 		if (!t || startingRef.current) return;
@@ -147,26 +177,14 @@ export function Home({
 			openModelPicker();
 			return; // Preserve the draft and never create an orphan session.
 		}
-		startingRef.current = true;
-		setBusy(true);
-		setStartError(false);
-		try {
-			// The map context (owner, 2026-10-04): picks in EITHER mode ride
-			// the CREATION as graphContext — the server writes a
-			// graph-context marker as message[0] (a separate custom message
-			// before the learner's first user message, propositions + the
-			// chains among them); the prompt stays the learner's own words.
-			const target = await starterRef.current.start({
-				title: t,
-				...(mode === "practice" ? { kind: "practice" } : {}),
-				...(practiceProps.length > 0 ? { graphContext: { propositions: practiceProps } } : {}),
-			}, fetch, JSON.stringify(catalog?.slots.strong));
-			router.push(target);
-		} catch {
-			startingRef.current = false;
-			setBusy(false);
-			setStartError(true);
+
+		if (mode === "teach") {
+			setPendingTeachTopic(t);
+			setTimingOpen(true);
+			return;
 		}
+
+		await executeStart(t);
 	};
 
 	return (
@@ -342,6 +360,15 @@ export function Home({
 			    interception's landing surface — stage 1 is the self-contained
 			    first-key screen (zero-keys wave); Save never sends — the
 			    draft stays for the learner to send (owner 2026-10-09). */}
+			<TeachTimingDialog
+				open={timingOpen}
+				topic={pendingTeachTopic}
+				onClose={() => setTimingOpen(false)}
+				onConfirm={(timings) => {
+					setTimingOpen(false);
+					void executeStart(pendingTeachTopic, timings);
+				}}
+			/>
 			<SetupDialog
 				open={setupOpen}
 				onClose={() => setSetupOpen(false)}
