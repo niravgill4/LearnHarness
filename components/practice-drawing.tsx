@@ -55,11 +55,21 @@ export function PracticeDrawing({
 	const inlineCanvasRef = useRef<HTMLCanvasElement>(null);
 	const fsCanvasRef = useRef<HTMLCanvasElement>(null);
 
+	// DOM elements for direct cursor transforms (bypassing React re-renders)
+	const inlineCursorRef = useRef<HTMLDivElement>(null);
+	const fsCursorRef = useRef<HTMLDivElement>(null);
+
+	// Cached bounding rect during gestures to eliminate DOM reflows
+	const cachedRectRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
+
 	// All completed strokes in infinite world space
 	const history = useRef<Stroke[]>([]);
 	const gesture = useRef<{ id: number; stroke: Stroke } | null>(null);
 	const changed = useRef(onChange);
 	changed.current = onChange;
+
+	// Debounce timer for base64 PNG export
+	const exportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Mounted state for SSR portal safety
 	const [mounted, setMounted] = useState(false);
@@ -69,10 +79,25 @@ export function PracticeDrawing({
 
 	// Tool states
 	const [activeTool, setActiveTool] = useState<"pen" | "eraser" | "pan">("pen");
+	const activeToolRef = useRef(activeTool);
+	activeToolRef.current = activeTool;
+
 	const [color, setColor] = useState(COLORS[0]!);
+	const colorRef = useRef(color);
+	colorRef.current = color;
+
 	const [penWidth, setPenWidth] = useState(4);
+	const penWidthRef = useRef(penWidth);
+	penWidthRef.current = penWidth;
+
 	const [eraserSize, setEraserSize] = useState(45);
+	const eraserSizeRef = useRef(eraserSize);
+	eraserSizeRef.current = eraserSize;
+
 	const [finger, setFinger] = useState(false);
+	const fingerRef = useRef(finger);
+	fingerRef.current = finger;
+
 	const [strokeCount, setStrokeCount] = useState(0);
 	const [error, setError] = useState("");
 
@@ -83,6 +108,10 @@ export function PracticeDrawing({
 	// Infinite Canvas Navigation: Zoom and Pan
 	const [zoom, setZoom] = useState(1);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
+	const zoomRef = useRef(zoom);
+	zoomRef.current = zoom;
+	const panRef = useRef(pan);
+	panRef.current = pan;
 
 	// Multi-touch gestures (Two-finger pan and pinch zoom)
 	const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -92,113 +121,121 @@ export function PracticeDrawing({
 	// Single pointer Pan dragging
 	const isDraggingPan = useRef(false);
 	const lastPointerPos = useRef<{ x: number; y: number } | null>(null);
-
-	// Eraser visual cursor
-	const [eraserCursor, setEraserCursor] = useState<{ x: number; y: number; visible: boolean }>({
-		x: 0,
-		y: 0,
-		visible: false,
-	});
+	const rafId = useRef<number | null>(null);
 
 	// Get active canvas element depending on mode
 	function getActiveCanvas(): HTMLCanvasElement | null {
 		return isFullscreen ? fsCanvasRef.current : inlineCanvasRef.current;
 	}
 
-	// World coordinates to Screen coordinates
-	function worldToScreen(p: Point, canvas: HTMLCanvasElement): { x: number; y: number } {
-		const rect = canvas.getBoundingClientRect();
-		return {
-			x: p.x * zoom + pan.x + rect.width / 2,
-			y: p.y * zoom + pan.y + rect.height / 2,
-		};
+	function getActiveCursor(): HTMLDivElement | null {
+		return isFullscreen ? fsCursorRef.current : inlineCursorRef.current;
 	}
 
-	// Screen coordinates to World coordinates
-	function screenToWorld(clientX: number, clientY: number, canvas: HTMLCanvasElement): Point {
-		const rect = canvas.getBoundingClientRect();
+	function updateCachedRect(canvas: HTMLCanvasElement) {
+		const r = canvas.getBoundingClientRect();
+		cachedRectRef.current = { left: r.left, top: r.top, width: r.width, height: r.height };
+		return cachedRectRef.current;
+	}
+
+	// Screen coordinates to World coordinates (using cached rect)
+	function screenToWorld(clientX: number, clientY: number, rect: { left: number; top: number; width: number; height: number }): Point {
+		const z = zoomRef.current;
+		const p = panRef.current;
 		const screenX = clientX - rect.left;
 		const screenY = clientY - rect.top;
 		return {
-			x: (screenX - rect.width / 2 - pan.x) / zoom,
-			y: (screenY - rect.height / 2 - pan.y) / zoom,
+			x: (screenX - rect.width / 2 - p.x) / z,
+			y: (screenY - rect.height / 2 - p.y) / z,
 			pressure: 0.5,
 		};
 	}
 
-	// Paint a single stroke onto the canvas context
-	function drawStroke(
-		context: CanvasRenderingContext2D,
-		stroke: Stroke,
-		canvas: HTMLCanvasElement,
-		startIdx = 0,
-	) {
+	// Apply hardware transform matrix to 2D context
+	function applyTransform(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+		const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+		const z = zoomRef.current;
+		const p = panRef.current;
+		const rect = cachedRectRef.current || { width: canvas.clientWidth, height: canvas.clientHeight };
+		ctx.setTransform(
+			dpr * z,
+			0,
+			0,
+			dpr * z,
+			(p.x + rect.width / 2) * dpr,
+			(p.y + rect.height / 2) * dpr,
+		);
+	}
+
+	// Draw a stroke using GPU-accelerated world coordinates
+	function drawStrokeInWorld(ctx: CanvasRenderingContext2D, stroke: Stroke, startIdx = 0) {
 		if (!stroke.points.length) return;
-		context.save();
-		context.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
-		context.strokeStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
-		context.fillStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
-		context.lineCap = "round";
-		context.lineJoin = "round";
+		ctx.save();
+		ctx.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
+		ctx.strokeStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
+		ctx.fillStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
+		ctx.lineCap = "round";
+		ctx.lineJoin = "round";
 
-		const baseWidth = (stroke.erase ? stroke.width : stroke.width) * zoom;
-
-		stroke.points.slice(startIdx).forEach((p, offset) => {
+		stroke.points.slice(startIdx).forEach((pt, offset) => {
 			const i = startIdx + offset;
-			const screenPt = worldToScreen(p, canvas);
-			const width = stroke.erase ? baseWidth : baseWidth * (0.65 + 0.7 * p.pressure);
-			context.lineWidth = Math.max(1, width);
-			context.beginPath();
+			const width = stroke.erase ? stroke.width : stroke.width * (0.65 + 0.7 * pt.pressure);
+			ctx.lineWidth = Math.max(1, width);
+			ctx.beginPath();
 
 			if (i === 0) {
-				context.arc(screenPt.x, screenPt.y, Math.max(0.5, width / 2), 0, Math.PI * 2);
-				context.fill();
+				ctx.arc(pt.x, pt.y, Math.max(0.5, width / 2), 0, Math.PI * 2);
+				ctx.fill();
 			} else {
-				const prevScreen = worldToScreen(stroke.points[i - 1]!, canvas);
-				context.moveTo(prevScreen.x, prevScreen.y);
-				context.lineTo(screenPt.x, screenPt.y);
-				context.stroke();
+				const prev = stroke.points[i - 1]!;
+				ctx.moveTo(prev.x, prev.y);
+				ctx.lineTo(pt.x, pt.y);
+				ctx.stroke();
 			}
 		});
 
-		context.restore();
+		ctx.restore();
 	}
 
-	// Redraw all strokes onto the active canvas
+	// High-performance repaint using hardware transforms
 	function repaint() {
 		const canvas = getActiveCanvas();
 		if (!canvas) return;
-		const rect = canvas.getBoundingClientRect();
+		const rect = updateCachedRect(canvas);
 		if (rect.width === 0 || rect.height === 0) return;
 
 		const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-		if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
-			canvas.width = Math.round(rect.width * dpr);
-			canvas.height = Math.round(rect.height * dpr);
+		const targetW = Math.round(rect.width * dpr);
+		const targetH = Math.round(rect.height * dpr);
+
+		if (canvas.width !== targetW || canvas.height !== targetH) {
+			canvas.width = targetW;
+			canvas.height = targetH;
 		}
 
-		const context = canvas.getContext("2d");
-		if (!context) return;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) return;
 
-		context.setTransform(1, 0, 0, 1, 0, 0);
-		context.clearRect(0, 0, canvas.width, canvas.height);
-		context.scale(dpr, dpr);
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		applyTransform(ctx, canvas);
 
 		for (const s of history.current) {
-			drawStroke(context, s, canvas, 0);
+			drawStrokeInWorld(ctx, s, 0);
 		}
 
 		if (gesture.current) {
-			drawStroke(context, gesture.current.stroke, canvas, 0);
+			drawStrokeInWorld(ctx, gesture.current.stroke, 0);
 		}
 	}
 
-	// Re-render when pan, zoom, or mode changes
+	// Repaint on zoom/pan/mode change
 	useLayoutEffect(() => {
 		repaint();
 	}, [pan, zoom, isFullscreen]);
 
-	// Window resize handler to maintain sharp infinite canvas
+	// Window resize handler
 	useEffect(() => {
 		function onResize() {
 			repaint();
@@ -207,14 +244,20 @@ export function PracticeDrawing({
 		return () => window.removeEventListener("resize", onResize);
 	}, [isFullscreen]);
 
-	// Export bounded content to base64 PNG
-	function updateOutput() {
+	// Debounced background export to avoid stutter during pen drawing
+	function scheduleExport() {
+		if (exportTimer.current) clearTimeout(exportTimer.current);
+		exportTimer.current = setTimeout(() => {
+			performExport();
+		}, 250);
+	}
+
+	function performExport() {
 		if (!history.current.length) {
 			changed.current(undefined);
 			return;
 		}
 
-		// Calculate world bounding box of all strokes
 		let minX = Infinity;
 		let minY = Infinity;
 		let maxX = -Infinity;
@@ -244,37 +287,14 @@ export function PracticeDrawing({
 		const ctx = exportCanvas.getContext("2d");
 		if (!ctx) return;
 
-		// White background for submission export
 		ctx.fillStyle = "#ffffff";
 		ctx.fillRect(0, 0, contentW, contentH);
 
 		ctx.save();
 		ctx.translate(-minX + padding, -minY + padding);
 
-		// Render all strokes onto export canvas
 		for (const stroke of history.current) {
-			ctx.save();
-			ctx.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
-			ctx.strokeStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
-			ctx.fillStyle = stroke.erase ? "rgba(0,0,0,1)" : stroke.color;
-			ctx.lineCap = "round";
-			ctx.lineJoin = "round";
-
-			stroke.points.forEach((p, i) => {
-				const w = stroke.erase ? stroke.width : stroke.width * (0.65 + 0.7 * p.pressure);
-				ctx.lineWidth = Math.max(1, w);
-				ctx.beginPath();
-				if (i === 0) {
-					ctx.arc(p.x, p.y, Math.max(0.5, w / 2), 0, Math.PI * 2);
-					ctx.fill();
-				} else {
-					const prev = stroke.points[i - 1]!;
-					ctx.moveTo(prev.x, prev.y);
-					ctx.lineTo(p.x, p.y);
-					ctx.stroke();
-				}
-			});
-			ctx.restore();
+			drawStrokeInWorld(ctx, stroke, 0);
 		}
 		ctx.restore();
 
@@ -292,9 +312,10 @@ export function PracticeDrawing({
 		const canvas = getActiveCanvas();
 		if (!canvas) return;
 
+		const rect = updateCachedRect(canvas);
 		activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-		// Two-finger gesture started: pan + pinch zoom
+		// Two-finger gesture (pan + pinch zoom)
 		if (activePointers.current.size >= 2) {
 			if (gesture.current) finishStroke();
 			isDraggingPan.current = false;
@@ -304,76 +325,87 @@ export function PracticeDrawing({
 			return;
 		}
 
-		// Dedicated Hand/Pan mode
-		if (activeTool === "pan") {
+		// Dedicated Move/Pan mode
+		if (activeToolRef.current === "pan") {
 			isDraggingPan.current = true;
 			lastPointerPos.current = { x: event.clientX, y: event.clientY };
 			event.currentTarget.setPointerCapture(event.pointerId);
 			return;
 		}
 
-		// Finger drawing check
-		if (event.pointerType === "touch" && !finger) {
+		// Finger drawing gate
+		if (event.pointerType === "touch" && !fingerRef.current) {
 			return;
 		}
 
-		// Drawing stroke
+		// Drawing stroke: Direct immediate painting without React latency
 		event.currentTarget.setPointerCapture(event.pointerId);
 		onDrawing(true);
 
-		const worldPt = screenToWorld(event.clientX, event.clientY, canvas);
+		const worldPt = screenToWorld(event.clientX, event.clientY, rect);
 		worldPt.pressure = event.pressure || 0.5;
 
-		const isEraser = activeTool === "eraser";
-		const strokeWidth = isEraser ? eraserSize : penWidth;
+		const isEraser = activeToolRef.current === "eraser";
+		const strokeWidth = isEraser ? eraserSizeRef.current : penWidthRef.current;
 
 		gesture.current = {
 			id: event.pointerId,
 			stroke: {
-				color: isEraser ? "rgba(0,0,0,1)" : color,
+				color: isEraser ? "rgba(0,0,0,1)" : colorRef.current,
 				width: strokeWidth,
 				erase: isEraser,
 				points: [worldPt],
 			},
 		};
 
-		// Draw immediate point
 		const ctx = canvas.getContext("2d");
 		if (ctx) {
-			const dpr = window.devicePixelRatio || 1;
-			ctx.save();
-			ctx.scale(dpr, dpr);
-			drawStroke(ctx, gesture.current.stroke, canvas, 0);
-			ctx.restore();
+			applyTransform(ctx, canvas);
+			drawStrokeInWorld(ctx, gesture.current.stroke, 0);
 		}
 	}
 
 	function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
 		const canvas = getActiveCanvas();
 		if (!canvas) return;
+		const rect = cachedRectRef.current || updateCachedRect(canvas);
+
+		// Direct DOM cursor transform for zero lag
+		if (activeToolRef.current === "eraser") {
+			const cursor = getActiveCursor();
+			if (cursor) {
+				const x = event.clientX - rect.left;
+				const y = event.clientY - rect.top;
+				cursor.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+				cursor.style.display = "block";
+			}
+		}
 
 		if (activePointers.current.has(event.pointerId)) {
 			activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-			// Two-finger pan & pinch zoom active
+			// Two-finger pan & pinch zoom (batched via RAF)
 			if (activePointers.current.size >= 2) {
 				const pts = Array.from(activePointers.current.values());
 				const currCentroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
 				const currDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
 
-				if (prevCentroid.current) {
-					const dx = currCentroid.x - prevCentroid.current.x;
-					const dy = currCentroid.y - prevCentroid.current.y;
-					setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+				if (!rafId.current) {
+					rafId.current = requestAnimationFrame(() => {
+						rafId.current = null;
+						if (prevCentroid.current) {
+							const dx = currCentroid.x - prevCentroid.current.x;
+							const dy = currCentroid.y - prevCentroid.current.y;
+							setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+						}
+						if (prevDistance.current && prevDistance.current > 0) {
+							const factor = currDist / prevDistance.current;
+							setZoom((prev) => Math.min(4, Math.max(0.2, prev * factor)));
+						}
+						prevCentroid.current = currCentroid;
+						prevDistance.current = currDist;
+					});
 				}
-
-				if (prevDistance.current && prevDistance.current > 0) {
-					const factor = currDist / prevDistance.current;
-					setZoom((prev) => Math.min(4, Math.max(0.2, prev * factor)));
-				}
-
-				prevCentroid.current = currCentroid;
-				prevDistance.current = currDist;
 				return;
 			}
 		}
@@ -382,25 +414,15 @@ export function PracticeDrawing({
 		if (isDraggingPan.current && lastPointerPos.current) {
 			const dx = event.clientX - lastPointerPos.current.x;
 			const dy = event.clientY - lastPointerPos.current.y;
-			setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
 			lastPointerPos.current = { x: event.clientX, y: event.clientY };
+			setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
 			return;
 		}
 
-		// Update eraser cursor ring
-		if (activeTool === "eraser") {
-			const rect = canvas.getBoundingClientRect();
-			setEraserCursor({
-				x: event.clientX - rect.left,
-				y: event.clientY - rect.top,
-				visible: true,
-			});
-		}
-
-		// Continue drawing stroke
+		// Active stroke drawing: Ultra-fast 120fps hardware draw
 		if (!gesture.current || gesture.current.id !== event.pointerId) return;
 
-		const worldPt = screenToWorld(event.clientX, event.clientY, canvas);
+		const worldPt = screenToWorld(event.clientX, event.clientY, rect);
 		worldPt.pressure = event.pressure || 0.5;
 
 		const stroke = gesture.current.stroke;
@@ -409,11 +431,8 @@ export function PracticeDrawing({
 
 		const ctx = canvas.getContext("2d");
 		if (ctx) {
-			const dpr = window.devicePixelRatio || 1;
-			ctx.save();
-			ctx.scale(dpr, dpr);
-			drawStroke(ctx, stroke, canvas, startIdx);
-			ctx.restore();
+			applyTransform(ctx, canvas);
+			drawStrokeInWorld(ctx, stroke, startIdx);
 		}
 	}
 
@@ -439,12 +458,12 @@ export function PracticeDrawing({
 		gesture.current = null;
 		setStrokeCount(history.current.length);
 		onDrawing(false);
-		repaint();
-		updateOutput();
+		scheduleExport();
 	}
 
 	function handlePointerLeave() {
-		setEraserCursor((prev) => ({ ...prev, visible: false }));
+		const cursor = getActiveCursor();
+		if (cursor) cursor.style.display = "none";
 	}
 
 	function handleUndo() {
@@ -452,7 +471,7 @@ export function PracticeDrawing({
 		history.current.pop();
 		setStrokeCount(history.current.length);
 		repaint();
-		updateOutput();
+		scheduleExport();
 	}
 
 	function handleClear() {
@@ -460,7 +479,7 @@ export function PracticeDrawing({
 		history.current = [];
 		setStrokeCount(0);
 		repaint();
-		updateOutput();
+		scheduleExport();
 	}
 
 	function zoomIn() {
@@ -774,19 +793,17 @@ export function PracticeDrawing({
 					</div>
 				)}
 
-				{/* Eraser Cursor Preview Ring */}
-				{activeTool === "eraser" && eraserCursor.visible && (
-					<div
-						className="practice-eraser-cursor-ring"
-						style={{
-							left: `${eraserCursor.x}px`,
-							top: `${eraserCursor.y}px`,
-							width: `${eraserSize * zoom}px`,
-							height: `${eraserSize * zoom}px`,
-						}}
-						aria-hidden="true"
-					/>
-				)}
+				{/* Fast Direct DOM Eraser Preview Ring */}
+				<div
+					ref={fsCursorRef}
+					className="practice-eraser-cursor-ring"
+					style={{
+						width: `${eraserSize * zoom}px`,
+						height: `${eraserSize * zoom}px`,
+						display: "none",
+					}}
+					aria-hidden="true"
+				/>
 			</div>
 
 			{/* Floating Apple PencilKit Capsule Toolbar */}
@@ -864,19 +881,17 @@ export function PracticeDrawing({
 					</div>
 				)}
 
-				{/* Eraser Cursor Preview Ring */}
-				{activeTool === "eraser" && eraserCursor.visible && (
-					<div
-						className="practice-eraser-cursor-ring"
-						style={{
-							left: `${eraserCursor.x}px`,
-							top: `${eraserCursor.y}px`,
-							width: `${eraserSize * zoom}px`,
-							height: `${eraserSize * zoom}px`,
-						}}
-						aria-hidden="true"
-					/>
-				)}
+				{/* Fast Direct DOM Eraser Preview Ring */}
+				<div
+					ref={inlineCursorRef}
+					className="practice-eraser-cursor-ring"
+					style={{
+						width: `${eraserSize * zoom}px`,
+						height: `${eraserSize * zoom}px`,
+						display: "none",
+					}}
+					aria-hidden="true"
+				/>
 			</div>
 
 			{/* Inline Hint Footer */}
