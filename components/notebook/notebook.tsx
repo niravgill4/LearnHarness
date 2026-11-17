@@ -17,6 +17,8 @@ import {
 	DownloadIcon,
 	HandIcon,
 	MoreHorizontalIcon,
+	Maximize2Icon,
+	Minimize2Icon,
 } from "lucide-react";
 import { SidebarToggle } from "@/components/sidebar";
 import {
@@ -73,6 +75,59 @@ export function Notebook() {
 	const undo = useRef<InkStroke[][]>([]),
 		redo = useRef<InkStroke[][]>([]);
 	const [historyTick, setHistoryTick] = useState(0);
+	const [fullscreen, setFullscreen] = useState(false);
+
+	const toggleFullscreen = useCallback(() => {
+		setFullscreen((prev) => {
+			const next = !prev;
+			if (next) {
+				if (document.documentElement.requestFullscreen) {
+					void document.documentElement.requestFullscreen().catch(() => {});
+				}
+			} else {
+				if (document.fullscreenElement) {
+					void document.exitFullscreen().catch(() => {});
+				}
+			}
+			return next;
+		});
+	}, []);
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && fullscreen) {
+				setFullscreen(false);
+				if (document.fullscreenElement) {
+					void document.exitFullscreen().catch(() => {});
+				}
+			}
+		};
+		const handleFsChange = () => {
+			if (!document.fullscreenElement && fullscreen) {
+				setFullscreen(false);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		document.addEventListener("fullscreenchange", handleFsChange);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("fullscreenchange", handleFsChange);
+		};
+	}, [fullscreen]);
+
+	// Prevent unwanted WebKit text selection / callout bleeds when drawing or interacting with notebook controls
+	useEffect(() => {
+		const handleSelectStart = (e: Event) => {
+			const target = e.target as HTMLElement | null;
+			if (target?.closest("input.nb-title, .nb-search input, .nb-text-block.is-selected .tiptap")) {
+				return;
+			}
+			e.preventDefault();
+		};
+		window.addEventListener("selectstart", handleSelectStart);
+		return () => window.removeEventListener("selectstart", handleSelectStart);
+	}, []);
+
 	const activePage = data.pages.find((p) => p.id === pageId),
 		activeBook = data.notebooks.find((n) => n.id === book),
 		activeSection = data.sections.find((s) => s.id === section);
@@ -494,7 +549,11 @@ export function Notebook() {
 		)
 		.sort((a, b) => (query || recent ? b.updatedAt.localeCompare(a.updatedAt) : 0));
 	return (
-		<main className="notebook" data-native-keyboard="true" data-history={historyTick}>
+		<main
+			className={`notebook ${fullscreen ? "is-fullscreen" : ""} mode-${mode}`}
+			data-native-keyboard="true"
+			data-history={historyTick}
+		>
 			<header className="nb-header">
 				<SidebarToggle />
 				<BookOpenIcon size={20} />
@@ -939,6 +998,17 @@ export function Notebook() {
 										</label>
 									</div>
 								</details>
+								<button
+									type="button"
+									className="nb-fullscreen-toggle"
+									title={fullscreen ? "Exit full screen (Esc)" : "Full screen canvas"}
+									aria-label={fullscreen ? "Exit full screen" : "Full screen canvas"}
+									aria-pressed={fullscreen}
+									onClick={toggleFullscreen}
+								>
+									{fullscreen ? <Minimize2Icon size={16} /> : <Maximize2Icon size={16} />}
+									<span>{fullscreen ? "Exit" : "Full screen"}</span>
+								</button>
 							</div>
 							<NotebookCanvas
 								key={pageId}
@@ -947,6 +1017,8 @@ export function Notebook() {
 								mode={mode}
 								tool={tool}
 								finger={finger}
+								fullscreen={fullscreen}
+								onToggleFullscreen={toggleFullscreen}
 								onChange={inkChange}
 								onBusy={setBusy}
 							>

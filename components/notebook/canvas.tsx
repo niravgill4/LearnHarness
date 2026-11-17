@@ -11,7 +11,7 @@ import {
 } from "@/lib/notebook-camera";
 import type { NotePage, InkStroke, InkPoint } from "@/lib/notebook";
 import { paintInk, type InkTool } from "./ink";
-import { MinusIcon, PlusIcon, ScanIcon } from "lucide-react";
+import { Maximize2Icon, Minimize2Icon, MinusIcon, PlusIcon, ScanIcon } from "lucide-react";
 
 export function NotebookCanvas({
 	page,
@@ -19,6 +19,8 @@ export function NotebookCanvas({
 	mode,
 	tool,
 	finger,
+	fullscreen,
+	onToggleFullscreen,
 	onChange,
 	onBusy,
 	children,
@@ -28,6 +30,8 @@ export function NotebookCanvas({
 	mode: "write" | "draw" | "hand";
 	tool: InkTool;
 	finger: boolean;
+	fullscreen?: boolean;
+	onToggleFullscreen?: () => void;
 	onChange(strokes: InkStroke[]): void;
 	onBusy(active: boolean): void;
 	children: ReactNode;
@@ -39,6 +43,7 @@ export function NotebookCanvas({
 	const latest = useRef({ page, mode, tool, finger, onChange, onBusy });
 	latest.current = { page, mode, tool, finger, onChange, onBusy };
 	const pointers = useRef(new Map<number, ViewPoint>()),
+		activePen = useRef<number | null>(null),
 		gesture = useRef<{ id: number; type: string; stroke: InkStroke } | null>(null);
 	const rect = useRef<DOMRect | null>(null),
 		raf = useRef(0),
@@ -244,6 +249,9 @@ export function NotebookCanvas({
 		};
 	}
 	function end(event: PointerEvent) {
+		if (event.pointerId === activePen.current) {
+			activePen.current = null;
+		}
 		pointers.current.delete(event.pointerId);
 		if (gesture.current?.id === event.pointerId) {
 			const stroke = gesture.current.stroke;
@@ -252,7 +260,7 @@ export function NotebookCanvas({
 			latest.current.onBusy(false);
 			schedule();
 		}
-		if (pointers.current.size === 0) {
+		if (pointers.current.size === 0 && gesture.current === null) {
 			panning.current = false;
 			setMoving(false);
 			rect.current = null;
@@ -265,10 +273,52 @@ export function NotebookCanvas({
 				className={`nb-viewport paper-${page.paper} mode-${mode}${moving ? " is-moving" : ""}`}
 				aria-label="Infinite notebook canvas"
 				onPointerDownCapture={(event) => {
-					if (gesture.current?.type === "pen" && event.pointerType === "touch") return;
+					// 1. Palm rejection: if Apple Pencil is active or currently drawing, drop touch completely
+					if (event.pointerType === "touch" && (activePen.current !== null || gesture.current?.type === "pen")) {
+						event.preventDefault();
+						event.stopPropagation();
+						return;
+					}
+
 					rect.current = viewport.current!.getBoundingClientRect();
+
+					// 2. Apple Pencil handling
+					if (event.pointerType === "pen") {
+						// Free any pointer captures held by earlier touch/palm events
+						if (viewport.current) {
+							for (const id of pointers.current.keys()) {
+								try {
+									viewport.current.releasePointerCapture(id);
+								} catch {}
+							}
+						}
+						pointers.current.clear();
+						panning.current = false;
+						setMoving(false);
+						activePen.current = event.pointerId;
+
+						if (mode === "draw" && event.button === 0) {
+							event.preventDefault();
+							event.stopPropagation();
+							try {
+								viewport.current!.setPointerCapture(event.pointerId);
+							} catch {}
+							gesture.current = {
+								id: event.pointerId,
+								type: "pen",
+								stroke: { ...tool, points: [point(event)] },
+							};
+							latest.current.onBusy(true);
+							schedule();
+							return;
+						}
+					}
+
+					// 3. Touch handling
 					if (event.pointerType === "touch") {
 						pointers.current.set(event.pointerId, local(event));
+
+						// Two or more touches: pinch zoom
 						if (pointers.current.size >= 2) {
 							if (gesture.current?.type === "touch") {
 								gesture.current = null;
@@ -276,30 +326,71 @@ export function NotebookCanvas({
 								schedule();
 							}
 							event.preventDefault();
-							viewport.current!.setPointerCapture(event.pointerId);
+							event.stopPropagation();
+							try {
+								viewport.current!.setPointerCapture(event.pointerId);
+							} catch {}
 							panning.current = true;
 							setMoving(true);
 							return;
 						}
+
+						const editable = (event.target as Element).closest(".nb-text-block,input,.nb-start-writing");
+
+						// In hand mode or navigating without editing
+						if (mode === "hand" || (!editable && mode === "write")) {
+							event.preventDefault();
+							try {
+								viewport.current!.setPointerCapture(event.pointerId);
+							} catch {}
+							panning.current = true;
+							setMoving(true);
+							return;
+						}
+
+						// In draw mode with finger drawing explicitly enabled
+						if (mode === "draw" && finger && !gesture.current && event.button === 0) {
+							event.preventDefault();
+							event.stopPropagation();
+							try {
+								viewport.current!.setPointerCapture(event.pointerId);
+							} catch {}
+							gesture.current = {
+								id: event.pointerId,
+								type: "touch",
+								stroke: { ...tool, points: [point(event)] },
+							};
+							latest.current.onBusy(true);
+							schedule();
+							return;
+						}
+
+						// In draw mode with finger drawing OFF:
+						// Palm resting or preparing to draw with pencil. Prevent default to block iOS text selection/callout
+						if (mode === "draw" && !finger) {
+							event.preventDefault();
+							return;
+						}
 					}
-					const editable = (event.target as Element).closest(".nb-text-block,input,.nb-start-writing");
-					if (mode === "hand" || (event.pointerType === "touch" && !finger && !editable)) {
+
+					if (mode === "hand") {
 						event.preventDefault();
 						pointers.current.set(event.pointerId, local(event));
-						viewport.current!.setPointerCapture(event.pointerId);
+						try {
+							viewport.current!.setPointerCapture(event.pointerId);
+						} catch {}
 						panning.current = true;
 						setMoving(true);
 						return;
 					}
+
 					if (mode !== "draw" || gesture.current || event.button !== 0) return;
-					if (event.pointerType === "pen") {
-						pointers.current.clear();
-						panning.current = false;
-						setMoving(false);
-					}
+
 					event.preventDefault();
 					event.stopPropagation();
-					viewport.current!.setPointerCapture(event.pointerId);
+					try {
+						viewport.current!.setPointerCapture(event.pointerId);
+					} catch {}
 					gesture.current = {
 						id: event.pointerId,
 						type: event.pointerType,
@@ -309,7 +400,13 @@ export function NotebookCanvas({
 					schedule();
 				}}
 				onPointerMoveCapture={(event) => {
-					if (gesture.current?.type === "pen" && event.pointerType === "touch") return;
+					// Palm rejection: if pencil is active, completely drop touch movements
+					if (event.pointerType === "touch" && (activePen.current !== null || gesture.current?.type === "pen")) {
+						event.preventDefault();
+						event.stopPropagation();
+						return;
+					}
+
 					if (pointers.current.has(event.pointerId)) {
 						const before = [...pointers.current.values()],
 							previous = pointers.current.get(event.pointerId)!,
@@ -337,6 +434,7 @@ export function NotebookCanvas({
 							return;
 						}
 					}
+
 					if (gesture.current?.id !== event.pointerId) return;
 					event.preventDefault();
 					const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
@@ -366,6 +464,18 @@ export function NotebookCanvas({
 				<button aria-label="Fit content" title="Fit all notes" onClick={fit}>
 					<ScanIcon size={16} />
 				</button>
+				{onToggleFullscreen && (
+					<>
+						<span />
+						<button
+							aria-label={fullscreen ? "Exit full screen" : "Enter full screen"}
+							title={fullscreen ? "Exit full screen (Esc)" : "Enter full screen"}
+							onClick={onToggleFullscreen}
+						>
+							{fullscreen ? <Minimize2Icon size={15} /> : <Maximize2Icon size={15} />}
+						</button>
+					</>
+				)}
 			</div>
 		</div>
 	);

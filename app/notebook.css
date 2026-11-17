@@ -6,6 +6,43 @@
 	background: var(--background);
 	color: var(--foreground);
 	font-family: var(--font-sans), Inter, system-ui, sans-serif;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+.notebook button,
+.notebook select,
+.notebook label,
+.nb-tools,
+.nb-tools *,
+.nb-header,
+.nb-header *,
+.nb-sections,
+.nb-sections *,
+.nb-navigation,
+.nb-view-controls,
+.nb-view-controls *,
+.nb-footer,
+.nb-viewport {
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	-webkit-touch-callout: none !important;
+}
+/* Allow text selection only in actual text inputs and focused editor blocks */
+.nb-search input,
+.nb-title:focus,
+.nb-text-block.is-selected .tiptap,
+.nb-text-block.is-selected .tiptap * {
+	-webkit-user-select: text !important;
+	user-select: text !important;
+	-webkit-touch-callout: default !important;
+}
+/* In Draw mode or Hand mode, disable all text selection completely */
+.notebook.mode-draw *,
+.notebook.mode-hand * {
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	-webkit-touch-callout: none !important;
 }
 .notebook button,
 .notebook select,
@@ -1035,12 +1072,85 @@
 	box-shadow:
 		0 6px 24px #0002,
 		0 1px 2px #0002;
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	-webkit-touch-callout: none !important;
+	touch-action: none;
 }
 .nb-tools button {
 	border-radius: 10px;
 	min-height: 38px;
 	padding: 7px 9px;
 	font-size: 11px;
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	-webkit-touch-callout: none !important;
+	touch-action: manipulation;
+}
+.nb-fullscreen-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 11px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 500;
+	background: color-mix(in srgb, var(--accent) 75%, transparent);
+	color: var(--foreground);
+	border: 1px solid var(--border);
+	transition: background-color 0.15s ease;
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	-webkit-touch-callout: none !important;
+}
+.nb-fullscreen-toggle:hover {
+	background: var(--accent);
+}
+.nb-fullscreen-toggle[aria-pressed="true"] {
+	background: var(--primary);
+	color: var(--primary-foreground);
+}
+.notebook.is-fullscreen {
+	position: fixed !important;
+	inset: 0 !important;
+	width: 100vw !important;
+	height: 100vh !important;
+	height: 100dvh !important;
+	z-index: 999999 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	background: var(--background) !important;
+	overflow: hidden !important;
+}
+.notebook.is-fullscreen .nb-header,
+.notebook.is-fullscreen .nb-navigation,
+.notebook.is-fullscreen .nb-sections,
+.notebook.is-fullscreen .nb-footer {
+	display: none !important;
+}
+.notebook.is-fullscreen .nb-body {
+	flex: 1 !important;
+	width: 100% !important;
+	height: 100% !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: hidden !important;
+}
+.notebook.is-fullscreen .nb-workspace {
+	flex: 1 !important;
+	width: 100% !important;
+	height: 100% !important;
+	position: relative !important;
+	overflow: hidden !important;
+}
+.notebook.is-fullscreen .nb-canvas-shell {
+	width: 100% !important;
+	height: 100% !important;
+	flex: 1 !important;
+}
+.notebook.is-fullscreen .nb-tools {
+	bottom: max(20px, env(safe-area-inset-bottom)) !important;
+	z-index: 50 !important;
 }
 .nb-tool-group {
 	gap: 2px;
