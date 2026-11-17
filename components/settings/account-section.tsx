@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { validateEmail } from "@/lib/validation/email";
 import { HostDialog } from "@/components/host-dialog";
 import { AlertTriangleIcon } from "lucide-react";
+import { ReadingPaceTest } from "@/components/reading-pace-test";
 
 // In-memory cache across tab switches to avoid re-fetching on every section click
 let cachedUser: User | null = null;
@@ -182,6 +183,7 @@ export function AccountSection() {
 							</button>
 						</div>
 					</form>
+					<section className="account-reading-pace" aria-labelledby="account-reading-heading"><h3 id="account-reading-heading">Your reading pace</h3><ReadingPaceTest /></section>
 
 					<div className="flex items-center justify-between border-t border-border pt-4">
 						<div>

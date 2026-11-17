@@ -58,7 +58,7 @@
 .onboarding-progress { position:relative; z-index:2; flex-shrink:0; margin-bottom:28px; }
 .onboarding-progress ol {
 	display:grid;
-	grid-template-columns:repeat(3,minmax(0,1fr));
+	grid-template-columns:repeat(4,minmax(0,1fr));
 	gap:4px;
 	background:rgba(12,17,14,0.85);
 	border:1px solid rgba(255,255,255,0.1);

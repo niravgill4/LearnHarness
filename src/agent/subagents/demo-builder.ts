@@ -31,6 +31,8 @@ export interface DemoBuilderInput {
 }
 
 export interface DemoBuilderOptions {
+	/** Selected Interactive Simulations sessions require a true behavioral assertion. */
+	requireBehaviorProbe?: boolean;
 	/** Test seam: scripted engine; production uses the demoBuilder role. */
 	engine?: PiEngine;
 	headless?: HeadlessApi;
@@ -62,6 +64,17 @@ Build quality:
 - Controls need labels; sliders/inputs need current-value readouts. A learner should operate it unguided.
 - Smooth enough interaction; requestAnimationFrame for animation, not setInterval when it matters.
 - Dark-mode neutral: pick a clean light background for the demo area so it reads on any card.
+- Make controls touch-friendly (44px targets) and keyboard operable; include pause/reset for
+  animated simulations, state simplified assumptions, and respect prefers-reduced-motion.
+- Use labeled <output> or data-cognera-result elements for observable results. After changes,
+  report the actual computed parameters and results with
+  window.cognera?.reportObservation({parameters:{"Speed":speed,"Angle":angle},result:"Range: "+range+" m"}).
+  The host installs this optional bridge after document scripts; initial calls may be absent.
+  Update again after each experiment. Never send messages or start a lesson turn yourself:
+  the host's Share with tutor button is the learner's explicit choice.
+- For simulations, run_demo MUST include a behavioral probe that changes a control and
+  returns true only if the predicted output/measurement changes correctly. Probe expected
+  numerical cases, pause/reset, and boundary values; a clean console alone is not validation.
 
 THE HOUSE RULE — never deliver untested:
 1. Call write_demo with the complete HTML document.
@@ -76,6 +89,7 @@ THE HOUSE RULE — never deliver untested:
 Never claim success you did not see: a PASSED run_demo is the only definition of done.`;
 
 interface BuilderState {
+	behaviorProbe?: string;
 	html: string | null;
 	/** The html that the last run_demo tested (null = never tested). */
 	testedHtml: string | null;
@@ -100,6 +114,7 @@ export function createDemoBuilderTools(
 	state: BuilderState,
 	headless: HeadlessApi,
 	onActivity?: (line: string) => void,
+	requireBehaviorProbe = false,
 ): Record<string, AgentTool<any>> {
 	return healToolRecord({
 		write_demo: {
@@ -125,11 +140,13 @@ export function createDemoBuilderTools(
 			parameters: runDemoInput,
 			execute: serverExecute("run_demo", runDemoInput, async ({ probe }) => {
 				if (!state.html) return "ERROR: nothing to run — call write_demo first.";
+				if (requireBehaviorProbe && !probe?.trim()) return "ERROR: this simulation requires a behavioral probe that changes a control and returns true only when its expected result is correct.";
 				const reason = headless.unavailableReason();
 				if (reason) return `HEADLESS UNAVAILABLE: ${reason}`;
 				let result: DemoRunResult;
 				try {
 					result = await headless.runDemo(state.html, probe ? { probe } : undefined);
+					if (requireBehaviorProbe && result.probeResult !== true) result = { ...result, ok: false, pageErrors: [...result.pageErrors, "Behavioral probe did not return true. Fix the simulation or assertion and rerun."] };
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
 					onActivity?.("run_demo: browser error");
@@ -137,6 +154,7 @@ export function createDemoBuilderTools(
 				}
 				state.testedHtml = state.html;
 				state.lastResult = result;
+				if (requireBehaviorProbe && probe) state.behaviorProbe = probe;
 				onActivity?.(
 					result.ok ? "run_demo: clean" : `run_demo: ${summarizeCounts(result)}`,
 				);
@@ -200,11 +218,12 @@ export async function runDemoBuilder(input: DemoBuilderInput, opts: DemoBuilderO
 		brief,
 		"",
 		"Build the demo, test it with run_demo, iterate until PASSED, then finish with your notes.",
+		...(opts.requireBehaviorProbe ? ["This simulation MUST pass a behavioral probe: change a control and assert the predicted computed result. run_demo.probe must evaluate to boolean true. Missing or false probes block delivery."] : []),
 	].join("\n");
 
 	let finalText = "";
 	try {
-		const result = await runSubagent(Object.values(createDemoBuilderTools(state, headless, opts.onActivity)), {
+		const result = await runSubagent(Object.values(createDemoBuilderTools(state, headless, opts.onActivity, opts.requireBehaviorProbe)), {
 			role: "demoBuilder",
 			engine: opts.engine,
 			systemPrompt: INSTRUCTIONS,
@@ -233,11 +252,13 @@ export async function runDemoBuilder(input: DemoBuilderInput, opts: DemoBuilderO
 
 	// The verify gate: the delivered html must have a clean headless run —
 	// even when the model claims success or forgets the final run_demo.
+	if (opts.requireBehaviorProbe && !state.behaviorProbe) return { title, html: "", tested: true, notes: "FAILED: no behavioral probe was supplied for this simulation." };
 	if (state.testedHtml !== state.html || !state.lastResult?.ok) {
 		opts.onActivity?.("final verification");
 		let verify: DemoRunResult;
 		try {
-			verify = await headless.runDemo(state.html);
+			verify = await headless.runDemo(state.html, state.behaviorProbe ? { probe: state.behaviorProbe } : undefined);
+			if (opts.requireBehaviorProbe && verify.probeResult !== true) verify = { ...verify, ok: false, pageErrors: [...verify.pageErrors, "Behavioral probe did not return true."] };
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return { title, html: "", tested: true, notes: `FAILED: final verification crashed — ${msg}` };

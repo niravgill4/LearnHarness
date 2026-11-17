@@ -63,6 +63,9 @@ export { pluginProblemAvailabilityOf, type ProblemTypeResolver } from "./plugin-
 export { pluginQuestionAvailabilityOf, reconcilePluginQuestionCompatibility, preparePluginQuestionDismissal, type QuestionTypeResolver } from "./plugin-questions.ts";
 export { claudeCodeInstallationResponse } from "./claude-code.ts";
 export * from "./user-auth-context.ts";
+export { recommendLessonScope } from "./lesson-timing.ts";
+export { createPluginDocumentConverter } from "./plugin-documents.ts";
+export { restoreChatRecord } from "../store/chats.ts";
 // The custom endpoint module (registers into piModels() + probes for models).
 // No import side effects; the boot sync lives in stores.ts.
 export * from "./custom-provider.ts";

@@ -93,9 +93,9 @@ export async function deleteChatFromCloud(chatId: string, userId?: string): Prom
 	}
 }
 
-export async function restoreChatFromCloud(chatId: string, userId: string): Promise<ChatRecord | null> {
+export async function restoreChatFromCloud(chatId: string, userId: string, client: ReturnType<typeof createAdminClient> = createAdminClient()): Promise<ChatRecord | null> {
 	try {
-		const supabase = createAdminClient();
+		const supabase = client;
 		if (!supabase) return null;
 
 		const { data: chatRow } = await supabase
@@ -138,6 +138,7 @@ export async function restoreChatFromCloud(chatId: string, userId: string): Prom
 
 		return {
 			id: chatRow.id,
+			version: (chatRow.record as Partial<ChatRecord>|null)?.version,
 			title: chatRow.title,
 			kind: chatRow.kind === "practice" ? "practice" : "teach",
 			createdAt: chatRow.created_at,

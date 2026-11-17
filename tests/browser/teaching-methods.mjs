@@ -1,5 +1,20 @@
 import puppeteer from "puppeteer-core";
 import assert from "node:assert/strict";
+// Exact count and calculation come from the same core used by the API.
+const { measureReadingPace, READING_PASSAGE, budgetLesson } = await import("../../src/core/reading-pace.ts");
+const pace = measureReadingPace(READING_PASSAGE.id, 60000);
+const recommendation = budgetLesson(
+	{
+		scope: "Relate momentum to mass and velocity",
+		reason: "Connect the relationship and practise applying it.",
+		explanationWords: 2000,
+		questionCount: 4,
+		questionMinutes: 8,
+		activityMinutes: 4,
+		feedbackMinutes: 4,
+	},
+	pace,
+);
 const browser = await puppeteer.launch({
 	executablePath: "/usr/bin/chromium",
 	headless: true,
@@ -36,8 +51,23 @@ try {
 		};
 		let creationCount = 0,
 			creation;
+		let heldEstimate,
+			failEstimate = false;
 		await page.setRequestInterception(true);
 		page.on("request", (r) => {
+			if (r.url().endsWith("/api/reading-pace"))
+				return r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ pace }) });
+			if (r.url().endsWith("/api/lesson-timing")) {
+				assert.equal(JSON.parse(r.postData()).topic, "Understand momentum");
+				if (failEstimate)
+					return r.respond({
+						status: 503,
+						contentType: "application/json",
+						body: JSON.stringify({ error: "Unavailable" }),
+					});
+				heldEstimate = r;
+				return;
+			}
 			if (r.url().includes("/api/models"))
 				return r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(catalog) });
 			if (r.url().endsWith("/api/chats") && r.method() === "POST") {
@@ -57,9 +87,38 @@ try {
 			waitUntil: "networkidle2",
 		});
 		await page.waitForSelector('[data-testid="composer"] [data-file-path-input]');
+		const estimateRequest = page.waitForRequest((r) => r.url().endsWith("/api/lesson-timing"));
 		await page.type('[data-testid="composer"] [data-file-path-input]', "Understand momentum");
 		await page.keyboard.press("Enter");
 		await page.waitForSelector('[data-testid="teach-setup-panel"]');
+		await page.waitForFunction(() => document.querySelector('[aria-label="Learning duration presets"]'));
+		await page.evaluate(() =>
+			[...document.querySelectorAll('[aria-label="Learning duration presets"] button')]
+				.find((b) => b.textContent.trim() === "15 min")
+				.click(),
+		);
+		await estimateRequest;
+		assert.ok(heldEstimate);
+		await heldEstimate.respond({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ pace, recommendation }),
+		});
+		await page.waitForFunction(() =>
+			document.querySelector('[data-testid="lesson-recommendation"]')?.textContent.includes("Recommended:"),
+		);
+		assert.equal(
+			await page.$eval('[aria-label="Learning duration presets"] [aria-pressed="true"]', (e) =>
+				e.textContent.trim(),
+			),
+			"15 min",
+			"late recommendations do not overwrite a chosen budget",
+		);
+		await page.evaluate(() =>
+			[...document.querySelectorAll("button")]
+				.find((b) => b.textContent.trim() === "Use recommendation")
+				.click(),
+		);
 		const centered = async () => {
 			const box = await page.$eval('[data-testid="teach-setup-panel"]', (e) => {
 				const r = e.getBoundingClientRect(),
@@ -145,11 +204,13 @@ try {
 			);
 		await toggle("Feynman Mode");
 		await toggle("Socratic Lockdown");
-		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 2);
+		await toggle("Pictures and Diagrams");
+		await toggle("Interactive Simulations");
+		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 4);
 		await click("Back");
 		assert.equal(await page.$eval("#probing-time-input", (e) => e.value), "3 quick questions");
 		await click("Continue");
-		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 2);
+		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 4);
 		if (entry === "/chat/new") {
 			await page.setViewport({ width: 390, height: 844, hasTouch: true });
 			assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -158,9 +219,37 @@ try {
 		await Promise.all([page.waitForNavigation(), click("Start Learning")]);
 		assert.equal(creationCount, 1);
 		assert.equal(creation.title, "Understand momentum");
-		assert.deepEqual(creation.teachingSetup.methods, ["feynman", "socratic"]);
+		assert.deepEqual(creation.teachingSetup.methods, [
+			"feynman",
+			"socratic",
+			"pictures-diagrams",
+			"interactive-simulations",
+		]);
+		assert.deepEqual(creation.teachingSetup.readingPace, pace);
+		assert.deepEqual(creation.teachingSetup.recommendation, recommendation);
+		assert.equal(creation.teachingSetup.learningTime, `${recommendation.lessonMinutes} minutes`);
 		assert.equal(creation.teachingSetup.probingTime, "3 quick questions");
 		assert.match(creation.openingPrompt, /Feynman Mode/);
+		failEstimate = true;
+		await page.goto(`${process.env.TEACH_TEST_URL || "http://localhost:3012"}${entry}`, {
+			waitUntil: "networkidle2",
+		});
+		await page.waitForSelector('[data-testid="composer"] [data-file-path-input]');
+		await page.type('[data-testid="composer"] [data-file-path-input]', "Understand momentum");
+		await page.keyboard.press("Enter");
+		await page.waitForFunction(() =>
+			document.querySelector('[data-testid="lesson-recommendation"]')?.textContent.includes("unavailable"),
+		);
+		await page.evaluate(() =>
+			[...document.querySelectorAll('[aria-label="Learning duration presets"] button')]
+				.find((b) => b.textContent.trim() === "15 min")
+				.click(),
+		);
+		await click("Continue");
+		await Promise.all([page.waitForNavigation(), click("Start Learning")]);
+		assert.equal(creationCount, 2, "a missing recommendation does not block session creation");
+		assert.equal(creation.teachingSetup.learningTime, "15 minutes");
+		assert.equal(creation.teachingSetup.recommendation, undefined);
 		assert.deepEqual(errors, []);
 		await page.close();
 	}

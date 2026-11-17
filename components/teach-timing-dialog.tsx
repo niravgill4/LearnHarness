@@ -3,12 +3,22 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
-import { TEACHING_METHODS, type TeachingMethodId } from "@/src/core";
+import {
+	TEACHING_METHODS,
+	diagnosticMinutes,
+	parseReadingPace,
+	parseLessonRecommendation,
+	type TeachingMethodId,
+	type ReadingPace,
+	type LessonRecommendation,
+} from "@/src/core";
 
 export interface TeachTimingValues {
 	probingTime: string;
 	learningTime: string;
 	methods?: TeachingMethodId[];
+	readingPace?: ReadingPace;
+	recommendation?: LessonRecommendation;
 }
 export interface TeachTimingDialogProps {
 	open: boolean;
@@ -36,6 +46,10 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 	const [customProbe, setCustomProbe] = useState(false),
 		[customLearning, setCustomLearning] = useState(false);
 	const [viewport, setViewport] = useState<CSSProperties>();
+	const [readingPace, setReadingPace] = useState<ReadingPace | null>(null);
+	const [recommendation, setRecommendation] = useState<LessonRecommendation | null>(null);
+	const [estimateStatus, setEstimateStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+	const [acceptedRecommendation, setAcceptedRecommendation] = useState(false);
 	const heading = useRef<HTMLHeadingElement>(null),
 		body = useRef<HTMLDivElement>(null);
 	useEffect(() => {
@@ -46,7 +60,43 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 			setLearningTime("25 minutes");
 			setCustomProbe(false);
 			setCustomLearning(false);
+			setAcceptedRecommendation(false);
 		}
+	}, [open, topic]);
+	useEffect(() => {
+		if (!open) return;
+		const controller = new AbortController();
+		setReadingPace(null);
+		setRecommendation(null);
+		setEstimateStatus("loading");
+		void fetch("/api/reading-pace", { cache: "no-store", signal: controller.signal })
+			.then(async (r) => {
+				if (r.ok) {
+					const data = await r.json();
+					if (!controller.signal.aborted) setReadingPace(parseReadingPace(data.pace));
+				}
+			})
+			.catch(() => {});
+		void fetch("/api/lesson-timing", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ topic }),
+			signal: controller.signal,
+		})
+			.then(async (response) => {
+				if (!response.ok) throw new Error("unavailable");
+				const data = await response.json();
+				const estimate = parseLessonRecommendation(data.recommendation);
+				if (!estimate) throw new Error("invalid estimate");
+				if (!controller.signal.aborted) {
+					setRecommendation(estimate);
+					setEstimateStatus("ready");
+				}
+			})
+			.catch(() => {
+				if (!controller.signal.aborted) setEstimateStatus("unavailable");
+			});
+		return () => controller.abort();
 	}, [open, topic]);
 	useEffect(() => {
 		if (!open) return;
@@ -85,6 +135,8 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 			probingTime: probingTime.trim() || "5 minutes",
 			learningTime: learningTime.trim() || "25 minutes",
 			methods,
+			...(readingPace ? { readingPace } : {}),
+			...(acceptedRecommendation && recommendation ? { recommendation } : {}),
 		});
 	}
 	return (
@@ -166,13 +218,72 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 							<fieldset className="teach-setup-time-group">
 								<legend>Time for the lesson</legend>
 								<p>Your tutor will shape the lesson around this.</p>
+								<div
+									className="teach-setup-recommendation"
+									aria-live="polite"
+									data-testid="lesson-recommendation"
+								>
+									{estimateStatus === "loading" ? (
+										<p>Finding a useful first lesson for your topic…</p>
+									) : recommendation ? (
+										<>
+											<strong>Recommended: about {recommendation.lessonMinutes} min</strong>
+											<p>{recommendation.scope}</p>
+											<p>{recommendation.reason}</p>
+											<dl>
+												<div>
+													<dt>Reading</dt>
+													<dd>{recommendation.readingMinutes} min</dd>
+												</div>
+												<div>
+													<dt>{recommendation.questionCount} questions</dt>
+													<dd>{recommendation.questionMinutes} min</dd>
+												</div>
+												<div>
+													<dt>Activities</dt>
+													<dd>{recommendation.activityMinutes} min</dd>
+												</div>
+												<div>
+													<dt>Feedback</dt>
+													<dd>{recommendation.feedbackMinutes} min</dd>
+												</div>
+											</dl>
+											<small>
+												{recommendation.paceSource === "measured"
+													? `Based on your ${recommendation.wpm} words/min reading estimate.`
+													: `Using an estimated ${recommendation.wpm} words/min. Measure your pace in Profile & account.`}{" "}
+												Includes a rounded time allowance. Questions and exercises may take longer.
+											</small>
+											<p className="teach-setup-total">
+												{diagnosticMinutes(probingTime) !== null
+													? `About ${recommendation.lessonMinutes + diagnosticMinutes(probingTime)!} min total with your ${diagnosticMinutes(probingTime)} min check-in.`
+													: "Your custom check-in is additional to this lesson estimate."}
+											</p>
+											<button
+												type="button"
+												aria-pressed={acceptedRecommendation}
+												onClick={() => {
+													setLearningTime(`${recommendation.lessonMinutes} minutes`);
+													setAcceptedRecommendation(true);
+												}}
+											>
+												{acceptedRecommendation ? "Recommendation selected" : "Use recommendation"}
+											</button>
+										</>
+									) : (
+										<p>Time recommendation unavailable. Choose a preset or enter your own time.</p>
+									)}
+								</div>
 								<div className="teach-setup-presets" role="group" aria-label="Learning duration presets">
 									{LEARNING_CHIPS.map((chip) => (
 										<button
 											key={chip.value}
 											type="button"
 											aria-pressed={learningTime === chip.value}
-											onClick={() => setLearningTime(chip.value)}
+											onClick={() => {
+												setLearningTime(chip.value);
+												setAcceptedRecommendation(false);
+											}}
 										>
 											{learningTime === chip.value && <CheckIcon size={14} />} {chip.label}
 										</button>
@@ -194,7 +305,10 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 											autoFocus
 											id="learning-time-input"
 											value={learningTime}
-											onChange={(e) => setLearningTime(e.target.value)}
+											onChange={(e) => {
+												setLearningTime(e.target.value);
+												setAcceptedRecommendation(false);
+											}}
 											maxLength={200}
 											required
 										/>

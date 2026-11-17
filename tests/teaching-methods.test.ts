@@ -8,6 +8,7 @@ import {
 	teachingSetupInstructions,
 	TEACHING_METHODS,
 } from "../src/core/teaching-methods.ts";
+import { measureReadingPace, READING_PASSAGE } from "../src/core/reading-pace.ts";
 const folder = mkdtempSync(`${tmpdir()}/teaching-methods-`);
 process.env.LH_DATA_DIR = folder;
 delete process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,9 +20,10 @@ const setup = {
 	probingTime: "3 minutes",
 	learningTime: "25 minutes",
 };
-test("catalog has eight unique methods and rejects invalid setup before use", () => {
-	assert.equal(TEACHING_METHODS.length, 8);
-	assert.equal(new Set(TEACHING_METHODS.map((m) => m.id)).size, 8);
+test("catalog has ten unique methods and rejects invalid setup before use", () => {
+	assert.equal(TEACHING_METHODS.length, 10);
+	assert.equal(new Set(TEACHING_METHODS.map((m) => m.id)).size, 10);
+	assert.ok(parseTeachingSetup({ ...setup, methods: TEACHING_METHODS.map(m => m.id) }));
 	assert.deepEqual(parseTeachingSetup({ ...setup, methods: ["feynman", "feynman"] }), {
 		...setup,
 		methods: ["feynman"],
@@ -86,4 +88,15 @@ test("creation validates before writing; methods survive stored reload and model
 	);
 	assert.equal(updated.status, 200);
 	assert.deepEqual(stores.chatStore.getChat(id)?.settings?.teachingSetup, setup);
+});
+test("cold cloud restore retains identity, reading calibration and selected methods, without overwriting a local session", async () => {
+	const { restoreChatRecord } = await import("../src/store/chats.ts");
+	const { stores } = await import("../src/server/index.ts");
+	const readingPace = measureReadingPace(READING_PASSAGE.id, 60000)!;
+	const record = { id: "chat_cloud_pacing", title: "A cloud lesson", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messages: [], settings: { teachingSetup: parseTeachingSetup({ ...setup, readingPace, methods: ["pictures-diagrams", "interactive-simulations"] })! } };
+	const restored = restoreChatRecord(record)!;
+	assert.equal(restored.id, record.id);
+	assert.deepEqual(restored.settings?.teachingSetup, record.settings.teachingSetup);
+	stores.chatStore.renameChat(record.id, "Local title wins");
+	assert.equal(restoreChatRecord(record)?.title, "Local title wins");
 });

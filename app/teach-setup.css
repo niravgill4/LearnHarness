@@ -217,6 +217,57 @@
 	color: var(--muted-foreground);
 	max-width: 440px;
 }
+.teach-setup-recommendation {
+	border-left: 2px solid var(--muted-foreground);
+	padding: 0 0 0 14px;
+	margin: 16px 0 20px;
+}
+.teach-setup-recommendation > strong {
+	font-size: 14px;
+	font-weight: 550;
+}
+.teach-setup-recommendation p {
+	margin: 7px 0;
+	font-size: 12px;
+}
+.teach-setup-recommendation dl {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+	margin: 12px 0;
+}
+.teach-setup-recommendation dt {
+	color: var(--muted-foreground);
+	font-size: 10px;
+}
+.teach-setup-recommendation dd {
+	margin: 4px 0 0;
+	font-size: 12px;
+}
+.teach-setup-recommendation small {
+	display: block;
+	font-size: 10px;
+	line-height: 1.5;
+	color: var(--muted-foreground);
+}
+.teach-setup-recommendation .teach-setup-total {
+	color: var(--foreground);
+}
+.teach-setup-recommendation button {
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--accent);
+	color: var(--foreground);
+	padding: 10px 13px;
+	min-height: 42px;
+	font-size: 12px;
+	margin-top: 5px;
+}
+@media (max-width: 380px) {
+	.teach-setup-recommendation dl {
+		grid-template-columns: 1fr 1fr;
+	}
+}
 .teach-setup-methods {
 	display: grid;
 	grid-template-columns: 1fr 1fr;

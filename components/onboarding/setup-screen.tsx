@@ -9,6 +9,7 @@ import { ProviderLogo } from "@/components/provider-logo";
 import { useChatGPTUI, ChatGPTConnection } from "@/components/settings/chatgpt-connection";
 import { SubscriptionConnections } from "@/components/settings/subscription-connections";
 import { ClaudeCodeInstallationStatus } from "@/components/settings/claude-code-status";
+import { ReadingPaceTest } from "@/components/reading-pace-test";
 
 export function recommendSlotsForProvider(
 	_provider: string,
@@ -347,6 +348,10 @@ export function SetupScreen() {
 				<p className="onboarding-small">Model access depends on your provider account or subscription.</p>
 			</>}
 			{step === 3 && <>
+				<h2 ref={heading} tabIndex={-1}>Find your<br />natural pace.</h2>
+				<ReadingPaceTest allowSkip onContinue={() => setStep(4)} />
+			</>}
+			{step === 4 && <>
 				<h2 ref={heading} tabIndex={-1}>What’s on<br />your mind?</h2>
 				<p className="onboarding-intro">A topic, a question, a thing you’ve never quite understood. Start anywhere.</p>
 				<form onSubmit={finish} className="onboarding-form" aria-busy={busy}>

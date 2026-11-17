@@ -427,6 +427,7 @@ export function createJobRunner(deps: JobRunnerDeps): JobRunner {
 			const result = await runDemoBuilder(
 				{ title, brief },
 				{
+					requireBehaviorProbe: chatStore.getChat(job.chatId)?.settings?.teachingSetup?.methods.includes("interactive-simulations") ?? false,
 					engine: model,
 					abortSignal: loop.abortSignal,
 					chatId: loop.chatId,

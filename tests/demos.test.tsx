@@ -88,6 +88,7 @@ function testRunner() {
 	return { steers, runner };
 }
 import { artifactRenderers } from "../components/artifacts/index.ts";
+import { parseDemoObservation, demoObservationText } from "../src/core/demo-observations.ts";
 
 // The key-presence turn gate (provider-key interlude, 2026-09-25): scripted
 // turns pin openrouter per chat — the gate reads env-first truth, so the
@@ -602,6 +603,30 @@ describe("setSteerUiInverted (the persisted invert switch, 2026-10-07)", () => {
 
 const BROKEN_HTML = "<!doctype html><html><body>BROKEN<script>foo();</script></body></html>";
 const GOOD_HTML = "<!doctype html><html><body><canvas id=\"c\"></canvas><script>requestAnimationFrame(function step(){});</script></body></html>";
+
+describe("simulation observations and required behavioral verification", () => {
+	it("validates bounded observations from the iframe and formats explicit learner sharing", () => {
+		const observation = { parameters: { Angle: 45, Speed: "20 m/s", Paused: true }, result: "Range: 40.8 m" };
+		assert.deepEqual(parseDemoObservation(observation), observation);
+		assert.match(demoObservationText("Projectile motion", observation), /40.8 m/);
+		assert.match(demoObservationText("Projectile motion", observation), /not a correctness grade/);
+		assert.deepEqual(reduceDemoBridgeState(INITIAL_DEMO_BRIDGE_STATE, { type: "demo-observation", observation }).observation, observation);
+		for (const bad of [null, { parameters: {}, result: "" }, { ...observation, result: "x".repeat(1201) }, { parameters: { Angle: Infinity }, result: "bad" }, { parameters: { Angle: {} }, result: "bad" }, { parameters: JSON.parse('{"__proto__":"bad"}'), result: "bad" }]) assert.equal(parseDemoObservation(bad), null);
+		assert.match(DEMO_BRIDGE_SCRIPT, /reportObservation/);
+		assert.match(DEMO_BRIDGE_SCRIPT, /input,select,textarea/);
+	});
+	for (const mode of ["missing", "false", "true"] as const) it(`simulation delivery gate handles ${mode} behavioral assertions`, async () => {
+		const model = scriptedModel([
+			{ toolCalls: [{ toolCallId: "write", toolName: "write_demo", input: { html: GOOD_HTML } }] },
+			{ toolCalls: [{ toolCallId: "run", toolName: "run_demo", input: mode === "missing" ? {} : { probe: "changeAngleAndCheckRange()" } }] },
+			{ text: "Simulation ready." },
+		]);
+		const headless = { ...fakeHeadless(), runDemo: async (_html: string, options?: { probe?: string }) => ({ ...CLEAN_RUN, ...(options?.probe ? { probeResult: mode === "true" } : {}) }) };
+		const result = await runDemoBuilder({ title: "Projectile motion", brief: "Angle changes range." }, { engine: model, headless, requireBehaviorProbe: true });
+		assert.equal(result.html.length > 0, mode === "true");
+		if (mode !== "true") assert.match(result.notes!, /FAILED/);
+	});
+});
 
 describe("demo builder (fake model + fake headless)", () => {
 	it("iterates write → run → fix → run → clean → delivers with notes", async () => {

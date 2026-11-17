@@ -62,6 +62,17 @@ function writeChat(record: ChatRecord): void {
 	syncChatToCloud(record).catch(() => {});
 }
 
+/** Rehydrate an authenticated cloud record with its original identity and settings.
+ * Existing local records (including unreadable/newer versions) always win. */
+export function restoreChatRecord(record: ChatRecord): ChatRecord | null {
+	const file = chatFile(record.id);
+	if (fs.existsSync(file)) return getChat(record.id);
+	if (record.version !== undefined && record.version > CURRENT_CHAT_VERSION) return null;
+	fs.mkdirSync(PATHS.chats, { recursive: true });
+	writeChat(record);
+	return getChat(record.id);
+}
+
 function getChat(id: string): ChatRecord | null {
 	let parsed: unknown;
 	try {

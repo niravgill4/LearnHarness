@@ -2,6 +2,7 @@ import { compactionInFlight, deleteChatSession, getChat, isTurnRunning, sessionC
 import { pendingPluginQuestionOf, activeProblemOf } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
 import { restoreChatFromCloud } from "@/lib/supabase/sync";
+import { restoreChatRecord } from "@/src/server";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
@@ -14,11 +15,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 			// If local chat record is missing, hydrate from Supabase cloud
 			if (!getChat(id)) {
-				const cloudChat = await restoreChatFromCloud(id, user.id);
+				const cloudChat = await restoreChatFromCloud(id, user.id, supabase);
 				if (cloudChat) {
-					stores.chatStore.createChat(cloudChat.title, cloudChat.kind === "practice" ? "practice" : undefined);
-					stores.chatStore.saveMessages(id, cloudChat.messages);
-					if (cloudChat.tree) stores.chatStore.saveTree(id, cloudChat.tree);
+					restoreChatRecord(cloudChat);
 				}
 			}
 		}

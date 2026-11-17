@@ -7,7 +7,7 @@ import { InvertDiscIcon } from "@/components/artifacts/invert-disc";
 import { ChatActionsContext } from "@/components/chat";
 import { downloadFile, slugFilename } from "@/components/artifacts/download";
 import { DispatchCard } from "@/components/artifacts/dispatch-card";
-import type { ArtifactPartProps, DemoResult } from "@/src/core";
+import { parseDemoObservation, demoObservationText, type ArtifactPartProps, type DemoResult, type DemoObservation } from "@/src/core";
 
 /**
  * Demo artifact card (W6): while the part is input-available, a job activity
@@ -42,6 +42,22 @@ if(typeof ResizeObserver!=="undefined"){new ResizeObserver(post).observe(documen
 window.addEventListener("resize",post);
 window.addEventListener("load",post);
 window.addEventListener("error",function(e){send({type:"demo-error",message:e.message||String(e)})});
+var report=function(observation){send({type:"demo-observation",observation:observation})};
+window.cognera=Object.freeze({reportObservation:report});
+var capture=function(){
+var parameters=Object.create(null);
+Array.prototype.slice.call(document.querySelectorAll("input,select,textarea"),0,24).forEach(function(e,i){
+if(e.disabled||/^(password|hidden|file|submit|button|reset)$/i.test(e.type||""))return;
+var label=e.getAttribute("aria-label")||(e.labels&&e.labels[0]&&e.labels[0].textContent)||e.name||e.id||("Control "+(i+1));
+label=label.trim().slice(0,100);if(!label||label==="__proto__"||label==="constructor"||label==="prototype")return;
+parameters[label]=/^(checkbox|radio)$/i.test(e.type)?e.checked:String(e.value).slice(0,240)
+});
+var results=Array.prototype.slice.call(document.querySelectorAll("output,[data-cognera-result]"),0,8).map(function(e){return (e.textContent||"").trim()}).join("; ").slice(0,1200);
+if(Object.keys(parameters).length||results)report({parameters:parameters,result:results})
+};
+var scheduled;var schedule=function(){clearTimeout(scheduled);scheduled=setTimeout(capture,150)};
+document.addEventListener("input",schedule);document.addEventListener("change",schedule);document.addEventListener("click",schedule);
+setTimeout(capture,200);
 setTimeout(post,50);
 setTimeout(post,400);
 })();</script>`;
@@ -55,6 +71,7 @@ export function buildDemoSrcDoc(html: string): string {
 export interface DemoBridgeState {
 	height: number | null;
 	error: string | null;
+	observation?: DemoObservation;
 }
 
 export const INITIAL_DEMO_BRIDGE_STATE: DemoBridgeState = { height: null, error: null };
@@ -66,6 +83,10 @@ const MAX_HEIGHT = 2400;
 export function reduceDemoBridgeState(state: DemoBridgeState, data: unknown): DemoBridgeState {
 	if (typeof data !== "object" || data === null) return state;
 	const message = data as { type?: unknown; height?: unknown; message?: unknown };
+	if (message.type === "demo-observation") {
+		const observation = parseDemoObservation((data as { observation?: unknown }).observation);
+		return observation ? { ...state, observation } : state;
+	}
 	if (message.type === "demo-resize") {
 		if (typeof message.height !== "number" || !Number.isFinite(message.height) || message.height <= 0) return state;
 		const height = Math.min(Math.max(Math.round(message.height), MIN_HEIGHT), MAX_HEIGHT);
@@ -147,6 +168,7 @@ function DemoFrame({
 	// page + content together while hue-rotate(180deg) undoes invert's hue
 	// flip.
 	const [inverted, setInverted] = useState(initialInverted);
+	const [sharedObservation, setSharedObservation] = useState<string | null>(null);
 	const toggleInverted = (next: boolean) => {
 		setInverted(next);
 		if (!actions?.chatId || !messageId) return;
@@ -232,6 +254,7 @@ function DemoFrame({
 				}}
 				data-testid="demo-iframe"
 			/>
+			{actions && state.observation && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" data-testid="demo-observation-share"><span>Your experiment stays here until you share it.</span><button type="button" className="rounded-lg border border-border px-3 py-2 text-foreground hover:bg-accent disabled:opacity-50" disabled={sharedObservation === JSON.stringify(state.observation)} onClick={() => { if (!state.observation) return; actions.sendText(demoObservationText(title, state.observation)); setSharedObservation(JSON.stringify(state.observation)); }}>{sharedObservation === JSON.stringify(state.observation) ? "Shared with tutor" : "Share with tutor"}</button></div>}
 		</div>
 	);
 }

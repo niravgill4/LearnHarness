@@ -4,6 +4,7 @@ import { compactionInFlight, createChat, isTurnRunning, listChats, readSettingsR
 import type { ChatListItem } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
 import { parseTeachingSetup } from "@/src/core";
+import { readReadingPace } from "@/lib/supabase/reading-pace";
 
 /** The session picker's list: record-derived summaries (phase, pending
  *  question) + live liveness — a running turn marks the session busy
@@ -51,15 +52,26 @@ export async function POST(req: Request) {
 	const raw=await req.json().catch(()=>null);
 	if(!raw||typeof raw!=='object'||Array.isArray(raw))return Response.json({error:'Invalid session request'},{status:400});
 	const body = raw as { title?: unknown; kind?: unknown; graphContext?: unknown; teachingSetup?: unknown };
-	const teachingSetup=body.teachingSetup===undefined?undefined:parseTeachingSetup(body.teachingSetup);
+	let teachingSetup=body.teachingSetup===undefined?undefined:parseTeachingSetup(body.teachingSetup);
 	if(teachingSetup===null||(body.kind==='practice'&&teachingSetup))return Response.json({error:'Invalid teaching setup'}, {status:400});
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (!user) return Response.json({ error: "Sign in to start a session." }, { status: 401 });
+		if (teachingSetup) {
+			try {
+				const pace = await readReadingPace(supabase, user.id);
+				const { readingPace: _clientPace, ...setup } = teachingSetup;
+				teachingSetup = { ...setup, ...(pace ? { readingPace: pace } : {}) };
+			} catch { return Response.json({ error: "Your learning preferences could not be loaded. Please try again." }, { status: 503 }); }
+		}
+	}
 	const title = typeof body.title === "string" ? body.title : "";
 	// Practice sessions (owner, 2026-10-04): kind "practice" marks the
 	// record — the practice agent + its tools from turn 1, no extraction.
 	const kind = body.kind === "practice" ? ("practice" as const) : undefined;
 	const chat = createChat(titleFromPrompt(title || "Untitled session"), kind);
 
-	const supabase = await createClient();
 	if (supabase) {
 		const { data: { user } } = await supabase.auth.getUser();
 		if (user) {
