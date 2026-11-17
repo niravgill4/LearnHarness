@@ -3,6 +3,23 @@
 The Notebook route is `/notebook`, available below Knowledge in the app sidebar.
 No model account is required for writing notes.
 
+## Practice from notes
+
+Choose **Practice** on a note or beside the open page title. Select **This note**
+or **Entire notebook**, then **Start practice**. This creates a Practice session
+with a snapshot of the selected typed notes, handwriting, embedded images, and
+links back to the source pages. Handwriting is rendered in readable regions,
+including notes beyond the original page edges. A selection that exceeds the
+handover limit is refused with an explanation; material is not silently dropped.
+
+Use an image-capable conversation model for handwriting and image sources.
+Normal provider configuration and billing apply. The tutor analyzes the supplied
+material and asks one question at a time. If delivery is interrupted, the source
+images remain attached to the opening draft for an explicit retry.
+
+Notebook fullscreen expands inside the app viewport and leaves Safari's browser
+controls available. Exit using Escape or the on-canvas fullscreen button.
+
 ## Enable private cloud notebooks
 
 1. Apply `supabase/migrations/20261116000000_notebook.sql` in the project's

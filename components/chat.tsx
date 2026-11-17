@@ -806,7 +806,7 @@ export function Chat({
 			}, attempt.accepted, undefined, attempt.refused);
 		});
 	};
-	const prepareText = (supplied?: string, openingAccepted?: () => void, beforePost?: (captured: string) => boolean) => {
+	const prepareText = (supplied?: string, openingAccepted?: () => void, beforePost?: (captured: string) => boolean, sourceImages?: import("@earendil-works/pi-ai").ImageContent[]) => {
 		const target = textTarget();
 		if (!target || pendingRef.current || pluginOwnsDock || activeProblemRef.current || compacting) return Promise.resolve(false);
 		if (!busyRef.current && zeroKeys) { setSetupOpen(true); return Promise.resolve(false); }
@@ -814,7 +814,7 @@ export function Chat({
 		let captured = "", capturedRevision = 0;
 		return runSubmission(target, () => {
 			capturedRevision = composerEditRevision.current;
-			const imagesToSubmit = attachedImages.map(img => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+			const imagesToSubmit = sourceImages ?? attachedImages.map(img => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
 			return { type: "text", content: { text: captured = supplied ?? textRef.current.trim(), images: imagesToSubmit } };
 		}, () => submissionLive.current.ready && !pendingQuestionOf(submissionLive.current.nativeMessages) && !pendingPluginQuestionOf(submissionLive.current.nativeMessages) && !activeProblemOf(submissionLive.current.nativeMessages), async (prepared, attempt) => {
 			if (prepared.type !== "text") return false;
@@ -834,11 +834,13 @@ export function Chat({
 	};
 
 	const deliverOpeningPrompt = (prompt: string, captureNative = false) => {
+		const sourceImages=captureNative?attachedImages.map(({data,mimeType})=>({type:'image' as const,data,mimeType})):readOpeningPromptEntry(chatId)?.images;
+		if(!captureNative&&sourceImages?.length)setAttachedImages(sourceImages.map((image,i)=>({id:`note-${i}`,name:`Note image ${i+1}`,data:image.data,mimeType:image.mimeType})));
 		let submitted = prompt;
 		openingDraftRef.current = prompt;
 		// Persist uncertainty BEFORE the POST: another mount must restore,
 		// not race the still-arriving request. No storage means no auto-send.
-		if (!stashOpeningPrompt(chatId, prompt, true)) {
+		if (!stashOpeningPrompt(chatId, prompt, true, sourceImages)) {
 			applyText(prompt);
 			setOpeningError(true);
 			return;
@@ -854,7 +856,7 @@ export function Chat({
 			const saved = stashOpeningPrompt(chatId, captured, true);
 			if (!saved) setOpeningError(true);
 			return saved;
-		}).then(accepted => {
+		},sourceImages).then(accepted => {
 			if (!accepted && openingMountedRef.current && openingDraftRef.current === prompt && !textRef.current) {
 				applyText(prompt);
 			}
@@ -876,6 +878,7 @@ export function Chat({
 				}
 				openingDraftRef.current = prompt!;
 				if (entry?.attempted || initiallyInFlight) {
+					if(entry?.images?.length)setAttachedImages(entry.images.map((image,i)=>({id:`note-${i}`,name:`Note image ${i+1}`,data:image.data,mimeType:image.mimeType})));
 					applyText(prompt!); // Interrupted start: the learner explicitly resends.
 					return;
 				}

@@ -25,6 +25,15 @@ afterEach(() => {
 const fail = () => { throw new Error("synthetic storage failure"); };
 
 describe("opening message storage", () => {
+	it("keeps notebook images through attempted delivery and respects deliberate removal",()=>{
+		const images=[{type:'image' as const,mimeType:'image/png',data:'handwritten-bytes'}];
+		assert.equal(stashOpeningPrompt('notes','Practice my notes',false,images),true);
+		assert.equal(stashOpeningPrompt('notes','Practice my notes',true),true);
+		assert.deepEqual(readOpeningPromptEntry('notes'),{text:'Practice my notes',attempted:true,images});
+		assert.equal(stashOpeningPrompt('notes','Typed notes only',true,[]),true);
+		assert.deepEqual(readOpeningPromptEntry('notes'),{text:'Typed notes only',attempted:true});
+		clearOpeningPrompt('notes');assert.equal(readOpeningPromptEntry('notes'),undefined);
+	});
 	it("keeps full text off the URL and records attempted delivery before send", () => {
 		const text = "a syllabus with Unicode 世界 & ? # ".repeat(1500);
 		assert.equal(stashOpeningPrompt("c1", text), true);

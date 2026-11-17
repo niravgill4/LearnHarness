@@ -824,6 +824,7 @@ function SessionsSidebar() {
 							key={f}
 							type="button"
 							data-testid={`kind-filter-${f}`}
+							aria-pressed={kindFilter === f}
 							onClick={() => setFilter(f)}
 							className={cn(
 								"flex-1 rounded-xl py-1 text-xs font-medium transition-colors apple-btn-tactile",

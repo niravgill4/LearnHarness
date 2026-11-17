@@ -1,6 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useRouter } from "next/navigation";
+import { SessionStarter } from "../start-session";
+import { stashOpeningPrompt } from "../opening-prompt";
+import { prepareNotebookPractice } from "@/lib/notebook-practice";
 import {
 	BookOpenIcon,
 	PlusIcon,
@@ -41,6 +45,11 @@ import { worldPoint } from "@/lib/notebook-camera";
 import { TextBlock } from "./text-block";
 
 export function Notebook() {
+	const router=useRouter();
+	const [practicePage,setPracticePage]=useState<NotePage|null>(null),[practiceScope,setPracticeScope]=useState<'note'|'notebook'>('note'),[practiceBusy,setPracticeBusy]=useState(false),[practiceError,setPracticeError]=useState('');
+	const practiceDialog=useRef<HTMLDialogElement>(null),practiceStarter=useRef(new SessionStarter());
+	useEffect(()=>{if(practicePage)practiceDialog.current?.showModal();else practiceDialog.current?.close();},[practicePage]);
+	function openPractice(page:NotePage){setPracticePage(page);setPracticeScope('note');setPracticeError('');}
 	const [data, setData] = useState<NotebookData>(emptyNotebook);
 	const [loaded, setLoaded] = useState(false),
 		[error, setError] = useState("");
@@ -78,40 +87,18 @@ export function Notebook() {
 	const [fullscreen, setFullscreen] = useState(false);
 
 	const toggleFullscreen = useCallback(() => {
-		setFullscreen((prev) => {
-			const next = !prev;
-			if (next) {
-				if (document.documentElement.requestFullscreen) {
-					void document.documentElement.requestFullscreen().catch(() => {});
-				}
-			} else {
-				if (document.fullscreenElement) {
-					void document.exitFullscreen().catch(() => {});
-				}
-			}
-			return next;
-		});
+		setFullscreen((prev) => !prev);
 	}, []);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape" && fullscreen) {
 				setFullscreen(false);
-				if (document.fullscreenElement) {
-					void document.exitFullscreen().catch(() => {});
-				}
-			}
-		};
-		const handleFsChange = () => {
-			if (!document.fullscreenElement && fullscreen) {
-				setFullscreen(false);
 			}
 		};
 		window.addEventListener("keydown", handleKeyDown);
-		document.addEventListener("fullscreenchange", handleFsChange);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("fullscreenchange", handleFsChange);
 		};
 	}, [fullscreen]);
 
@@ -131,6 +118,21 @@ export function Notebook() {
 	const activePage = data.pages.find((p) => p.id === pageId),
 		activeBook = data.notebooks.find((n) => n.id === book),
 		activeSection = data.sections.find((s) => s.id === section);
+	async function startPractice(){
+		if(!practicePage||practiceBusy)return;setPracticeBusy(true);setPracticeError('');
+		try{
+			const source=live.current.data.pages.find(p=>p.id===practicePage.id);if(!source)throw Error('This note no longer exists.');
+			const parent=live.current.data.sections.find(s=>s.id===source.sectionId)!,notebook=live.current.data.notebooks.find(n=>n.id===parent.notebookId)!;
+			const sectionIds=new Set(live.current.data.sections.filter(s=>s.notebookId===notebook.id).map(s=>s.id));
+			const pages=practiceScope==='note'?[source]:live.current.data.pages.filter(p=>sectionIds.has(p.sectionId));
+			const prepared=await prepareNotebookPractice(pages,notebook.title);
+			const title=`Practice: ${practiceScope==='note'?source.title:notebook.title}`;
+			const path=await practiceStarter.current.start({title,kind:'practice',openingPrompt:prepared.text},fetch,notebookFingerprint(pages));
+			const id=path.split('/').pop()!;
+			if(!stashOpeningPrompt(id,prepared.text,false,prepared.images))throw Error('Your browser could not store the practice handover. Choose a smaller selection and retry.');
+			setPracticePage(null);router.push(path);
+		}catch(e){setPracticeError(e instanceof Error?e.message:'Practice could not be opened. Your notes are kept.');}finally{setPracticeBusy(false);}
+	}
 	useEffect(() => {
 		if (innerWidth < 700) setNavigation(false);
 	}, []);
@@ -252,7 +254,7 @@ export function Notebook() {
 			setData(document);
 			setStorage(result.storage);
 			setLoaded(true);
-			const last = localStorage.getItem(`nb-selection:${result.account}`);
+			const last = new URLSearchParams(window.location.search).get('page') ?? localStorage.getItem(`nb-selection:${result.account}`);
 			const first = document.pages.find((p) => p.id === last) ?? document.pages[0];
 			setPage(first?.id ?? "");
 			const s = document.sections.find((s) => s.id === first?.sectionId) ?? document.sections[0];
@@ -559,6 +561,7 @@ export function Notebook() {
 				<SidebarToggle />
 				<BookOpenIcon size={20} />
 				<h1>Notebook</h1>
+				{activePage&&<button className="nb-practice-current" onClick={()=>openPractice(activePage)} disabled={busy}>Practice</button>}
 				<span className="nb-save" role="status">
 					{status}
 				</span>
@@ -685,6 +688,7 @@ export function Notebook() {
 					</div>
 					<div className="nb-pages">
 						{results.map((p) => (
+							<div className="nb-note-row" key={p.id}>
 							<button
 								key={p.id}
 								className={pageId === p.id ? "selected" : ""}
@@ -701,6 +705,8 @@ export function Notebook() {
 									{new Date(p.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
 								</time>
 							</button>
+							<button className="nb-note-practice" aria-label={`Practice ${p.title||'this note'}`} onClick={()=>openPractice(p)} disabled={busy}>Practice</button>
+							</div>
 						))}
 						{!results.length && (
 							<p className="nb-muted">{query ? "No matching notes." : "Your pages will appear here."}</p>
@@ -1098,6 +1104,12 @@ export function Notebook() {
 					)}
 				</section>
 			</div>
+			<dialog ref={practiceDialog} className="nb-practice-dialog" onCancel={e=>{if(practiceBusy)e.preventDefault();else setPracticePage(null);}}>
+				<h2>Practice from your notes</h2><p>{practicePage?.title}</p>
+				<label>Use<select aria-label="Practice source" value={practiceScope} disabled={practiceBusy} onChange={e=>setPracticeScope(e.target.value as 'note'|'notebook')}><option value="note">This note</option><option value="notebook">Entire notebook</option></select></label>
+				<p>Your typed notes, handwriting, and images will be shared with your selected model to create practice questions. Handwriting requires a model that supports images.</p>
+				{practiceError&&<p role="alert">{practiceError}</p>}<div><button disabled={practiceBusy} onClick={()=>setPracticePage(null)}>Cancel</button><button disabled={practiceBusy} onClick={()=>void startPractice()}>{practiceBusy?'Preparing notes…':'Start practice'}</button></div>
+			</dialog>
 			<input
 				ref={assetInput}
 				hidden

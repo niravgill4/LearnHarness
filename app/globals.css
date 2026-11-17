@@ -723,6 +723,13 @@ body { background: var(--workspace-black); }
 .sidebar-search input:hover { background:var(--accent); }
 .workspace-sidebar [data-testid="session-kind-filter"] { margin:0 12px 12px; border:0; background:transparent; gap:2px; }
 .workspace-sidebar [data-testid="session-kind-filter"] button { font-size:10px; padding:6px 8px; }
+.workspace-sidebar [data-testid="session-kind-filter"] { padding:4px; gap:4px; border:1px solid var(--border); background:var(--background); border-radius:12px; }
+.workspace-sidebar [data-testid="session-kind-filter"] button { min-height:40px; padding:8px 7px; font-size:12px; color:var(--foreground); border:1px solid transparent; border-radius:9px; }
+.workspace-sidebar [data-testid="session-kind-filter"] button[aria-pressed="true"] { background:var(--foreground); color:var(--background); border-color:var(--foreground); font-weight:650; }
+.sidebar-actions [data-testid="new-session-practice"] { min-height:44px; font-size:13px; border:1px solid var(--border); }
+.composer-stats [data-testid="home-mode-switch"] { gap:4px; padding:4px; border:1px solid var(--border); border-radius:12px; background:var(--card); }
+.composer-stats [data-testid="home-mode-switch"] button { min-height:40px; font-size:12px; padding:8px 12px; }
+@media(pointer:coarse){.workspace-sidebar [data-testid="session-kind-filter"] button,.composer-stats [data-testid="home-mode-switch"] button{min-height:44px}}
 .workspace-sidebar [data-testid="session-row"], .workspace-sidebar [data-testid="session-row-kbd"] { padding:11px 12px; border-radius:12px; }
 .workspace-sidebar [data-testid="session-row"] > span > span:first-child { font-size:12px; }
 .sidebar-settings button { min-height:44px; border-radius:16px; border:1px solid var(--border); background:color-mix(in srgb,var(--card) 24%,transparent); }
@@ -909,3 +916,6 @@ button:disabled { cursor:not-allowed; }
  overscroll-behavior:contain;
  -webkit-overflow-scrolling:touch;
 }
+.composer-stats [data-testid="home-mode-switch"] button{min-height:40px;font-size:12px;padding:8px 12px;color:var(--foreground)}
+.composer-stats [data-testid="home-mode-switch"] button[aria-pressed="true"]{background:var(--foreground);color:var(--background);font-weight:650}
+@media(pointer:coarse){.composer-stats [data-testid="home-mode-switch"] button{min-height:44px}}
