@@ -20,6 +20,7 @@ export function NotebookCanvas({
 	tool,
 	finger,
 	fullscreen,
+	historyTick,
 	onToggleFullscreen,
 	onChange,
 	onBusy,
@@ -31,6 +32,7 @@ export function NotebookCanvas({
 	tool: InkTool;
 	finger: boolean;
 	fullscreen?: boolean;
+	historyTick?: number;
 	onToggleFullscreen?: () => void;
 	onChange(strokes: InkStroke[]): void;
 	onBusy(active: boolean): void;
@@ -158,9 +160,23 @@ export function NotebookCanvas({
 		};
 	}, [key]);
 	useLayoutEffect(() => {
-		strokesRef.current = page.strokes;
+		// Only sync from props if the prop actually has more strokes or is a reset/undo/page-switch
+		// Never let a stale asynchronous render overwrite newer strokes drawn in child
+		if (page.strokes.length >= strokesRef.current.length) {
+			strokesRef.current = page.strokes;
+		} else {
+			const isPrefix = page.strokes.every((s, i) => s === strokesRef.current[i] || s.points === strokesRef.current[i]?.points);
+			if (!isPrefix) {
+				strokesRef.current = page.strokes;
+			}
+		}
 		schedule();
 	}, [page.strokes, page.paper, page.tone]);
+	useEffect(() => {
+		// When undo/redo button is explicitly clicked, historyTick increments
+		strokesRef.current = page.strokes;
+		schedule();
+	}, [historyTick]);
 	useEffect(() => {
 		const host = viewport.current!;
 		const wheel = (e: WheelEvent) => {
@@ -257,8 +273,19 @@ export function NotebookCanvas({
 			lastPenTime.current = Date.now();
 		}
 		pointers.current.delete(event.pointerId);
+		try {
+			if (viewport.current?.hasPointerCapture(event.pointerId)) {
+				viewport.current.releasePointerCapture(event.pointerId);
+			}
+		} catch {}
 		if (gesture.current?.id === event.pointerId) {
 			const stroke = gesture.current.stroke;
+			// Guarantee that the final point of fast flick is included
+			const endPt = point(event);
+			const lastPt = stroke.points[stroke.points.length - 1];
+			if (!lastPt || Math.hypot(endPt.x - lastPt.x, endPt.y - lastPt.y) > 0.5) {
+				stroke.points.push(endPt);
+			}
 			gesture.current = null;
 			const nextStrokes = [...strokesRef.current, stroke];
 			strokesRef.current = nextStrokes;
@@ -308,6 +335,13 @@ export function NotebookCanvas({
 						setMoving(false);
 
 						if (mode === "draw") {
+							// If a previous stroke was still pending, finalize it immediately so it is never dropped
+							if (gesture.current) {
+								const prevStroke = gesture.current.stroke;
+								strokesRef.current = [...strokesRef.current, prevStroke];
+								latest.current.onChange(strokesRef.current);
+								gesture.current = null;
+							}
 							event.preventDefault();
 							event.stopPropagation();
 							try {
@@ -461,7 +495,6 @@ export function NotebookCanvas({
 				}}
 				onPointerUpCapture={end}
 				onPointerCancelCapture={end}
-				onLostPointerCapture={end}
 			>
 				<article ref={world} className={`nb-paper nb-world mode-${mode}`} style={{ transformOrigin: "0 0" }}>
 					{children}

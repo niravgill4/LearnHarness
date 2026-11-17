@@ -343,6 +343,11 @@ export function PracticeDrawing({
 				return;
 			}
 
+			// Commit any pending gesture immediately so no strokes are lost in rapid succession
+			if (gesture.current) {
+				finishStroke();
+			}
+
 			// Drawing stroke
 			try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
 			onDrawing(true);
@@ -558,11 +563,27 @@ export function PracticeDrawing({
 		if (!gesture.current) return;
 		if (event && gesture.current.id !== event.pointerId) return;
 
+		const canvas = getActiveCanvas();
+		const rect = cachedRectRef.current || (canvas ? updateCachedRect(canvas) : null);
+		if (event && rect) {
+			const endPt = screenToWorld(event.clientX, event.clientY, rect);
+			endPt.pressure = event.pressure || 0.5;
+			const lastPt = gesture.current.stroke.points[gesture.current.stroke.points.length - 1];
+			if (!lastPt || Math.hypot(endPt.x - lastPt.x, endPt.y - lastPt.y) > 0.5) {
+				const startIdx = Math.max(0, gesture.current.stroke.points.length - 1);
+				gesture.current.stroke.points.push(endPt);
+				const ctx = canvas?.getContext("2d");
+				if (ctx && canvas) {
+					applyTransform(ctx, canvas);
+					drawStrokeInWorld(ctx, gesture.current.stroke, startIdx);
+				}
+			}
+		}
+
 		// Ensure single-point fast taps/dots render correctly before storing
-		if (gesture.current.stroke.points.length === 1) {
-			const canvas = getActiveCanvas();
-			const ctx = canvas?.getContext("2d");
-			if (ctx && canvas) {
+		if (gesture.current.stroke.points.length === 1 && canvas) {
+			const ctx = canvas.getContext("2d");
+			if (ctx) {
 				applyTransform(ctx, canvas);
 				drawStrokeInWorld(ctx, gesture.current.stroke, 0);
 			}

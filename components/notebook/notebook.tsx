@@ -1020,6 +1020,7 @@ export function Notebook() {
 								tool={tool}
 								finger={finger}
 								fullscreen={fullscreen}
+								historyTick={historyTick}
 								onToggleFullscreen={toggleFullscreen}
 								onChange={inkChange}
 								onBusy={setBusy}
