@@ -54,6 +54,18 @@ describe("browser-only Host check", () => {
 		assert.equal(browserHostAllowed("sub.proxy.example.com", env), false);
 		assert.equal(browserHostAllowed("other.example.com", env), false);
 	});
+
+	it("accepts only this project's Vercel hostnames in a Vercel runtime", () => {
+		const names = {
+			VERCEL_URL: "preview-example.vercel.app",
+			VERCEL_BRANCH_URL: "branch-example.vercel.app",
+			VERCEL_PROJECT_PRODUCTION_URL: "example.vercel.app",
+		};
+		const env = { VERCEL: "1", ...names };
+		for (const name of Object.values(names)) assert.equal(browserHostAllowed(name, env), true);
+		assert.equal(browserHostAllowed("unrelated.vercel.app", env), false);
+		assert.equal(browserHostAllowed(names.VERCEL_URL, names), false);
+	});
 });
 
 describe("browser-only cross-site check", () => {

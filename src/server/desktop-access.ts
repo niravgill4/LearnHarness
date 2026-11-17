@@ -55,7 +55,11 @@ export function browserHostAllowed(host: string | null, env: Record<string, stri
 	if (hostname.endsWith(".trycloudflare.com") || hostname.endsWith(".loca.lt") || hostname.endsWith(".ngrok-free.app") || hostname.endsWith(".ngrok.io")) return true;
 	if (isIP(hostname.replace(/^\[|\]$/g, "")) !== 0) return true;
 	const allowed = (env.LH_ALLOWED_HOSTS ?? "").split(",").map((name) => name.trim().toLowerCase()).filter(Boolean);
-	return allowed.includes(hostname);
+	if (allowed.includes(hostname)) return true;
+	// Vercel supplies these exact names for this deployment and project.
+	return env.VERCEL === "1" &&
+		[env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL]
+			.some(name => name?.trim().toLowerCase() === hostname);
 }
 
 /** Shared by Proxy and the streamed document route that deliberately bypasses
