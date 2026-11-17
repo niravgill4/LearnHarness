@@ -206,11 +206,13 @@ try {
 		await toggle("Socratic Lockdown");
 		await toggle("Pictures and Diagrams");
 		await toggle("Interactive Simulations");
-		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 4);
+		await toggle("Free Response Questions");
+		await toggle("Multiple Choice Questions");
+		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 6);
 		await click("Back");
 		assert.equal(await page.$eval("#probing-time-input", (e) => e.value), "3 quick questions");
 		await click("Continue");
-		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 4);
+		assert.equal(await page.$$eval('[aria-label="Teaching methods"] input:checked', (e) => e.length), 6);
 		if (entry === "/chat/new") {
 			await page.setViewport({ width: 390, height: 844, hasTouch: true });
 			assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -224,6 +226,8 @@ try {
 			"socratic",
 			"pictures-diagrams",
 			"interactive-simulations",
+			"free-response",
+			"multiple-choice",
 		]);
 		assert.deepEqual(creation.teachingSetup.readingPace, pace);
 		assert.deepEqual(creation.teachingSetup.recommendation, recommendation);

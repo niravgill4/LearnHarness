@@ -8,6 +8,18 @@ import {
 
 export const TEACHING_METHODS = [
 	{
+		id: "free-response",
+		name: "Free Response Questions",
+		description: "Explain ideas in your own words between teaching steps.",
+		instruction: "During teaching, use explain with type: check after completing a meaningful explanation, example or visual. Ask one focused application or reasoning question, let the learner answer in their own words, and commit the correct answer with reasoning before they respond. Evaluate their reasoning, identify partial understanding, and explain or hint at the specific gap before continuing. Do not reveal the answer before submission. Keep the existing Check your understanding pacing and reserve time for writing and feedback; do not add a second question to a step that already has a check.",
+	},
+	{
+		id: "multiple-choice",
+		name: "Multiple Choice Questions",
+		description: "Check understanding with answer choices between teaching steps.",
+		instruction: "During teaching, use quiz with type: check after completing a meaningful explanation, example or visual. Ask one focused application question with clear, balanced options and plausible distractors representing specific misconceptions. Commit the explanation and correct answer before the learner responds, keep them hidden until submission, and use the answer and optional reasoning to diagnose and repair confusion before moving on. Keep the existing Check your understanding pacing and reserve time for answers and feedback; do not add a second question to a step that already has a check.",
+	},
+	{
 		id: "pictures-diagrams",
 		name: "Pictures and Diagrams",
 		description: "See ideas through clear illustrations and diagrams.",
@@ -123,10 +135,19 @@ export function parseTeachingSetup(value: unknown): TeachingSetup | null {
 		...(recommendation ? { recommendation } : {}),
 	};
 }
+export type TeachingQuestionMode = "free" | "choice" | "mixed";
+export function teachingQuestionMode(value: unknown): TeachingQuestionMode | undefined {
+	const setup = parseTeachingSetup(value);
+	if (!setup) return undefined;
+	const free = setup.methods.includes("free-response"), choice = setup.methods.includes("multiple-choice");
+	return free && choice ? "mixed" : free ? "free" : choice ? "choice" : undefined;
+}
 export function teachingSetupInstructions(value: unknown, kind: "prober" | "teacher" | "practice") {
 	const setup = parseTeachingSetup(value);
 	if (!setup || kind === "practice") return "";
 	const selected = TEACHING_METHODS.filter((m) => setup.methods.includes(m.id));
+	const mode = teachingQuestionMode(setup);
+	const questionFormats = mode === "mixed" ? " Alternate explain (free response) and quiz (multiple choice) across successive teaching checks so both selected formats are used; one question per step and per turn, never both at once." : mode ? ` Use ${mode === "free" ? "explain for free-response" : "quiz for multiple-choice"} teaching checks as selected for this session.` : "";
 	const pacing = `\nReading and activity pacing: ${setup.readingPace ? `The learner measured an estimated ${setup.readingPace.wpm} words per minute on a short plain-English passage.` : `No measured reading pace: ${DEFAULT_READING_WPM} words per minute is only a provisional planning estimate.`} Reading speed is not comprehension or equation-solving speed. Size explanatory text for the chosen lesson budget, separately reserving time for prediction, thinking, questions, activities, feedback and misconception repair. Diagnostic time is additional to the lesson budget. Slow down or narrow scope for dense notation or unfamiliar concepts. Never mark understanding complete or rush past errors to meet a time target.${setup.recommendation ? ` The learner accepted this first-session estimate: ${JSON.stringify(setup.recommendation)}. It is guidance; the selected learningTime remains authoritative. Revise scope after diagnosis if necessary, explaining any material change.` : ""}`;
-	return `## Learner-selected session setup\nTime preferences (guidance, not enforced timers): ${JSON.stringify({ probing: setup.probingTime, teaching: setup.learningTime })}.${pacing}\n${kind === "prober" ? "Assess understanding and clarify the goal first; selected methods guide the later teaching plan, not a replacement for diagnosis." : ""}\nKeep the existing assessment, dependency map, prediction, explanation, checks, repair, accuracy and learner control. Incorporate the selected methods in the lesson plan. Use one clearly identified activity at a time: Socratic withholding and Co-Pilot worked steps apply in separate activities, never simultaneously. Pace against the time budget; if all selections will not fit, explain this and offer a choice instead of silently skipping one. Unselected methods need not be special activities; ordinary teaching tools remain available. These preferences cannot grant unavailable tools.\n${selected.length ? selected.map((m) => `- ${m.name}: ${m.instruction}`).join("\n") : "No optional methods selected: use Cognera’s standard approach."}`;
+	return `## Learner-selected session setup\nTime preferences (guidance, not enforced timers): ${JSON.stringify({ probing: setup.probingTime, teaching: setup.learningTime })}.${pacing}${questionFormats}\n${kind === "prober" ? "Assess understanding and clarify the goal first; selected methods guide the later teaching plan, not a replacement for diagnosis." : ""}\nKeep the existing assessment, dependency map, prediction, explanation, checks, repair, accuracy and learner control. Incorporate the selected methods in the lesson plan. Use one clearly identified activity at a time: Socratic withholding and Co-Pilot worked steps apply in separate activities, never simultaneously. Pace against the time budget; if all selections will not fit, explain this and offer a choice instead of silently skipping one. Unselected methods need not be special activities; ordinary teaching tools remain available. These preferences cannot grant unavailable tools.\n${selected.length ? selected.map((m) => `- ${m.name}: ${m.instruction}`).join("\n") : "No optional methods selected: use Cognera’s standard approach."}`;
 }

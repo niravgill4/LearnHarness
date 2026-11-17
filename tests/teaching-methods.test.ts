@@ -7,6 +7,7 @@ import {
 	parseTeachingSetup,
 	teachingSetupInstructions,
 	TEACHING_METHODS,
+	teachingQuestionMode,
 } from "../src/core/teaching-methods.ts";
 import { measureReadingPace, READING_PASSAGE } from "../src/core/reading-pace.ts";
 const folder = mkdtempSync(`${tmpdir()}/teaching-methods-`);
@@ -20,9 +21,9 @@ const setup = {
 	probingTime: "3 minutes",
 	learningTime: "25 minutes",
 };
-test("catalog has ten unique methods and rejects invalid setup before use", () => {
-	assert.equal(TEACHING_METHODS.length, 10);
-	assert.equal(new Set(TEACHING_METHODS.map((m) => m.id)).size, 10);
+test("catalog has twelve unique methods and rejects invalid setup before use", () => {
+	assert.equal(TEACHING_METHODS.length, 12);
+	assert.equal(new Set(TEACHING_METHODS.map((m) => m.id)).size, 12);
 	assert.ok(parseTeachingSetup({ ...setup, methods: TEACHING_METHODS.map(m => m.id) }));
 	assert.deepEqual(parseTeachingSetup({ ...setup, methods: ["feynman", "feynman"] }), {
 		...setup,
@@ -38,6 +39,39 @@ test("catalog has ten unique methods and rejects invalid setup before use", () =
 	])
 		assert.equal(parseTeachingSetup(value), null);
 	assert.ok(parseTeachingSetup({ ...setup, methods: [] }));
+});
+test("question-method selections arm the real teacher tools, override defaults, and preserve one-question pacing", async () => {
+	const { createTeacherAgent } = await import("../src/agent/teacher-agent.ts");
+	const { createTeacherTools } = await import("../src/agent/tools.ts");
+	const { stores } = await import("../src/server/index.ts");
+	const chat = stores.chatStore.createChat("Question format methods");
+	stores.chatStore.saveTree(chat.id, { version: 1, nodes: [{ id: "arith", title: "Arithmetic" }], edges: [] });
+	const ctx = { chatId: chat.id, chatStore: stores.chatStore, jobStore: stores.jobStore, spawn: () => {} };
+	const faux = createFauxCore({});
+	const engine = { model: faux.getModel(), streamFn: faux.streamSimple };
+	for (const [methods, mode, names] of [
+		[["free-response"], "free", ["explain"]],
+		[["multiple-choice"], "choice", ["quiz"]],
+		[["free-response", "multiple-choice"], "mixed", ["explain", "quiz"]],
+	] as const) {
+		const selection = parseTeachingSetup({ ...setup, methods })!;
+		assert.equal(teachingQuestionMode(selection), mode);
+		const agent = createTeacherAgent(ctx, { engine, teachingSetup: selection, toolToggles: { explain: mode === "choice" } });
+		assert.deepEqual(agent.state.tools.filter(t => t.name === "quiz" || t.name === "explain").map(t => t.name).sort(), [...names].sort());
+		assert.match(agent.state.systemPrompt, /after completing a meaningful explanation/);
+		if (mode === "mixed") assert.match(agent.state.systemPrompt, /Alternate explain.*quiz/);
+	}
+	assert.equal(teachingQuestionMode(setup), undefined);
+	assert.ok(createTeacherTools(ctx, { explain: true }).explain);
+	assert.ok(createTeacherTools(ctx).quiz);
+	const tools = createTeacherTools(ctx, undefined, "mixed");
+	for (const [name, input] of [
+		["explain", { type: "check", nodeId: "arith", question: "What is 2 + 2? Explain.", correctAnswer: "4, because adding two pairs makes four." }],
+		["quiz", { type: "check", nodeId: "arith", question: "What is 2 + 2?", options: [{ label: "3", value: "3" }, { label: "4", value: "4" }], explanation: "Two pairs make four.", correctAnswer: "4" }],
+	] as const) {
+		const result = await tools[name]!.execute("test-call", input);
+		assert.ok(!result.isError, `${name} is usable with the existing question flow`);
+	}
 });
 test("selected activities augment the actual teacher prompt and leave standard/practice builds compatible", async () => {
 	const { createTeacherAgent } = await import("../src/agent/teacher-agent.ts");
