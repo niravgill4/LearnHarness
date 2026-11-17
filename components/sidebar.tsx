@@ -28,7 +28,6 @@ import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
-import { LandscapeMiniature } from "@/components/ascii-landscape";
 
 /**
  * Toggleable sidebar — NOT a modal drawer: no backdrop, no focus theft. It
@@ -691,7 +690,7 @@ function SessionsSidebar() {
 			>
 			<div className="workspace-sidebar flex h-full w-60 flex-col">
 				{/* Apple macOS / iPadOS Window Chrome Header */}
-				<div className="lh-drag lh-lights-gutter flex items-center justify-between sidebar-brand px-3 py-5">
+				<div className="lh-drag lh-lights-gutter flex items-center justify-between sidebar-brand px-3 pt-3.5 pb-2">
 					<Hint
 						label="Home"
 						action="jump-graph"
@@ -720,21 +719,21 @@ function SessionsSidebar() {
 				</div>
 
 				{/* Apple prominent action buttons */}
-				<div className="sidebar-actions px-3 pb-3 flex flex-col gap-2">
+				<div className="sidebar-actions px-3 pb-2 grid grid-cols-2 gap-1.5">
 					<Link
 						href="/chat/new"
 						prefetch={true}
 						data-testid="new-session"
 						title="Teaching"
 						className={cn(
-							"flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer",
+							"flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 shadow-sm font-medium text-xs transition-colors apple-btn-tactile cursor-pointer",
 							isNewTeach
 								? "bg-primary hover:bg-primary/90 text-primary-foreground"
 								: "bg-secondary/60 hover:bg-secondary text-foreground"
 						)}
 					>
 						<PlusIcon className="size-3.5 shrink-0 stroke-[2.5]" />
-						<span className="truncate">New session</span>
+						<span className="truncate">Teach</span>
 					</Link>
 					<Link
 						href="/chat/new?mode=practice"
@@ -742,10 +741,10 @@ function SessionsSidebar() {
 						data-testid="new-session-practice"
 						title="Practice"
 						className={cn(
-							"flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 px-3 shadow-sm font-medium text-sm transition-colors apple-btn-tactile cursor-pointer",
+							"flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 shadow-sm font-medium text-xs transition-colors apple-btn-tactile cursor-pointer",
 							isPractice
 								? "bg-primary hover:bg-primary/90 text-primary-foreground"
-								: "bg-transparent hover:bg-accent text-muted-foreground"
+								: "bg-secondary/30 hover:bg-accent text-muted-foreground hover:text-foreground"
 						)}
 					>
 						<DumbbellIcon className="size-3.5 shrink-0" />
@@ -753,23 +752,33 @@ function SessionsSidebar() {
 					</Link>
 				</div>
 
-				{/* Apple Native Search Field */}
-				<Link
-					href="/"
-					prefetch={true}
-					className={cn(
-						"mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs transition-colors hover:bg-accent hover:text-foreground",
-						isKnowledge ? "bg-accent text-foreground font-medium" : "text-muted-foreground"
-					)}
-				>
-					<WaypointsIcon aria-hidden="true" className="size-4" />
-					Knowledge
-				</Link>
-				<Link href="/notebook" prefetch={true} className={cn("mx-3 mb-2 flex min-h-10 items-center gap-2.5 rounded-xl px-3 text-xs transition-colors hover:bg-accent hover:text-foreground", pathname === "/notebook" ? "bg-accent text-foreground font-medium" : "text-muted-foreground")}>
-					<BookOpenIcon aria-hidden="true" className="size-4" />Notebook
-				</Link>
+				{/* Apple Navigation Links */}
+				<div className="mx-3 mb-2 grid grid-cols-2 gap-1.5">
+					<Link
+						href="/"
+						prefetch={true}
+						className={cn(
+							"flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs transition-colors hover:bg-accent hover:text-foreground",
+							isKnowledge ? "bg-accent text-foreground font-medium" : "text-muted-foreground"
+						)}
+					>
+						<WaypointsIcon aria-hidden="true" className="size-3.5 shrink-0" />
+						<span className="truncate">Knowledge</span>
+					</Link>
+					<Link
+						href="/notebook"
+						prefetch={true}
+						className={cn(
+							"flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs transition-colors hover:bg-accent hover:text-foreground",
+							pathname === "/notebook" ? "bg-accent text-foreground font-medium" : "text-muted-foreground"
+						)}
+					>
+						<BookOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
+						<span className="truncate">Notebook</span>
+					</Link>
+				</div>
 
-				<div className="sidebar-search px-3 mb-3">
+				<div className="sidebar-search px-3 mb-2">
 					<Hint label="Search sessions" action="sessions-search" side="bottom">
 					<span className="relative flex w-full">
 						<Input
@@ -818,7 +827,7 @@ function SessionsSidebar() {
 				</div>
 
 				{/* Apple Native Segmented Control */}
-				<div className="mx-3 mb-2 flex items-center p-0.5 rounded-xl bg-black/30 border border-border" data-testid="session-kind-filter">
+				<div className="mx-3 mb-1.5 flex items-center p-0.5 rounded-xl bg-black/30 border border-border" data-testid="session-kind-filter">
 					{(["teach", "practice", "all"] as const).map((f) => (
 						<button
 							key={f}
@@ -837,8 +846,8 @@ function SessionsSidebar() {
 					))}
 				</div>
 
-				<div className="px-5 pb-2 pt-3 text-xs text-muted-foreground">Sessions</div>
-                <div ref={listRef} className="sidebar-history flex-1 overflow-y-auto p-2">
+				<div className="px-4 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">Sessions</div>
+                <div ref={listRef} className="sidebar-history flex-1 min-h-0 overflow-y-auto p-2">
 					{shown === null ? (
 						<div className="px-2 py-4 text-xs text-muted-foreground">Loading…</div>
 					) : shown.length === 0 ? (
@@ -876,27 +885,26 @@ function SessionsSidebar() {
 					    populates and grows when processes run. The session list is
 					    flex-1, so this pins to the bottom. Sidebar closed = the
 					    learner opted out (no ambient signal, user decision). */}
-					<div className="sidebar-landscape"><LandscapeMiniature /></div>
 					<ActivitySection />
 
 					{/* Settings & Auth entry */}
-					<div className="sidebar-settings px-3 pb-3 pt-2 space-y-1">
-						<button type="button" onClick={() => openSettings("account")} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-testid="profile-entry"><span className="flex size-6 items-center justify-center rounded-full bg-accent text-foreground" aria-hidden="true">{authUser?.email?.charAt(0).toUpperCase() || "C"}</span><span>Profile &amp; account</span></button>
+					<div className="sidebar-settings px-3 pb-2 pt-1.5 space-y-0.5 border-t border-border/40">
+						<button type="button" onClick={() => openSettings("account")} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-testid="profile-entry"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-foreground" aria-hidden="true">{authUser?.email?.charAt(0).toUpperCase() || "C"}</span><span>Profile &amp; account</span></button>
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
 								onClick={() => openSettings()}
 								data-testid="settings-entry"
-								className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground apple-btn-tactile cursor-pointer"
+								className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground apple-btn-tactile cursor-pointer"
 							>
-								<SettingsIcon className="size-4" />
+								<SettingsIcon className="size-3.5" />
 								<span>Settings</span>
 							</button>
 						</Hint>
 						{authUser && (
-							<div className="pt-2 border-t border-white/5 flex items-center justify-between px-1">
+							<div className="pt-1.5 border-t border-white/5 flex items-center justify-between px-1">
 								<div className="flex items-center gap-2 min-w-0">
-									<div className="size-6 rounded-full bg-[#007aff]/20 flex items-center justify-center text-[#007aff] text-xs font-bold uppercase shrink-0">
+									<div className="size-5 rounded-full bg-[#007aff]/20 flex items-center justify-center text-[#007aff] text-[10px] font-bold uppercase shrink-0">
 										{authUser.email?.[0] ?? "U"}
 									</div>
 									<span className="truncate text-[11px] text-muted-foreground font-medium">{authUser.email}</span>
