@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
-import { ClockIcon, HelpCircleIcon, SparklesIcon, CheckIcon } from "lucide-react";
 import { TEACHING_METHODS, type TeachingMethodId } from "@/src/core";
 
 export interface TeachTimingValues {
@@ -10,52 +10,73 @@ export interface TeachTimingValues {
 	learningTime: string;
 	methods?: TeachingMethodId[];
 }
-
 export interface TeachTimingDialogProps {
 	open: boolean;
 	topic: string;
-	onClose: () => void;
-	onConfirm: (timings: TeachTimingValues) => void;
+	onClose(): void;
+	onConfirm(timings: TeachTimingValues): void;
 }
-
 const PROBING_CHIPS = [
-	{ label: "3 mins", value: "3 minutes" },
-	{ label: "5 mins (Recommended)", value: "5 minutes" },
-	{ label: "10 mins", value: "10 minutes" },
-	{ label: "Skip probing", value: "Skip probing (dive straight into teaching)" },
+	{ label: "3 min", value: "3 minutes" },
+	{ label: "5 min", value: "5 minutes" },
+	{ label: "10 min", value: "10 minutes" },
+	{ label: "Skip", value: "Skip probing (dive straight into teaching)" },
 ];
+const LEARNING_CHIPS = [10, 15, 25, 45, 60].map((minutes) => ({
+	label: `${minutes} min`,
+	value: `${minutes} minutes`,
+}));
 
-const LEARNING_CHIPS = [
-	{ label: "10 mins", value: "10 minutes" },
-	{ label: "15 mins", value: "15 minutes" },
-	{ label: "25 mins (Pomodoro)", value: "25 minutes" },
-	{ label: "45 mins", value: "45 minutes" },
-	{ label: "60 mins", value: "60 minutes" },
-];
-
+/** Both steps share one viewport-bound frame; only the body scrolls. */
 export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimingDialogProps) {
 	const [probingTime, setProbingTime] = useState("5 minutes");
 	const [learningTime, setLearningTime] = useState("25 minutes");
 	const [step, setStep] = useState<"time" | "methods">("time");
 	const [methods, setMethods] = useState<TeachingMethodId[]>([]);
-	const methodFocusRef = useRef<HTMLHeadingElement>(null);
-	const initialFocusRef = useRef<HTMLInputElement>(null);
-
-	// Reset to defaults when dialog opens with a new topic
+	const [customProbe, setCustomProbe] = useState(false),
+		[customLearning, setCustomLearning] = useState(false);
+	const [viewport, setViewport] = useState<CSSProperties>();
+	const heading = useRef<HTMLHeadingElement>(null),
+		body = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (open) {
 			setStep("time");
 			setMethods([]);
 			setProbingTime("5 minutes");
 			setLearningTime("25 minutes");
+			setCustomProbe(false);
+			setCustomLearning(false);
 		}
 	}, [open, topic]);
 	useEffect(() => {
-		if (open) (step === "methods" ? methodFocusRef.current : initialFocusRef.current)?.focus();
+		if (!open) return;
+		body.current?.scrollTo(0, 0);
+		heading.current?.focus({ preventScroll: true });
 	}, [open, step]);
-
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
+	useEffect(() => {
+		if (!open) return;
+		const measure = () => {
+			const v = window.visualViewport;
+			setViewport({
+				left: v?.offsetLeft ?? 0,
+				top: v?.offsetTop ?? 0,
+				width: v?.width ?? innerWidth,
+				height: v?.height ?? innerHeight,
+			});
+		};
+		measure();
+		const v = window.visualViewport;
+		v?.addEventListener("resize", measure);
+		v?.addEventListener("scroll", measure);
+		window.addEventListener("resize", measure);
+		return () => {
+			v?.removeEventListener("resize", measure);
+			v?.removeEventListener("scroll", measure);
+			window.removeEventListener("resize", measure);
+		};
+	}, [open]);
+	function submit(event: FormEvent) {
+		event.preventDefault();
 		if (step === "time") {
 			setStep("methods");
 			return;
@@ -65,186 +86,135 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 			learningTime: learningTime.trim() || "25 minutes",
 			methods,
 		});
-	};
-
+	}
 	return (
 		<HostDialog
 			open={open}
 			onClose={onClose}
-			initialFocusRef={initialFocusRef}
+			headingRef={heading}
+			initialFocusRef={heading}
 			aria-label={step === "time" ? "Set session time budget" : "Choose teaching methods"}
+			backdropProps={{
+				className: "teach-setup-backdrop",
+				style: viewport,
+				"data-testid": "teach-setup-backdrop",
+			}}
+			frame={
+				<section className="teach-setup-panel" data-native-keyboard="true" data-testid="teach-setup-panel" />
+			}
 		>
-			<div
-				role="dialog"
-				aria-modal="true"
-				className="w-[36rem] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl text-foreground font-ui"
-				onClick={(e) => e.stopPropagation()}
-			>
-				{/* Dialog Header */}
-				<div className="flex items-start justify-between gap-4">
-					<div>
-						<div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary mb-2">
-							<SparklesIcon className="size-3.5" aria-hidden="true" />
-							Teach Session Setup
-						</div>
-						<h2
-							ref={methodFocusRef}
-							tabIndex={-1}
-							className="text-lg font-semibold tracking-tight text-foreground"
-						>
-							{step === "time" ? "Plan Your Teach Session" : "How would you like to learn?"}
-						</h2>
-						{topic && (
-							<p className="mt-1 text-sm font-medium text-muted-foreground line-clamp-1">
-								Topic: <span className="text-foreground">“{topic}”</span>
-							</p>
-						)}
-					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label="Close dialog"
-						className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-					>
-						✕
+			<header className="teach-setup-header">
+				<div className="teach-setup-topline">
+					<ol aria-label="Session setup progress">
+						<li aria-current={step === "time" ? "step" : undefined}>Time</li>
+						<li aria-hidden="true" className="teach-setup-progress-line" />
+						<li aria-current={step === "methods" ? "step" : undefined}>Methods</li>
+					</ol>
+					<button type="button" className="teach-setup-close" onClick={onClose} aria-label="Close dialog">
+						<XIcon size={19} />
 					</button>
 				</div>
-
-				<form onSubmit={handleSubmit} className="mt-6 space-y-6">
+				<h2 ref={heading} tabIndex={-1}>
+					{step === "time" ? "Set your pace" : "Make it your kind of lesson"}
+				</h2>
+				<p className="teach-setup-topic" title={topic}>
+					{topic}
+				</p>
+			</header>
+			<form className="teach-setup-form" onSubmit={submit}>
+				<div ref={body} className="teach-setup-body">
 					{step === "time" ? (
 						<>
-							{/* Question 1: Testing Understanding (Probing) */}
-							<div className="space-y-2.5 rounded-xl border border-border/70 bg-accent/20 p-4">
-								<div className="flex items-center justify-between gap-2">
-									<label
-										htmlFor="probing-time-input"
-										className="text-sm font-semibold text-foreground flex items-center gap-1.5"
-									>
-										<HelpCircleIcon className="size-4 text-emerald-500 shrink-0" aria-hidden="true" />
-										1. Testing your understanding first (Probing)
-									</label>
-									<span className="text-[11px] font-medium text-muted-foreground">Diagnostic</span>
+							<fieldset className="teach-setup-time-group">
+								<legend>Find your starting point</legend>
+								<p>A few questions to see what you already know.</p>
+								<div className="teach-setup-presets" role="group" aria-label="Probing duration presets">
+									{PROBING_CHIPS.map((chip) => (
+										<button
+											key={chip.value}
+											type="button"
+											aria-pressed={probingTime === chip.value}
+											onClick={() => setProbingTime(chip.value)}
+										>
+											{probingTime === chip.value && <CheckIcon size={14} />} {chip.label}
+										</button>
+									))}
 								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
-									How long do you want to spend testing what you already know and catching misconceptions
-									before the lesson begins?
-								</p>
-
-								{/* Quick chips */}
-								<div
-									className="flex flex-wrap gap-1.5 pt-1"
-									role="group"
-									aria-label="Probing duration presets"
+								<button
+									type="button"
+									className="teach-setup-custom"
+									aria-expanded={customProbe}
+									aria-controls="teach-probe-custom"
+									onClick={() => setCustomProbe((v) => !v)}
 								>
-									{PROBING_CHIPS.map((chip) => {
-										const active = probingTime === chip.value;
-										return (
-											<button
-												key={chip.value}
-												type="button"
-												onClick={() => setProbingTime(chip.value)}
-												className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-													active
-														? "bg-primary text-primary-foreground shadow-sm"
-														: "bg-background border border-border/80 text-muted-foreground hover:text-foreground hover:border-foreground/40"
-												}`}
-											>
-												{active && <CheckIcon className="size-3" aria-hidden="true" />}
-												{chip.label}
-											</button>
-										);
-									})}
-								</div>
-
-								{/* Text input */}
-								<div className="pt-1.5">
-									<input
-										id="probing-time-input"
-										ref={initialFocusRef}
-										type="text"
-										value={probingTime}
-										onChange={(e) => setProbingTime(e.target.value)}
-										placeholder="e.g. 5 minutes, 3 quick questions"
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-										required
-									/>
-								</div>
-							</div>
-
-							{/* Question 2: Learning & Explanations (Teaching) */}
-							<div className="space-y-2.5 rounded-xl border border-border/70 bg-accent/20 p-4">
-								<div className="flex items-center justify-between gap-2">
-									<label
-										htmlFor="learning-time-input"
-										className="text-sm font-semibold text-foreground flex items-center gap-1.5"
-									>
-										<ClockIcon className="size-4 text-blue-500 shrink-0" aria-hidden="true" />
-										2. Deep learning & explanations (Teaching)
+									Custom time
+								</button>
+								{customProbe && (
+									<label id="teach-probe-custom" className="teach-setup-custom-field">
+										Diagnostic time
+										<input
+											autoFocus
+											id="probing-time-input"
+											value={probingTime}
+											onChange={(e) => setProbingTime(e.target.value)}
+											maxLength={200}
+											required
+										/>
 									</label>
-									<span className="text-[11px] font-medium text-muted-foreground">Core Lesson</span>
+								)}
+							</fieldset>
+							<fieldset className="teach-setup-time-group">
+								<legend>Time for the lesson</legend>
+								<p>Your tutor will shape the lesson around this.</p>
+								<div className="teach-setup-presets" role="group" aria-label="Learning duration presets">
+									{LEARNING_CHIPS.map((chip) => (
+										<button
+											key={chip.value}
+											type="button"
+											aria-pressed={learningTime === chip.value}
+											onClick={() => setLearningTime(chip.value)}
+										>
+											{learningTime === chip.value && <CheckIcon size={14} />} {chip.label}
+										</button>
+									))}
 								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
-									How much time do you want to spend learning? Your tutor will calibrate derivations, visual
-									explanations, and whiteboard exercises to fit this window.
-								</p>
-
-								{/* Quick chips */}
-								<div
-									className="flex flex-wrap gap-1.5 pt-1"
-									role="group"
-									aria-label="Learning duration presets"
+								<button
+									type="button"
+									className="teach-setup-custom"
+									aria-expanded={customLearning}
+									aria-controls="teach-learning-custom"
+									onClick={() => setCustomLearning((v) => !v)}
 								>
-									{LEARNING_CHIPS.map((chip) => {
-										const active = learningTime === chip.value;
-										return (
-											<button
-												key={chip.value}
-												type="button"
-												onClick={() => setLearningTime(chip.value)}
-												className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-													active
-														? "bg-primary text-primary-foreground shadow-sm"
-														: "bg-background border border-border/80 text-muted-foreground hover:text-foreground hover:border-foreground/40"
-												}`}
-											>
-												{active && <CheckIcon className="size-3" aria-hidden="true" />}
-												{chip.label}
-											</button>
-										);
-									})}
-								</div>
-
-								{/* Text input */}
-								<div className="pt-1.5">
-									<input
-										id="learning-time-input"
-										type="text"
-										value={learningTime}
-										onChange={(e) => setLearningTime(e.target.value)}
-										placeholder="e.g. 25 minutes, 45 mins, 1 hour"
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-										required
-									/>
-								</div>
-							</div>
-
-							{/* Actions Footer */}
+									Custom time
+								</button>
+								{customLearning && (
+									<label id="teach-learning-custom" className="teach-setup-custom-field">
+										Lesson time
+										<input
+											autoFocus
+											id="learning-time-input"
+											value={learningTime}
+											onChange={(e) => setLearningTime(e.target.value)}
+											maxLength={200}
+											required
+										/>
+									</label>
+								)}
+							</fieldset>
 						</>
 					) : (
-						<div className="space-y-3">
-							<p className="text-sm text-muted-foreground">
-								Choose any combination. Cognera’s assessment, learning map, explanations, and understanding
-								checks are always included.
+						<>
+							<p className="teach-setup-intro">
+								Pick a few approaches to mix into your lesson. You can also keep Cognera’s standard approach.
 							</p>
-							<div role="group" aria-label="Teaching methods" className="grid gap-2 sm:grid-cols-2">
+							<div className="teach-setup-methods" role="group" aria-label="Teaching methods">
 								{TEACHING_METHODS.map((method) => (
 									<label
 										key={method.id}
-										className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${methods.includes(method.id) ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-accent"}`}
+										className={`teach-setup-method ${methods.includes(method.id) ? "is-selected" : ""}`}
 									>
 										<input
 											type="checkbox"
-											className="mt-1 size-4 shrink-0 accent-current"
 											checked={methods.includes(method.id)}
 											onChange={(e) =>
 												setMethods((current) =>
@@ -254,44 +224,46 @@ export function TeachTimingDialog({ open, topic, onClose, onConfirm }: TeachTimi
 												)
 											}
 										/>
+										<span className="teach-setup-method-check" aria-hidden="true">
+											{methods.includes(method.id) && <CheckIcon size={13} />}
+										</span>
 										<span>
-											<span className="block text-sm font-medium">{method.name}</span>
-											<span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-												{method.description}
-											</span>
+											<strong>{method.name}</strong>
+											<span className="teach-setup-method-description">{method.description}</span>
 										</span>
 									</label>
 								))}
 							</div>
-							<p role="status" className="text-xs text-muted-foreground">
-								{methods.length
-									? `${methods.length} selected · Your tutor will blend these into your lesson.`
-									: "No optional methods selected · Use Cognera’s standard approach."}
+							<p className="teach-setup-note">
+								Your learning map and understanding checks are always included. Blitz rounds are self-timed;
+								reconstruction uses feedback on your drawing.
 							</p>
-							<p className="text-xs text-muted-foreground">
-								Reconstruction uses tutor feedback on your submitted drawing. Blitz time targets are
-								self-timed.
-							</p>
-						</div>
+						</>
 					)}
-					<div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-border bg-card py-3">
+				</div>
+				<footer className="teach-setup-footer">
+					<p role="status">
+						{step === "time"
+							? "Next: choose your teaching methods"
+							: methods.length
+								? `${methods.length} ${methods.length === 1 ? "method" : "methods"} selected`
+								: "Cognera standard"}
+					</p>
+					<div>
 						<button
+							className="teach-setup-secondary"
 							type="button"
 							onClick={() => (step === "methods" ? setStep("time") : onClose())}
-							className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
 						>
 							{step === "methods" ? "Back" : "Cancel"}
 						</button>
-						<button
-							type="submit"
-							className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-[0.98]"
-						>
+						<button className="teach-setup-primary" type="submit">
 							<span>{step === "time" ? "Continue" : "Start Learning"}</span>
-							<span>→</span>
+							<ArrowRightIcon size={16} />
 						</button>
 					</div>
-				</form>
-			</div>
+				</footer>
+			</form>
 		</HostDialog>
 	);
 }
