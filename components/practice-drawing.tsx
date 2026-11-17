@@ -113,8 +113,9 @@ export function PracticeDrawing({
 	const panRef = useRef(pan);
 	panRef.current = pan;
 
-	// Dedicated stylus/pen tracking for hardware palm rejection
+	// Dedicated stylus/pen tracking for hardware palm rejection & fast writing grace period
 	const activePenId = useRef<number | null>(null);
+	const lastPenTime = useRef(0);
 
 	// Multi-touch gestures (Two-finger pan and pinch zoom - touch only, never pen)
 	const activeTouches = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -328,6 +329,7 @@ export function PracticeDrawing({
 		// 1. APPLE PENCIL / STYLUS or MOUSE (Highest Priority)
 		if (event.pointerType === "pen" || event.pointerType === "mouse") {
 			activePenId.current = event.pointerId;
+			lastPenTime.current = Date.now();
 			// Discard any previous touch pointers so palm touches never trigger pinch zoom
 			activeTouches.current.clear();
 			prevCentroid.current = null;
@@ -371,8 +373,8 @@ export function PracticeDrawing({
 
 		// 2. TOUCH POINTER (Finger or Palm)
 		if (event.pointerType === "touch") {
-			// Palm rejection: If Apple Pencil is currently active, ignore all touch contact completely!
-			if (activePenId.current !== null) {
+			// Palm rejection: If Apple Pencil is currently active OR was used within 600ms, ignore touch!
+			if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
 				return;
 			}
 
@@ -447,8 +449,8 @@ export function PracticeDrawing({
 
 		// 1. TOUCH POINTER MOVE
 		if (event.pointerType === "touch") {
-			// Palm rejection: if pencil is drawing, ignore touch movements!
-			if (activePenId.current !== null) {
+			// Palm rejection: if pencil is active or was used recently, ignore touch movements!
+			if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
 				return;
 			}
 
@@ -482,6 +484,10 @@ export function PracticeDrawing({
 			}
 		}
 
+		if (event.pointerType === "pen") {
+			lastPenTime.current = Date.now();
+		}
+
 		// Single pointer Move/Pan tool
 		if (isDraggingPan.current && lastPointerPos.current) {
 			const dx = event.clientX - lastPointerPos.current.x;
@@ -491,15 +497,19 @@ export function PracticeDrawing({
 			return;
 		}
 
-		// Active stroke drawing: Ultra-fast 120fps hardware draw
+		// Active stroke drawing: Ultra-fast hardware draw with coalesced Apple Pencil events
 		if (!gesture.current || gesture.current.id !== event.pointerId) return;
 
-		const worldPt = screenToWorld(event.clientX, event.clientY, rect);
-		worldPt.pressure = event.pressure || 0.5;
-
+		const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
+		const rawPoints = samples.length ? samples : [event];
 		const stroke = gesture.current.stroke;
 		const startIdx = Math.max(0, stroke.points.length - 1);
-		stroke.points.push(worldPt);
+
+		for (const s of rawPoints) {
+			const pt = screenToWorld(s.clientX, s.clientY, rect);
+			pt.pressure = s.pressure || 0.5;
+			stroke.points.push(pt);
+		}
 
 		const ctx = canvas.getContext("2d");
 		if (ctx) {
@@ -513,11 +523,12 @@ export function PracticeDrawing({
 			if (event.pointerType === "pen" || event.pointerType === "mouse") {
 				if (activePenId.current === event.pointerId) {
 					activePenId.current = null;
+					lastPenTime.current = Date.now();
 				}
 			} else if (event.pointerType === "touch") {
 				activeTouches.current.delete(event.pointerId);
-				// Palm rejection: If pen is active, ignore touch lift completely
-				if (activePenId.current !== null) {
+				// Palm rejection: If pen is active or used recently, ignore touch lift completely
+				if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
 					return;
 				}
 			}
@@ -546,6 +557,16 @@ export function PracticeDrawing({
 
 		if (!gesture.current) return;
 		if (event && gesture.current.id !== event.pointerId) return;
+
+		// Ensure single-point fast taps/dots render correctly before storing
+		if (gesture.current.stroke.points.length === 1) {
+			const canvas = getActiveCanvas();
+			const ctx = canvas?.getContext("2d");
+			if (ctx && canvas) {
+				applyTransform(ctx, canvas);
+				drawStrokeInWorld(ctx, gesture.current.stroke, 0);
+			}
+		}
 
 		history.current.push(gesture.current.stroke);
 		gesture.current = null;

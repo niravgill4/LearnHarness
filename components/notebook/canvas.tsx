@@ -44,6 +44,8 @@ export function NotebookCanvas({
 	latest.current = { page, mode, tool, finger, onChange, onBusy };
 	const pointers = useRef(new Map<number, ViewPoint>()),
 		activePen = useRef<number | null>(null),
+		lastPenTime = useRef(0),
+		strokesRef = useRef<InkStroke[]>(page.strokes),
 		gesture = useRef<{ id: number; type: string; stroke: InkStroke } | null>(null);
 	const rect = useRef<DOMRect | null>(null),
 		raf = useRef(0),
@@ -82,8 +84,8 @@ export function NotebookCanvas({
 		paintInk(
 			c,
 			gesture.current
-				? [...latest.current.page.strokes, gesture.current.stroke]
-				: latest.current.page.strokes,
+				? [...strokesRef.current, gesture.current.stroke]
+				: strokesRef.current,
 			true,
 			{ ...start, right: end.x, bottom: end.y },
 		);
@@ -156,6 +158,7 @@ export function NotebookCanvas({
 		};
 	}, [key]);
 	useLayoutEffect(() => {
+		strokesRef.current = page.strokes;
 		schedule();
 	}, [page.strokes, page.paper, page.tone]);
 	useEffect(() => {
@@ -249,14 +252,17 @@ export function NotebookCanvas({
 		};
 	}
 	function end(event: PointerEvent) {
-		if (event.pointerId === activePen.current) {
+		if (event.pointerType === "pen" || event.pointerId === activePen.current) {
 			activePen.current = null;
+			lastPenTime.current = Date.now();
 		}
 		pointers.current.delete(event.pointerId);
 		if (gesture.current?.id === event.pointerId) {
 			const stroke = gesture.current.stroke;
 			gesture.current = null;
-			latest.current.onChange([...latest.current.page.strokes, stroke]);
+			const nextStrokes = [...strokesRef.current, stroke];
+			strokesRef.current = nextStrokes;
+			latest.current.onChange(nextStrokes);
 			latest.current.onBusy(false);
 			schedule();
 		}
@@ -273,17 +279,22 @@ export function NotebookCanvas({
 				className={`nb-viewport paper-${page.paper} mode-${mode}${moving ? " is-moving" : ""}`}
 				aria-label="Infinite notebook canvas"
 				onPointerDownCapture={(event) => {
-					// 1. Palm rejection: if Apple Pencil is active or currently drawing, drop touch completely
-					if (event.pointerType === "touch" && (activePen.current !== null || gesture.current?.type === "pen")) {
-						event.preventDefault();
-						event.stopPropagation();
-						return;
+					// 1. Palm rejection: if Apple Pencil is active, or was used within 600ms, or currently drawing, drop touch completely
+					if (event.pointerType === "touch") {
+						if (activePen.current !== null || gesture.current?.type === "pen" || Date.now() - lastPenTime.current < 600) {
+							event.preventDefault();
+							event.stopPropagation();
+							return;
+						}
 					}
 
 					rect.current = viewport.current!.getBoundingClientRect();
 
 					// 2. Apple Pencil handling
 					if (event.pointerType === "pen") {
+						lastPenTime.current = Date.now();
+						activePen.current = event.pointerId;
+
 						// Free any pointer captures held by earlier touch/palm events
 						if (viewport.current) {
 							for (const id of pointers.current.keys()) {
@@ -295,9 +306,8 @@ export function NotebookCanvas({
 						pointers.current.clear();
 						panning.current = false;
 						setMoving(false);
-						activePen.current = event.pointerId;
 
-						if (mode === "draw" && event.button === 0) {
+						if (mode === "draw") {
 							event.preventDefault();
 							event.stopPropagation();
 							try {
@@ -400,11 +410,17 @@ export function NotebookCanvas({
 					schedule();
 				}}
 				onPointerMoveCapture={(event) => {
-					// Palm rejection: if pencil is active, completely drop touch movements
-					if (event.pointerType === "touch" && (activePen.current !== null || gesture.current?.type === "pen")) {
-						event.preventDefault();
-						event.stopPropagation();
-						return;
+					// Palm rejection: if pencil is active or was used recently, completely drop touch movements
+					if (event.pointerType === "touch") {
+						if (activePen.current !== null || gesture.current?.type === "pen" || Date.now() - lastPenTime.current < 600) {
+							event.preventDefault();
+							event.stopPropagation();
+							return;
+						}
+					}
+
+					if (event.pointerType === "pen") {
+						lastPenTime.current = Date.now();
 					}
 
 					if (pointers.current.has(event.pointerId)) {

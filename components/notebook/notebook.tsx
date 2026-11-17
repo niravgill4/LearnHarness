@@ -443,8 +443,10 @@ export function Notebook() {
 		setMode("write");
 	}
 	function inkChange(strokes: InkStroke[]) {
-		if (!activePage) return;
-		undo.current.push(activePage.strokes);
+		const state = live.current;
+		const curPage = state.data.pages.find((p) => p.id === pageId);
+		if (!curPage) return;
+		undo.current.push(curPage.strokes);
 		redo.current = [];
 		setHistoryTick((v) => v + 1);
 		changePage({ strokes });
