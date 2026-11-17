@@ -9,6 +9,7 @@ import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
 import { SetupDialog } from "@/components/setup-dialog";
 import { TeachTimingDialog, type TeachTimingValues } from "@/components/teach-timing-dialog";
+import { teachingOpeningPrompt } from "@/src/core";
 import { ComposerActions, NodePickerControl } from "@/components/composer-actions";
 import { useModelSetup, selectedModelUnavailable, openModelPicker, ZeroKeysPill } from "@/components/setup-cta";
 import { DictationBar, joinDictation, useDictation } from "@/components/dictation";
@@ -136,9 +137,10 @@ export function Home({
 			// before the learner's first user message, propositions + the
 			// chains among them); the prompt stays the learner's own words.
 			const openingPrompt = timings
-				? `${topic}\n\nSession Time Budget:\n- Diagnostic Probing: ${timings.probingTime}\n- Deep Learning & Teaching: ${timings.learningTime}`
+				? teachingOpeningPrompt(topic,{...timings,methods:timings.methods??[]})
 				: topic;
 			const target = await starterRef.current.start({
+				...(timings?{teachingSetup:{...timings,methods:timings.methods??[]}}:{}),
 				title: topic,
 				openingPrompt,
 				...(mode === "practice" ? { kind: "practice" } : {}),

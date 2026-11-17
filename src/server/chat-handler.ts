@@ -59,6 +59,7 @@ import { persistTurn, triggerExtraction, TurnPersistenceError } from "./turn-ser
 import { hasProbeDone, hasUnresolvedQuestion, pendingPluginQuestionOf, pluginQuestionCallsOf, questionCallsOf } from "../core/native-messages.ts";
 import { samePluginQuestionOccurrence } from "../core/plugin-questions.ts";
 import { composeInstructions } from "../agent/teacher-agent.ts";
+import { teachingSetupInstructions } from "../core/teaching-methods.ts";
 import { ensureCompacted, kickCompaction, effectiveThresholdTokens, projectedContextTokens, compactionInFlight } from "./compaction.ts";
 import { COMPACTION_RESERVE_TOKENS } from "../core/compaction.ts";
 import { catalogContextLimits, refreshConnectionCatalog } from "./model-catalog.ts";
@@ -367,7 +368,8 @@ export async function handleChatInput(
 	const modelIdForCompaction = `${conversationEngine.model.provider}:${conversationEngine.model.id}`;
 	const contextWindow = catalogContextLimits().get(modelIdForCompaction);
 	const thresholdTokens = effectiveThresholdTokens(effective.compaction?.thresholdTokens, contextWindow);
-	const systemPromptTokens = Math.ceil(composeInstructions(record.kind === "practice" ? "practice" : "teacher").length / 4);
+	const promptKind = record.kind === "practice" ? "practice" : "teacher";
+	const systemPromptTokens = Math.ceil((composeInstructions(promptKind).length + teachingSetupInstructions(record.settings?.teachingSetup,promptKind).length) / 4);
 	const estimateModel = effective.compaction.includeReasoning ? conversationEngine.model : undefined;
 	const fitsSideContext = (messages: readonly LhMessage[]) => {
 		const live = messages.filter((message) => (message as { role: string }).role !== "system");
@@ -676,6 +678,7 @@ export async function handleChatInput(
 	});
 	let pendingSideBudgetError: Error | undefined;
 	const agentOpts: AgentBuildOptions = {
+		teachingSetup: record.kind==='practice'?undefined:record.settings?.teachingSetup,
 		pluginContributions,
 		engine,
 		callPurpose,
@@ -946,7 +949,7 @@ export async function handleChatInput(
 								fresh.compaction?.thresholdTokens,
 								catalogContextLimits().get(kickModelId),
 							),
-							systemPromptTokens: Math.ceil(composeInstructions(freshRecord.kind === "practice" ? "practice" : "teacher").length / 4),
+							systemPromptTokens: Math.ceil((composeInstructions(freshRecord.kind === "practice" ? "practice" : "teacher").length + teachingSetupInstructions(freshRecord.settings?.teachingSetup,freshRecord.kind === "practice" ? "practice" : "teacher").length) / 4),
 						};
 					}, chatId);
 			},

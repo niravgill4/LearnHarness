@@ -10,6 +10,7 @@ import type { LhMessage } from "../native-messages.ts";
 import type { Phase3 } from "../phases.ts";
 import type { PlanNodeStatus, PlanTree } from "./plan.ts";
 import type { EmissionStats } from "./graph.ts";
+import type { TeachingSetup } from "../teaching-methods.ts";
 
 // ─── Chat records (the session store's on-disk format) ───────────────────────
 
@@ -62,6 +63,8 @@ export const CURRENT_CHAT_VERSION = 2;
  * when composing a turn, not midway through an active request. Background
  * worker roles use their own model resolution. */
 export interface ChatSettings {
+	/** Lesson setup survives independent model-picker replacements. */
+	teachingSetup?: TeachingSetup;
 	/** Explicit provider-qualified model coordinates from the host catalog. */
 	model?: { provider: string; id: string };
 	/** pi thinking level — must be in the chosen model's supported list

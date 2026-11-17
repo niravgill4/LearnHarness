@@ -43,6 +43,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 	// level never rejects — it clamps to the named model's nearest
 	// supported (body model, else the record's strong slot).
 	const settings = clampChatLevel(parsed.settings, effectiveSettings().models.strong);
+	const teachingSetup=getChat(id)?.settings?.teachingSetup;
+	if(teachingSetup)settings.teachingSetup=teachingSetup;
 	stores.chatStore.saveSettings(id, settings);
 	return Response.json({ settings });
 }

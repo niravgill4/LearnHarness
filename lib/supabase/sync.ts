@@ -29,6 +29,7 @@ export async function syncChatToCloud(record: ChatRecord, userId?: string): Prom
 			kind: record.kind ?? "teach",
 			created_at: record.createdAt,
 			updated_at: record.updatedAt || new Date().toISOString(),
+			record,
 		});
 
 		// 2. Persist messages to chat_messages
@@ -99,7 +100,7 @@ export async function restoreChatFromCloud(chatId: string, userId: string): Prom
 
 		const { data: chatRow } = await supabase
 			.from("chats")
-			.select("id, title, kind, created_at, updated_at")
+			.select("id, title, kind, created_at, updated_at, record")
 			.eq("id", chatId)
 			.eq("user_id", userId)
 			.maybeSingle();
@@ -142,6 +143,7 @@ export async function restoreChatFromCloud(chatId: string, userId: string): Prom
 			createdAt: chatRow.created_at,
 			updatedAt: chatRow.updated_at,
 			messages,
+			settings: (chatRow.record as Partial<ChatRecord>|null)?.settings,
 			tree: planData?.tree ? (planData.tree as PlanTree) : undefined,
 			turns: turns.length > 0 ? turns : undefined,
 		};

@@ -3,6 +3,7 @@ import { newGraphContextMessage, type GraphContextPick } from "@/src/core";
 import { compactionInFlight, createChat, isTurnRunning, listChats, readSettingsRecord, stores, titleFromPrompt } from "@/src/server";
 import type { ChatListItem } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
+import { parseTeachingSetup } from "@/src/core";
 
 /** The session picker's list: record-derived summaries (phase, pending
  *  question) + live liveness — a running turn marks the session busy
@@ -47,7 +48,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-	const body = (await req.json().catch(() => ({}))) as { title?: unknown; kind?: unknown; graphContext?: unknown };
+	const raw=await req.json().catch(()=>null);
+	if(!raw||typeof raw!=='object'||Array.isArray(raw))return Response.json({error:'Invalid session request'},{status:400});
+	const body = raw as { title?: unknown; kind?: unknown; graphContext?: unknown; teachingSetup?: unknown };
+	const teachingSetup=body.teachingSetup===undefined?undefined:parseTeachingSetup(body.teachingSetup);
+	if(teachingSetup===null||(body.kind==='practice'&&teachingSetup))return Response.json({error:'Invalid teaching setup'}, {status:400});
 	const title = typeof body.title === "string" ? body.title : "";
 	// Practice sessions (owner, 2026-10-04): kind "practice" marks the
 	// record — the practice agent + its tools from turn 1, no extraction.
@@ -82,6 +87,8 @@ export async function POST(req: Request) {
 			thinkingLevel: strong.thinkingLevel,
 		});
 	}
+	if(teachingSetup)stores.chatStore.saveSettings(chat.id,{...stores.chatStore.getChat(chat.id)?.settings,teachingSetup});
+	if(supabase&&teachingSetup){const {data:{user}}=await supabase.auth.getUser();if(user)await supabase.from('chats').update({record:stores.chatStore.getChat(chat.id)}).eq('id',chat.id).eq('user_id',user.id);}
 	// The session's map context (owner, 2026-10-04): the picked
 	// propositions ride the CREATION — message[0] is a graph-context
 	// marker (a separate custom message BEFORE the learner's first user

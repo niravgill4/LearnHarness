@@ -12,6 +12,7 @@ import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { SidebarToggle } from "@/components/sidebar";
 import { SetupDialog } from "@/components/setup-dialog";
 import { TeachTimingDialog, type TeachTimingValues } from "@/components/teach-timing-dialog";
+import { teachingOpeningPrompt } from "@/src/core";
 import { useModelSetup, selectedModelUnavailable, openModelPicker, ZeroKeysPill } from "@/components/setup-cta";
 import { StatsBar } from "@/components/stats-bar";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
@@ -52,6 +53,7 @@ export async function startDraftSession(
 	starter = new SessionStarter(),
 	settingsIdentity?: string,
 	openingPrompt?: string,
+	teachingSetup?: import("@/src/core").TeachingSetup,
 ): Promise<string | null> {
 	const t = text.trim();
 	if (!t) return null;
@@ -62,7 +64,7 @@ export async function startDraftSession(
 	return starter.start(
 		mode === "practice"
 			? { title: t, kind: "practice", openingPrompt, ...(picks && picks.length > 0 ? { graphContext: { propositions: picks } } : {}) }
-			: { title: t, openingPrompt },
+			: { title: t, openingPrompt, ...(teachingSetup?{teachingSetup}:{}) },
 		fetchLike,
 		settingsIdentity,
 	);
@@ -292,7 +294,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 		setBusy(true);
 		setStartError(false);
 		const openingPrompt = timings
-			? `${draft}\n\nSession Time Budget:\n- Diagnostic Probing: ${timings.probingTime}\n- Deep Learning & Teaching: ${timings.learningTime}`
+			? teachingOpeningPrompt(draft,{...timings,methods:timings.methods??[]})
 			: draft;
 		void startDraftSession(
 			draft,
@@ -302,6 +304,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 			starterRef.current,
 			JSON.stringify(catalog?.slots.strong),
 			openingPrompt,
+			timings?{...timings,methods:timings.methods??[]}:undefined,
 		)
 			.then((target) => {
 				if (target) router.push(target);
