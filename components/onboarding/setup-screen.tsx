@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LoaderCircleIcon, SparklesIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LoaderCircleIcon, SparklesIcon } from "lucide-react";
 import { ONBOARDING_PROVIDERS, type LearningIntent, type OnboardingProvider, type SetupSnapshot } from "@/lib/onboarding";
 import { OnboardingShell } from "./onboarding-shell";
 import { ProviderLogo } from "@/components/provider-logo";
@@ -10,12 +10,22 @@ import { useChatGPTUI, ChatGPTConnection } from "@/components/settings/chatgpt-c
 import { SubscriptionConnections } from "@/components/settings/subscription-connections";
 import { ClaudeCodeInstallationStatus } from "@/components/settings/claude-code-status";
 import { ReadingPaceTest } from "@/components/reading-pace-test";
+import { FeatureTour } from "./feature-tour";
+
+const GEMINI_FREE_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 
 export function recommendSlotsForProvider(
-	_provider: string,
-	availableModels: { id: string; name: string; vision: boolean }[]
+	provider: string,
+	availableModels: { id: string; name: string; vision: boolean }[],
+	preferFreeGemini = false,
 ): Record<"strong" | "cheap" | "vision", string> {
 	if (!availableModels.length) return { strong: "", cheap: "", vision: "" };
+	if (provider === "google" && preferFreeGemini) {
+		for (const id of GEMINI_FREE_MODELS) {
+			const candidate = availableModels.find(model => model.id === id && model.vision);
+			if (candidate) return { strong: id, cheap: id, vision: id };
+		}
+	}
 	const strong = availableModels.find(m => /chatgpt-?4o(?!-mini)|gpt-?4o(?!-mini)|sonnet|opus|o1\b|pro|gpt-?4-turbo|claude-3-5/i.test(`${m.name} ${m.id}`)) ?? availableModels[0];
 	const cheap = availableModels.find(m => m.id !== strong?.id && /haiku|mini|flash|gpt-?3\.5/i.test(`${m.name} ${m.id}`))
 		?? availableModels.find(m => /haiku|mini|flash|gpt-?3\.5/i.test(`${m.name} ${m.id}`))
@@ -55,6 +65,9 @@ export function SetupScreen() {
 	const chatgptUI = useChatGPTUI();
 	const [snapshot, setSnapshot] = useState<SetupSnapshot | null>(null);
 	const [step, setStep] = useState(1);
+	const [tourSlide, setTourSlide] = useState(0);
+	const [showGeminiGuide, setShowGeminiGuide] = useState(false);
+	const [preferFreeGemini, setPreferFreeGemini] = useState(false);
 	const [provider, setProvider] = useState<OnboardingProvider>("openrouter");
 	const [key, setKey] = useState("");
 	const [showKey, setShowKey] = useState(false);
@@ -69,6 +82,7 @@ export function SetupScreen() {
 	const [callbackUrl, setCallbackUrl] = useState("");
 	const [callbackSubmitting, setCallbackSubmitting] = useState(false);
 	const heading = useRef<HTMLHeadingElement>(null);
+	const providerKey = useRef<HTMLInputElement>(null);
 
 	const isChatgptConnected = chatgptUI.status.accounts.some(a => a.id === chatgptUI.status.activeId && a.connected);
 	const activeChatgptAccount = chatgptUI.status.accounts.find(a => a.id === chatgptUI.status.activeId && a.connected);
@@ -119,6 +133,9 @@ export function SetupScreen() {
 	const filteredModels = models.filter(m => (activeSlot !== "vision" || m.vision) && `${m.name} ${m.id}`.toLowerCase().includes(search.toLowerCase()));
 	const selectedModel = models.find(m => m.id === slots.strong);
 	const alreadyConnected = provider === "chatgpt" ? isChatgptConnected : !!snapshot?.connected.includes(provider);
+	const geminiFreeModel = provider === "google" ? GEMINI_FREE_MODELS
+		.map(id => models.find(model => model.id === id && model.vision))
+		.find(Boolean) : undefined;
 
 	async function connect(event: FormEvent) {
 		event.preventDefault();
@@ -128,21 +145,21 @@ export function SetupScreen() {
 				await setupRequest({ action: "connect", provider });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				setSlots(recommendSlotsForProvider(provider, targetModels));
+				setSlots(recommendSlotsForProvider(provider, targetModels, preferFreeGemini));
 				setStep(2);
 			} else if (key.trim()) {
 				await setupRequest({ action: "connect", provider, key: key.trim() });
 				setSnapshot(previous => previous ? { ...previous, connected: [...new Set([...previous.connected, provider])] } : previous);
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				setSlots(recommendSlotsForProvider(provider, targetModels));
+				setSlots(recommendSlotsForProvider(provider, targetModels, preferFreeGemini));
 				setStep(2);
 			} else if (!alreadyConnected) {
 				throw new Error("Enter your provider API key to continue.");
 			} else {
 				setKey(""); setShowKey(false);
 				const targetModels = snapshot?.models.filter(m => m.provider === provider) ?? [];
-				setSlots(recommendSlotsForProvider(provider, targetModels));
+				setSlots(recommendSlotsForProvider(provider, targetModels, preferFreeGemini));
 				setStep(2);
 			}
 		} catch (cause) {
@@ -180,10 +197,36 @@ export function SetupScreen() {
 			<h2 ref={heading} tabIndex={-1}>A space for<br />your next idea.</h2>
 			{error ? <><p role="alert" className="onboarding-error">{error}</p><button type="button" className="onboarding-primary" onClick={() => setLoadAttempt(v => v + 1)}>Try again</button><a className="onboarding-text-button" href="/login">Back to account</a></> : <p role="status" className="onboarding-intro"><LoaderCircleIcon className="onboarding-spinner" /> Getting your space ready…</p>}
 		</> : <>
-			{step > 1 && <button className="onboarding-back" type="button" disabled={busy} onClick={back}><ArrowLeftIcon />Back</button>}
+			{step > 1 && step !== 4 && <button className="onboarding-back" type="button" disabled={busy} onClick={back}><ArrowLeftIcon />Back</button>}
 			{step === 1 && <>
 				<h2 ref={heading} tabIndex={-1}>Bring your<br />own intelligence.</h2>
 				<p className="onboarding-intro">Connect a model source, then choose which models teach, assist, and read images.</p>
+				<button className="onboarding-gemini-toggle" type="button" aria-expanded={showGeminiGuide} aria-controls="onboarding-gemini-guide" onClick={() => setShowGeminiGuide(open => !open)}>
+					Don’t have any of these? <ChevronDownIcon size={16} aria-hidden="true" />
+				</button>
+				<div className="onboarding-gemini-guide" id="onboarding-gemini-guide" hidden={!showGeminiGuide}>
+					<div className="onboarding-gemini-title"><ProviderLogo provider="google" /><h3>Get a free Gemini API key</h3></div>
+					<ol>
+						<li>Open Google AI Studio and sign in with your Google account.</li>
+						<li>Choose <strong>Create API key</strong> and select or create a Google Cloud project. Follow any verification prompts.</li>
+						<li>Copy the key. Return here, choose <strong>Use a Gemini key</strong>, and paste it into the form.</li>
+					</ol>
+					<p>Google’s free tier has project and model limits. In model setup, choose a Flash-Lite model available on your project’s free tier for all three roles.</p>
+					<div className="onboarding-gemini-actions">
+						<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Open Google AI Studio <ExternalLinkIcon size={14} aria-hidden="true" /></a>
+						<button type="button" disabled={busy} onClick={() => {
+							setPreferFreeGemini(true);
+							if (provider !== "google") {
+								setProvider("google");
+								setKey("");
+								setShowKey(false);
+								setSlots({ strong: "", cheap: "", vision: "" });
+								setError("");
+							}
+							providerKey.current?.focus();
+						}}>Use a Gemini key</button>
+					</div>
+				</div>
 				
 				<div className="onboarding-account-actions">
 					<button type="button" className="onboarding-account-connect" disabled={busy || chatgptUI.busy} onClick={triggerCodexConnect}>
@@ -291,7 +334,7 @@ export function SetupScreen() {
 				<form onSubmit={connect} className="onboarding-form" aria-busy={busy}>
 					<div className="onboarding-providers" role="group" aria-label="Model provider">
 						{ONBOARDING_PROVIDERS.filter(p => !p.keyless).map(p => (
-							<button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id as OnboardingProvider); setKey(""); setSlots({ strong: "", cheap: "", vision: "" }); setError(""); }}>
+							<button type="button" key={p.id} aria-pressed={provider === p.id} disabled={busy} onClick={() => { setProvider(p.id as OnboardingProvider); setPreferFreeGemini(false); setKey(""); setSlots({ strong: "", cheap: "", vision: "" }); setError(""); }}>
 								<span className="provider-monogram" aria-hidden="true"><ProviderLogo provider={p.id} /></span>
 								<span><strong>{p.name}</strong><small>{p.detail}</small></span>
 								{provider === p.id && <CheckIcon />}
@@ -304,7 +347,7 @@ export function SetupScreen() {
 						<a href={providerInfo.url} target="_blank" rel="noopener noreferrer">Get a key<ExternalLinkIcon /></a>
 					</div>
 					<div className="onboarding-secret-field">
-						<input id="provider-key" name="provider-key" autoComplete="off" autoCorrect="off" spellCheck={false} type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} placeholder={alreadyConnected ? "A key is already saved" : "Paste your API key"} required={!alreadyConnected} disabled={busy} />
+						<input ref={providerKey} id="provider-key" name="provider-key" autoComplete="off" autoCorrect="off" spellCheck={false} type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} placeholder={alreadyConnected ? "A key is already saved" : "Paste your API key"} required={!alreadyConnected} disabled={busy} />
 						<button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} aria-pressed={showKey} onClick={() => setShowKey(value => !value)}>{showKey ? <EyeOffIcon /> : <EyeIcon />}</button>
 					</div>
 					<p className="onboarding-key-note"><KeyRoundIcon />Encrypted in your account. Never stored in this browser.</p>
@@ -320,6 +363,7 @@ export function SetupScreen() {
 				<h2 ref={heading} tabIndex={-1}>Choose a mind<br />to learn alongside.</h2>
 				<p className="onboarding-intro">Give each job its own model. Strong teaches, cheap handles lighter work, and vision reads images.</p>
 				<div className="onboarding-connected"><CheckIcon />{providerInfo.name} selected</div>
+				{geminiFreeModel && <p className="onboarding-small">For free-tier setup, use {geminiFreeModel.name} in all three roles if it’s available on your <a className="underline" href="https://aistudio.google.com/rate-limit" target="_blank" rel="noopener noreferrer">Google AI Studio project</a>.</p>}
 				<div className="onboarding-slot-tabs" role="group" aria-label="Model roles">{(["strong", "cheap", "vision"] as const).map(slot => <button key={slot} type="button" aria-pressed={activeSlot === slot} onClick={() => { setActiveSlot(slot); setSearch(""); }}><span>{slot === "strong" ? "01" : slot === "cheap" ? "02" : "03"} · {slot}</span><strong>{models.find(m => m.id === slots[slot])?.name ?? "Choose a model"}</strong></button>)}</div>
 				<p className="onboarding-small">{activeSlot === "strong" ? "Strong is your main tutor and the default for new lessons." : activeSlot === "cheap" ? "Cheap handles supporting tasks. Pick a faster or lower-cost model if available." : "Vision needs an image-capable model for pictures and visual material."}</p>
 				<label className="onboarding-sr-label" htmlFor="model-search">Search models</label>
@@ -332,7 +376,7 @@ export function SetupScreen() {
 								<span>
 									<strong>
 										{model.name}
-										{isModelRecommended(model, activeSlot) && (
+										{(preferFreeGemini && geminiFreeModel ? model.id === geminiFreeModel.id : isModelRecommended(model, activeSlot)) && (
 											<span className="onboarding-model-badge">Recommended</span>
 										)}
 									</strong>
@@ -349,9 +393,10 @@ export function SetupScreen() {
 			</>}
 			{step === 3 && <>
 				<h2 ref={heading} tabIndex={-1}>Find your<br />natural pace.</h2>
-				<ReadingPaceTest allowSkip onContinue={() => setStep(4)} />
+				<ReadingPaceTest allowSkip onContinue={() => { setTourSlide(0); setStep(4); }} />
 			</>}
-			{step === 4 && <>
+			{step === 4 && <FeatureTour slide={tourSlide} onSlideChange={setTourSlide} onBack={back} onDone={() => setStep(5)} />}
+			{step === 5 && <>
 				<h2 ref={heading} tabIndex={-1}>What’s on<br />your mind?</h2>
 				<p className="onboarding-intro">A topic, a question, a thing you’ve never quite understood. Start anywhere.</p>
 				<form onSubmit={finish} className="onboarding-form" aria-busy={busy}>

@@ -9,6 +9,7 @@ import { WorkspaceFrame } from "@/components/workspace-frame";
 import { readThemeBoot } from "@/src/server";
 import { LandscapeProvider } from "@/components/ascii-landscape";
 import "./ascii-landscape.css";
+import "./onboarding-tour.css";
 import "./practice-drawing.css";
 import "./notebook.css";
 import "./teach-setup.css";

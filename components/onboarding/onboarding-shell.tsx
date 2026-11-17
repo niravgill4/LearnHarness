@@ -14,9 +14,10 @@ const story = [
 	{ title: "Every great idea\nstarts with a spark.", description: "Bring the intelligence you trust. We’ll make room for your curiosity.", thought: "The right connections change everything." },
 	{ title: "Find your\nthinking partner.", description: "A new perspective. A clearer explanation. A way through the things that don’t quite click.", thought: "Understanding is a conversation, too." },
 	{ title: "Good learning\nhas its own rhythm.", description: "Room to read. Time to think. A lesson that moves with you.", thought: "Understanding takes the time it takes." },
+	{ title: "Follow an idea\nfurther.", description: "See what happens when a lesson becomes something you can explore.", thought: "What would change if you tried it a different way?" },
 	{ title: "Your next idea\nis out there.", description: "Start with something that stays on your mind. See where it takes you.", thought: "One question can open a whole new world." },
 ];
-const stages = ["Account", "Models", "Pace", "Curiosity"];
+const stages = ["Account", "Models", "Pace", "Tour", "Curiosity"];
 const SceneContext = createContext<{ setStep: (step: number) => void } | null>(null);
 const ease = [.22, 1, .36, 1] as const;
 
@@ -26,7 +27,7 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 	const controller = useMemo(() => ({ setStep }), []);
 	const reduced = useReducedMotionPreference();
 	const content = story[step] ?? story[0]!;
-	const current = step === 0 ? 0 : step < 3 ? 1 : step === 3 ? 2 : 3;
+	const current = step < 3 ? Math.min(1, step) : step - 1;
 	return <SceneContext.Provider value={controller}><main className="onboarding-page" data-scene={step}>
 		<a href="#onboarding-form" className="onboarding-skip">Skip to account setup</a>
 		<header className="onboarding-topline"><div className="onboarding-brand"><CogneraMark /><span>Cognera</span></div><span className="onboarding-topline-note">A space for your curious mind.</span><a className="onboarding-mobile-start" href="#onboarding-form">{step === 0 ? "Get started" : "Continue setup"}<ArrowRightIcon aria-hidden="true" /></a></header>
@@ -47,8 +48,8 @@ export function OnboardingFrame({ children }: { children: ReactNode }) {
 					<span className="onboarding-progress-number">{current > index ? <CheckIcon aria-hidden="true" /> : `0${index + 1}`}</span><span className="onboarding-progress-label">{label}</span>
 				</li>)}</ol></nav></LayoutGroup>
 				<div className="onboarding-form-content" id="onboarding-form" tabIndex={-1}>{children}</div>
-				<div className="onboarding-bottom"><p className="onboarding-footnote">Good things start with a question.</p><span aria-hidden="true">{step + 1} / 5</span></div>
-				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (step + 1) / 5 }} transition={{ duration: reduced ? 0 : .25, ease }} /></div>
+				<div className="onboarding-bottom"><p className="onboarding-footnote">Good things start with a question.</p><span aria-hidden="true">{current + 1} / {stages.length}</span></div>
+				<div className="onboarding-bottom-track" aria-hidden="true"><motion.div animate={{ scaleX: (current + 1) / stages.length }} transition={{ duration: reduced ? 0 : .25, ease }} /></div>
 			</section>
 		</div>
 	</main></SceneContext.Provider>;
