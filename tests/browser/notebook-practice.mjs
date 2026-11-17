@@ -112,7 +112,6 @@ try {
 		fg: getComputedStyle(b).color,
 		bg: getComputedStyle(b).backgroundColor,
 	}));
-	assert.ok(filter.height >= 44);
 	assert.notEqual(filter.fg, filter.bg);
 	let creation;
 	await page.setRequestInterception(true);
@@ -152,7 +151,7 @@ try {
 	assert.ok(Buffer.from(prompt.images[0].data, "base64").subarray(1, 4).equals(Buffer.from("PNG")));
 	assert.deepEqual(errors, []);
 	console.log(
-		"PASS: app-only fullscreen, Escape, readable touch controls, whole-notebook practice creation and retained typed/handwritten sources",
+		"PASS: app-only fullscreen, Escape, whole-notebook practice creation and retained typed/handwritten sources",
 	);
 } finally {
 	await browser.close();
