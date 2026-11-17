@@ -3,10 +3,14 @@ import {
 	effectiveSettings,
 	getChat,
 	parseSettingsBody,
+	refreshConnectionCatalog,
 	stores,
+	userAuthStorage,
 	validateChatSettings,
 } from "@/src/server";
 import type { ChatSettings } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
+import { readProfileKeys } from "@/lib/supabase/profile-keys";
 
 /**
  * The per-chat model control (model-control wave): replace-whole settings —
@@ -32,19 +36,49 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 	const parsed = parseSettingsBody(body);
 	if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
 
-	const verdict = validateChatSettings(parsed.settings);
-	if (!verdict.ok) {
-		return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
+	const supabase = await createClient();
+	let userKeys: Record<string, string> = {};
+	let user: any = null;
+	if (supabase) {
+		const { data } = await supabase.auth.getUser();
+		user = data.user;
+		if (user) {
+			const { data: profile } = await supabase
+				.from("profiles")
+				.select("encrypted_keys")
+				.eq("id", user.id)
+				.single();
+			if (profile?.encrypted_keys) {
+				try {
+					userKeys = readProfileKeys(profile.encrypted_keys);
+				} catch {}
+			}
+		}
 	}
 
-	// Replace-whole persists the validated, level-clamped object — no
-	// merges, so a stale client can never resurrect a cleared override.
-	// Clamp-on-write (owner, interlude 2026-09-22): a pinned thinking
-	// level never rejects — it clamps to the named model's nearest
-	// supported (body model, else the record's strong slot).
-	const settings = clampChatLevel(parsed.settings, effectiveSettings().models.strong);
-	const teachingSetup=getChat(id)?.settings?.teachingSetup;
-	if(teachingSetup)settings.teachingSetup=teachingSetup;
-	stores.chatStore.saveSettings(id, settings);
-	return Response.json({ settings });
+	const executeSave = async () => {
+		if (user) {
+			await refreshConnectionCatalog().catch(() => {});
+		}
+		const verdict = validateChatSettings(parsed.settings);
+		if (!verdict.ok) {
+			return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
+		}
+
+		// Replace-whole persists the validated, level-clamped object — no
+		// merges, so a stale client can never resurrect a cleared override.
+		// Clamp-on-write (owner, interlude 2026-09-22): a pinned thinking
+		// level never rejects — it clamps to the named model's nearest
+		// supported (body model, else the record's strong slot).
+		const settings = clampChatLevel(parsed.settings, effectiveSettings().models.strong);
+		const teachingSetup = getChat(id)?.settings?.teachingSetup;
+		if (teachingSetup) settings.teachingSetup = teachingSetup;
+		stores.chatStore.saveSettings(id, settings);
+		return Response.json({ settings });
+	};
+
+	if (user) {
+		return userAuthStorage.run({ userId: user.id, keys: userKeys }, executeSave);
+	}
+	return executeSave();
 }

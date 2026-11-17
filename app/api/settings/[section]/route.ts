@@ -32,6 +32,7 @@
 
 import { isBuiltinThemeId, type AgentSettings, type AppearanceSettings, type ChatSettings, type ModelsSettings } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
+import { readProfileKeys } from "@/lib/supabase/profile-keys";
 import {
 	SETTINGS_SECTIONS,
 	allSegmentPaths,
@@ -41,8 +42,10 @@ import {
 	fileAccessConfigurationError,
 	promptOverrides,
 	readSettingsRecord,
+	refreshConnectionCatalog,
 	refreshWorkerRequestAdmission,
 	themeStore,
+	userAuthStorage,
 	validateChatSettings,
 	validateModelsSettings,
 	writeSettingsRecord,
@@ -68,89 +71,111 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 	if (!parsed.ok) {
 		return Response.json({ error: parsed.error }, { status: 400 });
 	}
-	// Compare against the same record that this whole-section write replaces.
-	const record = readSettingsRecord() ?? { version: 1 };
-	let agentHealed: AgentSettings | undefined;
-
-	// Section-specific cross-validation (against the catalog / the prompt
-	// store) — the parsers only see shapes.
-	if (section === "chat") {
-		const verdict = validateChatSettings(parsed.settings as ChatSettings);
-		if (!verdict.ok) {
-			return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
-		}
-	}
-	// New/replaced slot models pass the catalog gate. Unchanged saved model
-	// references may survive disconnect, including thinking-preference edits,
-	// so each unavailable slot can be repaired independently of the others.
-	if (section === "models") {
-		const verdict = validateModelsSettings(parsed.settings as ModelsSettings, record.models);
-		if (!verdict.ok) {
-			return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
-		}
-	}
-	// A newly selected theme must exist. A saved theme whose file vanished
-	// already renders as Default: heal that unchanged reference on write,
-	// rather than trapping unrelated font/size/ligature edits behind a 400.
-	if (section === "appearance") {
-		const appearance = parsed.settings as AppearanceSettings;
-		const theme = appearance.theme;
-		if (theme !== undefined && !isBuiltinThemeId(theme) && themeStore.readTheme(theme) === null) {
-			if (theme !== record.appearance?.theme) {
-				return Response.json({ error: `unknown theme "${theme}"` }, { status: 400 });
-			}
-			appearance.theme = "default";
-		}
-	}
-	if (section === "agent") {
-		// Orphan-heal (contract fix, interlude 2026-09-26): an ON switch
-		// whose override file is gone (or whose segment left the source
-		// tree) is healed to OFF (key dropped) inside this write — never a
-		// 400. The old 400 trapped users: the record's own orphaned ON was
-		// mirrored back by every write while the disabled toggle couldn't
-		// reach the OFF escape hatch. An ON with a real file stays valid.
-		const agent = parsed.settings as AgentSettings;
-		const segments = new Set(allSegmentPaths());
-		const orphans: string[] = [];
-		for (const [path, on] of Object.entries(agent.prompts ?? {})) {
-			if (on && (!segments.has(path) || promptOverrides.readOverride(path) === null)) orphans.push(path);
-		}
-		if (orphans.length > 0) {
-			const prompts = { ...(agent.prompts ?? {}) };
-			for (const path of orphans) delete prompts[path];
-			agentHealed = { ...agent, prompts };
-			console.info(`[settings] healed orphaned prompt switch(es) to off: ${orphans.join(", ")}`);
-		}
-	}
-
-	// Clamp-on-write (owner ruling, interlude 2026-09-22): a model swap
-	// with a pinned thinking level NEVER errors — the pin clamps to the
-	// new model's nearest supported level (pi's nearest-clamp, the same
-	// translation piEngineForSpec applies at runtime) and the clamped
-	// value is what lands in the record. The chat section's bare levels
-	// clamp against the record's resolved strong slot (the chain's
-	// fallback); the models section's slots each carry their own model.
-	// The agent section lands HEALED when orphaned prompt switches were
-	// found above (the healed copy) — after every write the record and
-	// file reality agree.
-	const sectionOut =
-		section === "chat"
-			? clampChatLevel(parsed.settings as ChatSettings, effectiveSettings().models.strong)
-			: section === "models"
-				? clampModelsLevels(parsed.settings as ModelsSettings)
-				: section === "agent" && agentHealed
-					? agentHealed
-					: parsed.settings;
-
-	// Read-modify-write ONE section of the record; everything else rides
-	// along untouched (other sections, unknown keys — sanitize preserves).
-	const next = { ...record, [section]: sectionOut };
-	const stored = writeSettingsRecord(next);
 
 	const supabase = await createClient();
+	let userKeys: Record<string, string> = {};
+	let user: any = null;
 	if (supabase) {
-		const { data: { user } } = await supabase.auth.getUser();
+		const { data } = await supabase.auth.getUser();
+		user = data.user;
 		if (user) {
+			const { data: profile } = await supabase
+				.from("profiles")
+				.select("encrypted_keys")
+				.eq("id", user.id)
+				.single();
+			if (profile?.encrypted_keys) {
+				try {
+					userKeys = readProfileKeys(profile.encrypted_keys);
+				} catch {}
+			}
+		}
+	}
+
+	const executeSave = async () => {
+		if (user) {
+			await refreshConnectionCatalog().catch(() => {});
+		}
+		// Compare against the same record that this whole-section write replaces.
+		const record = readSettingsRecord() ?? { version: 1 };
+		let agentHealed: AgentSettings | undefined;
+
+		// Section-specific cross-validation (against the catalog / the prompt
+		// store) — the parsers only see shapes.
+		if (section === "chat") {
+			const verdict = validateChatSettings(parsed.settings as ChatSettings);
+			if (!verdict.ok) {
+				return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
+			}
+		}
+		// New/replaced slot models pass the catalog gate. Unchanged saved model
+		// references may survive disconnect, including thinking-preference edits,
+		// so each unavailable slot can be repaired independently of the others.
+		if (section === "models") {
+			const verdict = validateModelsSettings(parsed.settings as ModelsSettings, record.models);
+			if (!verdict.ok) {
+				return Response.json({ error: verdict.error, supported: verdict.supported }, { status: 400 });
+			}
+		}
+		// A newly selected theme must exist. A saved theme whose file vanished
+		// already renders as Default: heal that unchanged reference on write,
+		// rather than trapping unrelated font/size/ligature edits behind a 400.
+		if (section === "appearance") {
+			const appearance = parsed.settings as AppearanceSettings;
+			const theme = appearance.theme;
+			if (theme !== undefined && !isBuiltinThemeId(theme) && themeStore.readTheme(theme) === null) {
+				if (theme !== record.appearance?.theme) {
+					return Response.json({ error: `unknown theme "${theme}"` }, { status: 400 });
+				}
+				appearance.theme = "default";
+			}
+		}
+		if (section === "agent") {
+			// Orphan-heal (contract fix, interlude 2026-09-26): an ON switch
+			// whose override file is gone (or whose segment left the source
+			// tree) is healed to OFF (key dropped) inside this write — never a
+			// 400. The old 400 trapped users: the record's own orphaned ON was
+			// mirrored back by every write while the disabled toggle couldn't
+			// reach the OFF escape hatch. An ON with a real file stays valid.
+			const agent = parsed.settings as AgentSettings;
+			const segments = new Set(allSegmentPaths());
+			const orphans: string[] = [];
+			for (const [path, on] of Object.entries(agent.prompts ?? {})) {
+				if (on && (!segments.has(path) || promptOverrides.readOverride(path) === null)) orphans.push(path);
+			}
+			if (orphans.length > 0) {
+				const prompts = { ...(agent.prompts ?? {}) };
+				for (const path of orphans) delete prompts[path];
+				agentHealed = { ...agent, prompts };
+				console.info(`[settings] healed orphaned prompt switch(es) to off: ${orphans.join(", ")}`);
+			}
+		}
+
+		// Clamp-on-write (owner ruling, interlude 2026-09-22): a model swap
+		// with a pinned thinking level NEVER errors — the pin clamps to the
+		// new model's nearest supported level (pi's nearest-clamp, the same
+		// translation piEngineForSpec applies at runtime) and the clamped
+		// value is what lands in the record. The chat section's bare levels
+		// clamp against the record's resolved strong slot (the chain's
+		// fallback); the models section's slots each carry their own model.
+		// The agent section lands HEALED when orphaned prompt switches were
+		// found above (the healed copy) — after every write the record and
+		// file reality agree.
+		const sectionOut =
+			section === "chat"
+				? clampChatLevel(parsed.settings as ChatSettings, effectiveSettings().models.strong)
+				: section === "models"
+					? clampModelsLevels(parsed.settings as ModelsSettings)
+					: section === "agent" && agentHealed
+						? agentHealed
+						: parsed.settings;
+
+		// Read-modify-write ONE section of the record; everything else rides
+		// along untouched (other sections, unknown keys — sanitize preserves).
+		const next = { ...record, [section]: sectionOut };
+		const stored = writeSettingsRecord(next);
+
+		if (supabase && user) {
 			const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 			if (section === "models") {
 				const { data: profile } = await supabase.from("profiles").select("model_settings").eq("id", user.id).single();
@@ -161,11 +186,16 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 			if (section === "appearance") updateData.theme_settings = sectionOut;
 			await supabase.from("profiles").update(updateData).eq("id", user.id);
 		}
-	}
 
-	// Only a successful durable write changes admission. Increasing the
-	// limit immediately drains queued requests; decreasing never cancels active work.
-	refreshWorkerRequestAdmission();
-	const fileAccessError = fileAccessConfigurationError();
-	return Response.json({ settings: stored, ...(fileAccessError ? { fileAccessError } : {}) });
+		// Only a successful durable write changes admission. Increasing the
+		// limit immediately drains queued requests; decreasing never cancels active work.
+		refreshWorkerRequestAdmission();
+		const fileAccessError = fileAccessConfigurationError();
+		return Response.json({ settings: stored, ...(fileAccessError ? { fileAccessError } : {}) });
+	};
+
+	if (user) {
+		return userAuthStorage.run({ userId: user.id, keys: userKeys }, executeSave);
+	}
+	return executeSave();
 }
