@@ -448,7 +448,6 @@ export function Notebook() {
 		if (!curPage) return;
 		undo.current.push(curPage.strokes);
 		redo.current = [];
-		setHistoryTick((v) => v + 1);
 		changePage({ strokes });
 	}
 	function inkUndo(forward = false) {

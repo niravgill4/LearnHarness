@@ -280,6 +280,13 @@ export function NotebookCanvas({
 		} catch {}
 		if (gesture.current?.id === event.pointerId) {
 			const stroke = gesture.current.stroke;
+			if (event.type === "pointercancel" && stroke.points.length <= 1) {
+				// Discard single-point aborted gesture on pointercancel (don't commit stray dot)
+				gesture.current = null;
+				latest.current.onBusy(false);
+				schedule();
+				return;
+			}
 			// Guarantee that the final point of fast flick is included
 			const endPt = point(event);
 			const lastPt = stroke.points[stroke.points.length - 1];
@@ -306,9 +313,16 @@ export function NotebookCanvas({
 				className={`nb-viewport paper-${page.paper} mode-${mode}${moving ? " is-moving" : ""}`}
 				aria-label="Infinite notebook canvas"
 				onPointerDownCapture={(event) => {
-					// 1. Palm rejection: if Apple Pencil is active, or was used within 600ms, or currently drawing, drop touch completely
+					// 1. Palm rejection: if Apple Pencil is active, or was used recently, or contact patch is large, drop touch completely
 					if (event.pointerType === "touch") {
-						if (activePen.current !== null || gesture.current?.type === "pen" || Date.now() - lastPenTime.current < 600) {
+						const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
+						const penCooldown = mode === "draw" && !finger ? 2500 : 1500;
+						if (
+							activePen.current !== null ||
+							gesture.current?.type === "pen" ||
+							Date.now() - lastPenTime.current < penCooldown ||
+							isPalm
+						) {
 							event.preventDefault();
 							event.stopPropagation();
 							return;
@@ -344,9 +358,8 @@ export function NotebookCanvas({
 							}
 							event.preventDefault();
 							event.stopPropagation();
-							try {
-								viewport.current!.setPointerCapture(event.pointerId);
-							} catch {}
+							// Do not call setPointerCapture for Apple Pencil on iOS Safari:
+							// The viewport is full-bleed, and capture triggers WebKit multi-touch cancellation when palm touches glass.
 							gesture.current = {
 								id: event.pointerId,
 								type: "pen",
@@ -360,6 +373,25 @@ export function NotebookCanvas({
 
 					// 3. Touch handling
 					if (event.pointerType === "touch") {
+						// In draw mode with finger drawing OFF:
+						// Touches are NEVER drawing strokes. Only two-finger pinch-to-zoom is supported with separated contacts.
+						if (mode === "draw" && !finger) {
+							pointers.current.set(event.pointerId, local(event));
+							if (pointers.current.size >= 2) {
+								const pts = [...pointers.current.values()];
+								const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+								if (dist >= 45) {
+									event.preventDefault();
+									event.stopPropagation();
+									panning.current = true;
+									setMoving(true);
+									return;
+								}
+							}
+							event.preventDefault();
+							return;
+						}
+
 						pointers.current.set(event.pointerId, local(event));
 
 						// Two or more touches: pinch zoom
@@ -408,13 +440,6 @@ export function NotebookCanvas({
 							schedule();
 							return;
 						}
-
-						// In draw mode with finger drawing OFF:
-						// Palm resting or preparing to draw with pencil. Prevent default to block iOS text selection/callout
-						if (mode === "draw" && !finger) {
-							event.preventDefault();
-							return;
-						}
 					}
 
 					if (mode === "hand") {
@@ -446,7 +471,14 @@ export function NotebookCanvas({
 				onPointerMoveCapture={(event) => {
 					// Palm rejection: if pencil is active or was used recently, completely drop touch movements
 					if (event.pointerType === "touch") {
-						if (activePen.current !== null || gesture.current?.type === "pen" || Date.now() - lastPenTime.current < 600) {
+						const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
+						const penCooldown = mode === "draw" && !finger ? 2500 : 1500;
+						if (
+							activePen.current !== null ||
+							gesture.current?.type === "pen" ||
+							Date.now() - lastPenTime.current < penCooldown ||
+							isPalm
+						) {
 							event.preventDefault();
 							event.stopPropagation();
 							return;
@@ -488,9 +520,11 @@ export function NotebookCanvas({
 					if (gesture.current?.id !== event.pointerId) return;
 					event.preventDefault();
 					const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
-					gesture.current.stroke.points.push(
-						...(samples.length ? samples.map((s) => point(event, s)) : [point(event)]),
-					);
+					if (samples.length > 0) {
+						gesture.current.stroke.points.push(...samples.map((s) => point(event, s)));
+					} else {
+						gesture.current.stroke.points.push(point(event));
+					}
 					schedule();
 				}}
 				onPointerUpCapture={end}

@@ -349,7 +349,6 @@ export function PracticeDrawing({
 			}
 
 			// Drawing stroke
-			try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
 			onDrawing(true);
 
 			const worldPt = screenToWorld(event.clientX, event.clientY, rect);
@@ -378,8 +377,10 @@ export function PracticeDrawing({
 
 		// 2. TOUCH POINTER (Finger or Palm)
 		if (event.pointerType === "touch") {
-			// Palm rejection: If Apple Pencil is currently active OR was used within 600ms, ignore touch!
-			if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
+			// Palm rejection: If Apple Pencil is currently active OR was used recently, or large contact patch, ignore touch!
+			const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
+			const penCooldown = !fingerRef.current ? 2500 : 1500;
+			if (activePenId.current !== null || Date.now() - lastPenTime.current < penCooldown || isPalm) {
 				return;
 			}
 
@@ -387,11 +388,19 @@ export function PracticeDrawing({
 
 			// Two-finger gesture (pan + pinch zoom)
 			if (activeTouches.current.size >= 2) {
-				if (gesture.current) finishStroke();
-				isDraggingPan.current = false;
+				// Never interrupt an active Apple Pencil stroke due to touch contact
+				if (gesture.current) {
+					return;
+				}
 				const pts = Array.from(activeTouches.current.values());
+				const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+				if (dist < 45) {
+					// Contacts too close to be two fingers (palm patch)
+					return;
+				}
+				isDraggingPan.current = false;
 				prevCentroid.current = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 };
-				prevDistance.current = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+				prevDistance.current = dist;
 				return;
 			}
 
@@ -454,8 +463,10 @@ export function PracticeDrawing({
 
 		// 1. TOUCH POINTER MOVE
 		if (event.pointerType === "touch") {
-			// Palm rejection: if pencil is active or was used recently, ignore touch movements!
-			if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
+			// Palm rejection: if pencil is active or was used recently, or large contact patch, ignore touch movements!
+			const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
+			const penCooldown = !fingerRef.current ? 2500 : 1500;
+			if (activePenId.current !== null || Date.now() - lastPenTime.current < penCooldown || isPalm) {
 				return;
 			}
 
@@ -533,7 +544,8 @@ export function PracticeDrawing({
 			} else if (event.pointerType === "touch") {
 				activeTouches.current.delete(event.pointerId);
 				// Palm rejection: If pen is active or used recently, ignore touch lift completely
-				if (activePenId.current !== null || Date.now() - lastPenTime.current < 600) {
+				const penCooldown = !fingerRef.current ? 2500 : 1500;
+				if (activePenId.current !== null || Date.now() - lastPenTime.current < penCooldown) {
 					return;
 				}
 			}
@@ -562,6 +574,13 @@ export function PracticeDrawing({
 
 		if (!gesture.current) return;
 		if (event && gesture.current.id !== event.pointerId) return;
+
+		// Discard single-point aborted gesture on pointercancel so no stray dot is committed
+		if (event?.type === "pointercancel" && gesture.current.stroke.points.length <= 1) {
+			gesture.current = null;
+			onDrawing(false);
+			return;
+		}
 
 		const canvas = getActiveCanvas();
 		const rect = cachedRectRef.current || (canvas ? updateCachedRect(canvas) : null);
