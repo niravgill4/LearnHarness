@@ -7,7 +7,7 @@
  */
 
 import { chatStore } from "../store/chats.ts";
-import { graphStore } from "../store/graph.ts";
+import { graphStore as filesystemGraphStore } from "../store/graph.ts";
 import { sourceOrganizationStore } from "../store/source-organization.ts";
 import { jobStore } from "../store/jobs.ts";
 import { settingsStore } from "../store/settings.ts";
@@ -15,6 +15,18 @@ import { themeStore } from "../store/themes.ts";
 import { resolveSettings, type EffectiveSettings } from "../core/settings-resolution.ts";
 import { syncCustomProvider } from "./custom-provider.ts";
 import { configureWorkerRequestAdmission } from "../agent/worker-request-admission.ts";
+import { userAuthStorage } from "../core/user-auth-context.ts";
+import type { GraphStore } from "../core/ports.ts";
+
+const graphStore: GraphStore = new Proxy(filesystemGraphStore, {
+ get(target, property) {
+  const context = userAuthStorage.getStore();
+  if (context?.userId && !context.graphStore) throw new Error("Account graph has not been loaded; shared filesystem access refused");
+  const selected = context?.graphStore ?? target;
+  const value = Reflect.get(selected, property);
+  return typeof value === "function" ? value.bind(selected) : value;
+ },
+});
 /** The wired adapters. Satisfies core/graph.ts's GraphDeps structurally. */
 export const stores = {
 	chatStore,

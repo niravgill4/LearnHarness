@@ -11,6 +11,8 @@
  * by the pipeline and leave coverage untouched — the button stays honest.
  */
 import { extraction, extractionStatuses } from "@/src/server";
+import { createClient } from "@/lib/supabase/server";
+import { enqueueCloudExtraction } from "@/lib/supabase/cloud-workers";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,18 @@ export async function POST(request: Request) {
 	const chatId = (body as { chatId?: unknown }).chatId;
 	if (typeof chatId !== "string" || chatId === "") {
 		return Response.json({ error: 'Body must be {chatId: string}' }, { status: 400 });
+	}
+	const supabase = await createClient();
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (!user) return Response.json({ error: "Sign in to continue." }, { status: 401 });
+		const { data, error } = await supabase.from("chats").select("record, updated_at").eq("id", chatId).eq("user_id", user.id).maybeSingle();
+		if (error) return Response.json({ error: "Could not verify session access." }, { status: 503 });
+		if (!data) return Response.json({ error: "Not found" }, { status: 404 });
+		const messages = Array.isArray(data.record?.messages) ? data.record.messages : [];
+		const sourceVersion = messages.at(-1)?.id ?? data.updated_at ?? "empty";
+		await enqueueCloudExtraction(user.id, chatId, sourceVersion);
+		return Response.json({ started: true }, { status: 202 });
 	}
 	if (extractionStatuses().some((run) => run.kind === "chat" && run.chatId === chatId)) {
 		return Response.json({ error: "An extraction run is already in flight for this session" }, { status: 409 });

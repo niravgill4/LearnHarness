@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { SETTINGS_FILE } from "../../config.ts";
+import { getActiveUserId, getActiveUserSettings } from "../core/user-auth-context.ts";
 import {
 	sanitizeUserSettings,
 	type UserSettings,
@@ -84,6 +85,7 @@ export function readFileAccessSettings(): FileAccessSettingsResult {
 /** The persisted record, or null when none exists (first boot). Runs the
  *  migration chain on every read — cheap: a no-op file check when current. */
 export function readSettings(): UserSettings | null {
+	if (getActiveUserId()) return structuredClone(getActiveUserSettings());
 	let raw: string;
 	try {
 		raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
@@ -111,6 +113,7 @@ export function readSettings(): UserSettings | null {
 
 /** Persist the record (sanitized). Returns what was written. */
 export function writeSettings(raw: unknown): UserSettings {
+	if (getActiveUserId()) throw new Error("Cloud account settings must be saved through the account-scoped database adapter");
 	const settings = sanitizeUserSettings(raw);
 	if (!settings) throw new Error("settings record must be a JSON object");
 	if (!readFileAccessSettings().ok && settings.agent?.fileAccess === undefined) {

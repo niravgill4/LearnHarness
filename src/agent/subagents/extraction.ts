@@ -735,6 +735,9 @@ export interface ExtractionModels {
 }
 
 export interface ExtractionPipelineDeps extends GraphDeps, ExtractionModels {
+	/** Cloud runtimes persist after every committed batch so a reclaimed
+	 * worker resumes from durable coverage instead of repeating paid work. */
+	persistGraph?: () => Promise<void>;
 	/** The chunk budget — the transcript-token share of the extractor's
 	 *  context; batches fill to it (the trigger fires on the same number,
 	 *  read fresh per turn by the composition root). OPTIONAL with the
@@ -1193,6 +1196,7 @@ export function createExtractionPipeline(deps: ExtractionPipelineDeps): Extracti
 								// The layout ledger evolves with the merge (sync — the
 								// next snapshot fetch must already reflect the new nodes).
 								settleGraphLayout(graphStore);
+								await deps.persistGraph?.();
 								console.info(
 									`[extraction ${jobKey}] merged: ${batchStats.nodes} nodes, ${batchStats.chains ?? 0} chains`,
 								);
@@ -1360,6 +1364,7 @@ export function createExtractionPipeline(deps: ExtractionPipelineDeps): Extracti
 								// The layout ledger evolves with each merge — the next
 								// snapshot fetch reflects every finished chunk.
 								settleGraphLayout(graphStore);
+								await deps.persistGraph?.();
 								console.info(`[extraction ${jobKey}] merged: ${merged.nodes} nodes, ${merged.chains ?? 0} chains`);
 								return merged;
 							});

@@ -128,5 +128,14 @@ export async function POST(req: Request) {
 		);
 		stores.chatStore.saveMessages(chat.id, [newGraphContextMessage(picks, chainLines)]);
 	}
+	// Persist the complete initialized record after model/setup/context writes.
+	// The filesystem is only a runtime cache on cloud deployments.
+	if (supabase) {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (!user) return Response.json({ error: "Sign in to continue." }, { status: 401 });
+		const record = stores.chatStore.getChat(chat.id);
+		const { error } = await supabase.from("chats").update({ record }).eq("id", chat.id).eq("user_id", user.id);
+		if (error) return Response.json({ error: "Your session could not be saved. Please try again." }, { status: 503 });
+	}
 	return Response.json({ id: chat.id, title: chat.title });
 }

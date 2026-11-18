@@ -1,3 +1,4 @@
+import { profileSettings } from "@/lib/supabase/profile-settings";
 /**
  * PUT /api/settings/[section] — section-scoped record writes
  * (settings-storage wave, 2026-09-19). One PUT replaces ONE section
@@ -97,7 +98,14 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 			await refreshConnectionCatalog().catch(() => {});
 		}
 		// Compare against the same record that this whole-section write replaces.
-		const record = readSettingsRecord() ?? { version: 1 };
+		let record = readSettingsRecord() ?? { version: 1 };
+		let cloudMetadata: Record<string, unknown> = {};
+		if (supabase && user) {
+			const { data, error } = await supabase.from("profiles").select("model_settings, theme_settings").eq("id", user.id).single();
+			if (error || !data) return Response.json({ error: "Your settings could not be loaded." }, { status: 503 });
+			record = profileSettings(data);
+			cloudMetadata = data.model_settings ?? {};
+		}
 		let agentHealed: AgentSettings | undefined;
 
 		// Section-specific cross-validation (against the catalog / the prompt
@@ -173,23 +181,25 @@ export async function PUT(request: Request, ctx: { params: Promise<{ section: st
 		// Read-modify-write ONE section of the record; everything else rides
 		// along untouched (other sections, unknown keys — sanitize preserves).
 		const next = { ...record, [section]: sectionOut };
-		const stored = writeSettingsRecord(next);
+		const stored = supabase && user ? next : writeSettingsRecord(next);
 
 		if (supabase && user) {
-			const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
-			if (section === "models") {
-				const { data: profile } = await supabase.from("profiles").select("model_settings").eq("id", user.id).single();
-				const previous = profile?.model_settings ?? {};
-				const { strong: _strong, cheap: _cheap, vision: _vision, ...metadata } = previous;
-				updateData.model_settings = { ...metadata, ...(sectionOut as ModelsSettings) };
-			}
-			if (section === "appearance") updateData.theme_settings = sectionOut;
-			await supabase.from("profiles").update(updateData).eq("id", user.id);
+			const { strong: _strong, cheap: _cheap, vision: _vision, ...metadata } = cloudMetadata;
+			const updateData = {
+				model_settings: { ...metadata, ...stored.models, preferences: stored },
+				theme_settings: stored.appearance ?? {},
+				updated_at: new Date().toISOString(),
+			};
+			let query = supabase.from("profiles").update(updateData).eq("id", user.id);
+			query = Object.keys(cloudMetadata).length ? query.eq("model_settings", JSON.stringify(cloudMetadata)) : query;
+			const { data, error } = await query.select("id");
+			if (error) return Response.json({ error: "Your settings could not be saved." }, { status: 503 });
+			if (!data?.length) return Response.json({ error: "Settings changed in another window. Reload and retry." }, { status: 409 });
 		}
 
 		// Only a successful durable write changes admission. Increasing the
 		// limit immediately drains queued requests; decreasing never cancels active work.
-		refreshWorkerRequestAdmission();
+		if (!supabase) refreshWorkerRequestAdmission();
 		const fileAccessError = fileAccessConfigurationError();
 		return Response.json({ settings: stored, ...(fileAccessError ? { fileAccessError } : {}) });
 	};

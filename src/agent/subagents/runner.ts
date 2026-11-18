@@ -319,9 +319,12 @@ export function createJobRunner(deps: JobRunnerDeps): JobRunner {
 		});
 		// The saved result now belongs to the session. Do not keep the worker,
 		// abort registration, or temporary resources alive behind a question.
-		void deliver(buildSubagentSteer(job, result)).catch((err: unknown) => {
+		try {
+			await deliver(buildSubagentSteer(job, result));
+		} catch (err) {
 			console.error(`[job ${jobId}] pending delivery:`, err);
-		});
+			throw err;
+		}
 	}
 
 	/** Chat-record + input resolution shared by all three runners. */

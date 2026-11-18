@@ -64,12 +64,13 @@ function writeChat(record: ChatRecord): void {
 
 /** Rehydrate an authenticated cloud record with its original identity and settings.
  * Existing local records (including unreadable/newer versions) always win. */
-export function restoreChatRecord(record: ChatRecord): ChatRecord | null {
+export function restoreChatRecord(record: ChatRecord, replaceIdleCache = false): ChatRecord | null {
 	const file = chatFile(record.id);
-	if (fs.existsSync(file)) return getChat(record.id);
+	if (fs.existsSync(file) && !replaceIdleCache) return getChat(record.id);
 	if (record.version !== undefined && record.version > CURRENT_CHAT_VERSION) return null;
 	fs.mkdirSync(PATHS.chats, { recursive: true });
-	writeChat(record);
+	// Hydration must not echo an old database snapshot back to the cloud.
+	writeFileAtomicSync(file, JSON.stringify({ ...record, version: CURRENT_CHAT_VERSION }, null, "\t"), { allowInPlaceFallback: true });
 	return getChat(record.id);
 }
 

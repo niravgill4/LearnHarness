@@ -9,7 +9,20 @@ import type { ChatRecord, GraphChain, GraphNode, NotesSource, Position, PlanTree
  * with Row-Level Security scoped by user_id.
  */
 
-export async function syncChatToCloud(record: ChatRecord, userId?: string): Promise<void> {
+// Serialize writes per session within an execution. Snapshot immediately so
+// later in-memory mutation cannot change a write already queued.
+const chatWrites = new Map<string, Promise<void>>();
+export function syncChatToCloud(record: ChatRecord, userId?: string): Promise<void> {
+ const key = record.id;
+ const snapshot = structuredClone(record);
+ const prior = chatWrites.get(key) ?? Promise.resolve();
+ const next = prior.catch(() => {}).then(() => persistChatToCloud(snapshot, userId));
+ chatWrites.set(key, next);
+ void next.finally(() => { if (chatWrites.get(key) === next) chatWrites.delete(key); }).catch(() => {});
+ return next;
+}
+
+async function persistChatToCloud(record: ChatRecord, userId?: string): Promise<void> {
 	try {
 		const supabase = createAdminClient();
 		if (!supabase) return;
@@ -22,7 +35,7 @@ export async function syncChatToCloud(record: ChatRecord, userId?: string): Prom
 		if (!targetUserId) return;
 
 		// 1. Update chats metadata row
-		await supabase.from("chats").upsert({
+		const { error: recordError } = await supabase.from("chats").upsert({
 			id: record.id,
 			user_id: targetUserId,
 			title: record.title,
@@ -31,6 +44,8 @@ export async function syncChatToCloud(record: ChatRecord, userId?: string): Prom
 			updated_at: record.updatedAt || new Date().toISOString(),
 			record,
 		});
+
+		if (recordError) throw new Error("Cloud session record could not be saved");
 
 		// 2. Persist messages to chat_messages
 		if (record.messages && record.messages.length > 0) {
@@ -67,6 +82,7 @@ export async function syncChatToCloud(record: ChatRecord, userId?: string): Prom
 		}
 	} catch (err) {
 		console.error(`[supabase-sync] Failed to sync chat ${record.id}:`, err);
+		throw err;
 	}
 }
 
@@ -106,6 +122,15 @@ export async function restoreChatFromCloud(chatId: string, userId: string, clien
 			.maybeSingle();
 
 		if (!chatRow) return null;
+		// The full record is canonical: auxiliary tables cannot reconstruct
+		// image snapshots, side chats, extraction state or future fields.
+		const saved = chatRow.record as Partial<ChatRecord> | null;
+		if (saved && saved.id === chatId && Array.isArray(saved.messages)) {
+			return { ...saved, id: chatRow.id, title: chatRow.title,
+				kind: chatRow.kind === "practice" ? "practice" : "teach",
+				createdAt: chatRow.created_at, updatedAt: chatRow.updated_at,
+			} as ChatRecord;
+		}
 
 		const { data: messagesData } = await supabase
 			.from("chat_messages")
@@ -172,6 +197,7 @@ export async function syncNodeToCloud(node: GraphNode, userId?: string): Promise
 		await supabase.from("graph_nodes").upsert({
 			id: node.id,
 			user_id: targetUserId,
+			record: node,
 			name: node.name,
 			statement: node.statement,
 			created_at: new Date().toISOString(),
@@ -199,6 +225,7 @@ export async function syncChainToCloud(chain: GraphChain, userId?: string): Prom
 		await supabase.from("graph_chains").upsert({
 			id: chain.id,
 			user_id: targetUserId,
+			record: chain,
 			premises: chain.premises,
 			conclusion: chain.conclusion,
 			created_at: new Date().toISOString(),
@@ -224,24 +251,34 @@ export async function syncSourceToCloud(source: NotesSource, userId: string): Pr
 	}
 }
 
-export async function restoreGraphFromCloud(userId: string): Promise<{
+export async function restoreGraphFromCloud(userId: string, client: ReturnType<typeof createAdminClient> = createAdminClient()): Promise<{
 	nodes: GraphNode[];
 	chains: GraphChain[];
 	sources: NotesSource[];
 	positions: Record<string, Position>;
 } | null> {
 	try {
-		const supabase = createAdminClient();
+		const supabase = client;
 		if (!supabase) return null;
 
+		const canonical = await supabase.from("account_graph_state").select("state").eq("user_id",userId).maybeSingle();
+		if (canonical.error && canonical.error.code !== "PGRST205" && canonical.error.code !== "42P01") return null;
+		if (canonical.data?.state) {
+			const state = canonical.data.state;
+			if (!Array.isArray(state.nodes) || !Array.isArray(state.chains) || !Array.isArray(state.sources)) return null;
+			return { nodes:state.nodes, chains:state.chains, sources:state.sources, positions:state.positions??{} };
+		}
+
 		const [nodesRes, chainsRes, sourcesRes, posRes] = await Promise.all([
-			supabase.from("graph_nodes").select("id, name, statement").eq("user_id", userId),
-			supabase.from("graph_chains").select("id, premises, conclusion").eq("user_id", userId),
+			supabase.from("graph_nodes").select("id, name, statement, record").eq("user_id", userId),
+			supabase.from("graph_chains").select("id, premises, conclusion, record").eq("user_id", userId),
 			supabase.from("graph_sources").select("source").eq("user_id", userId),
 			supabase.from("graph_positions").select("positions").eq("user_id", userId).maybeSingle(),
 		]);
 
-		const nodes: GraphNode[] = (nodesRes.data ?? []).map((n) => ({
+		if ([nodesRes, chainsRes, sourcesRes, posRes].some(result => result.error)) return null;
+
+		const nodes: GraphNode[] = (nodesRes.data ?? []).map((n) => n.record && n.record.id === n.id && Array.isArray(n.record.provenance) ? n.record as GraphNode : ({
 			id: n.id,
 			name: n.name,
 			statement: n.statement,
@@ -250,7 +287,7 @@ export async function restoreGraphFromCloud(userId: string): Promise<{
 			provenance: [],
 		}));
 
-		const chains: GraphChain[] = (chainsRes.data ?? []).map((c) => ({
+		const chains: GraphChain[] = (chainsRes.data ?? []).map((c) => c.record && c.record.id === c.id && Array.isArray(c.record.provenance) ? c.record as GraphChain : ({
 			id: c.id,
 			premises: c.premises ?? [],
 			conclusion: c.conclusion ?? "",

@@ -42,6 +42,13 @@ function writeJob(record: JobRecord): void {
 	}
 }
 
+/** Restore an account-owned cloud job into this execution's disposable cache. */
+export function restoreJobRecord(record: JobRecord): JobRecord {
+	fs.mkdirSync(JOBS_DIR, { recursive: true });
+	writeJob(record);
+	return record;
+}
+
 /** Writes announce on the events channel AFTER the write lands (the
  *  notify-after-write law, beginTurn precedent) — jobs-changed is what
  *  retires the view's interval poll (push S4, 2026-10-02): dispatch cards,

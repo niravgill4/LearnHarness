@@ -1,27 +1,41 @@
-import { compactionInFlight, deleteChatSession, getChat, isTurnRunning, sessionCoverage, sessionCost, stores, turnFailure, type ChatDeleteMode, pluginQuestionAvailabilityOf, reconcilePluginQuestionCompatibility, type QuestionTypeResolver, getPluginQuestionTypeResolver, getPluginHost, pluginProblemAvailabilityOf, type ProblemTypeResolver } from "@/src/server";
+import { compactionInFlight, deleteChatSession, getChat, isTurnRunning, sessionCoverage, sessionCost, stores, turnFailure, type ChatDeleteMode, pluginQuestionAvailabilityOf, reconcilePluginQuestionCompatibility, type QuestionTypeResolver, getPluginQuestionTypeResolver, getPluginHost, pluginProblemAvailabilityOf, type ProblemTypeResolver, userAuthStorage, type UserAuthContext } from "@/src/server";
 import { pendingPluginQuestionOf, activeProblemOf } from "@/src/core";
 import { createClient } from "@/lib/supabase/server";
 import { restoreChatFromCloud } from "@/lib/supabase/sync";
 import { restoreChatRecord } from "@/src/server";
+import { loadAccountGraph } from "@/lib/supabase/account-graph";
+import { profileSettings } from "@/lib/supabase/profile-settings";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 	const supabase = await createClient();
+	let account: UserAuthContext | undefined;
+	let cloudTurnInFlight = false;
 	if (supabase) {
 		const { data: { user } } = await supabase.auth.getUser();
 		if (user) {
-			const { data: chatRow } = await supabase.from("chats").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+			const [chatResult, taskResult, profileResult, graph] = await Promise.all([
+				supabase.from("chats").select("id").eq("id", id).eq("user_id", user.id).maybeSingle(),
+				supabase.from("cloud_tasks").select("id").eq("chat_id", id).eq("user_id", user.id).eq("kind", "turn").in("status", ["queued", "running"]).limit(1).maybeSingle(),
+				supabase.from("profiles").select("model_settings, theme_settings").eq("id", user.id).single(),
+				loadAccountGraph(user.id),
+			]);
+			if (chatResult.error || taskResult.error || profileResult.error) return Response.json({ error: "Your session could not be loaded." }, { status: 503 });
+			const chatRow = chatResult.data;
 			if (!chatRow) return Response.json({ error: "Not found" }, { status: 404 });
+			cloudTurnInFlight = Boolean(taskResult.data);
+			account = { userId: user.id, keys: {}, settings: profileSettings(profileResult.data), graphStore: graph.store };
 
 			// If local chat record is missing, hydrate from Supabase cloud
-			if (!getChat(id)) {
+			if (!isTurnRunning(id)) {
 				const cloudChat = await restoreChatFromCloud(id, user.id, supabase);
 				if (cloudChat) {
-					restoreChatRecord(cloudChat);
+					restoreChatRecord(cloudChat, true);
 				}
 			}
 		}
 	}
+	const render = async () => {
 	await reconcilePluginQuestionCompatibility(stores.chatStore, id);
 	let chat = getChat(id);
 	if (!chat) return Response.json({ error: "Not found" }, { status: 404 });
@@ -56,12 +70,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 		pluginQuestionAvailability: pluginQuestionAvailabilityOf(chat, questionResolver),
 		pluginProblemAvailability: pluginProblemAvailabilityOf(chat, problemResolver),
 		pricing: sessionCost(chat),
-		turnInFlight: isTurnRunning(id),
+		turnInFlight: cloudTurnInFlight || isTurnRunning(id),
 		// Also reaches idle views that missed the failing turn's stream.
 		turnError: turnFailure(id),
 		compacting: compactionInFlight(id),
 		coverage: sessionCoverage(id),
 	});
+	};
+	return account ? userAuthStorage.run(account, render) : render();
 }
 
 /**

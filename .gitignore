@@ -32,3 +32,5 @@ xai-credentials.json*
 
 # Local visual review captures; source and design notes remain versioned.
 .impeccable/review/
+.vercel
+.env*

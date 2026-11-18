@@ -36,7 +36,8 @@ export async function updateSession(request: NextRequest) {
 	} = await supabase.auth.getUser();
 
 	const path = request.nextUrl.pathname;
-	const isAuthRoute = path === "/login" || path.startsWith("/auth/") || (path === "/api/auth/providers" && request.method === "GET");
+	const isInternalWorker = path === "/api/internal/cloud-worker";
+	const isAuthRoute = path === "/login" || path.startsWith("/auth/") || isInternalWorker || (path === "/api/auth/providers" && request.method === "GET");
 	const respond = (response: NextResponse) => {
 		for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
 		return response;
@@ -54,6 +55,18 @@ export async function updateSession(request: NextRequest) {
 		redirectUrl.pathname = "/login";
 		redirectUrl.search = "";
 		return respond(NextResponse.redirect(redirectUrl));
+	}
+
+	// Every session subresource must belong to the signed-in account before
+	// handlers touch the process-local cache, including writes and streams.
+	const sessionPath = path.match(/^\/api\/chats\/([^/]+)(?:\/|$)/);
+	if (user && sessionPath) {
+		let id: string;
+		try { id = decodeURIComponent(sessionPath[1]!); }
+		catch { return respond(NextResponse.json({ error: "Invalid session ID." }, { status: 400 })); }
+		const { data, error } = await supabase.from("chats").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+		if (error) return respond(NextResponse.json({ error: "Could not verify session access." }, { status: 503, headers: { "Cache-Control": "no-store" } }));
+		if (!data) return respond(NextResponse.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } }));
 	}
 
 	// Redirect authenticated users away from /login back to app

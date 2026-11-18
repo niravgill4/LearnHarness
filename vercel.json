@@ -1,0 +1,4 @@
+{
+	"installCommand": "npm ci && npm run plugins:setup",
+	"crons": [{ "path": "/api/internal/cloud-worker", "schedule": "0 0 * * *" }]
+}

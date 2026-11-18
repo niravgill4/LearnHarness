@@ -79,6 +79,19 @@ import {
 } from "../core/input-events.ts";
 import { steerDelivered } from "../core/contracts.ts";
 import type {CallUsage} from "../core/contracts.ts";
+import type { JobRecord } from "../core/contracts.ts";
+import { getActiveUserId, userAuthStorage } from "../core/user-auth-context.ts";
+import { enqueueCloudExtraction, enqueueCloudJob, finishCloudTask, heartbeatCloudTask, retryCloudTask, type CloudWorkerTask } from "../../lib/supabase/cloud-workers.ts";
+import { createAdminClient } from "../../lib/supabase/server.ts";
+import { readProfileKeys } from "../../lib/supabase/profile-keys.ts";
+import { profileSettings } from "../../lib/supabase/profile-settings.ts";
+import { loadAccountGraph } from "../../lib/supabase/account-graph.ts";
+import { restoreChatFromCloud, syncChatToCloud } from "../../lib/supabase/sync.ts";
+import { restoreChatRecord } from "../store/chats.ts";
+import { restoreJobRecord } from "../store/jobs.ts";
+import { abortJob } from "./jobs.ts";
+import { abortExtraction } from "../agent/subagents/extraction.ts";
+import { runningTurn } from "./turn-runs.ts";
 
 /**
  * One chat turn over the server-owned native record. Framework-free (plain
@@ -131,11 +144,26 @@ const jobRunner = createJobRunner({
 	// same signal so keyless servers never see the research tool at all.
 	searchProvider,
 });
+
+function spawnBackgroundJob(job: JobRecord, input: unknown): void {
+	const userId = getActiveUserId();
+	if (!userId) {
+		void jobRunner.runJob(job.id, input as never);
+		return;
+	}
+	void enqueueCloudJob(userId, job, input).catch((error) => {
+		console.error(`[job ${job.id}] cloud queue failed:`, error);
+		stores.jobStore.updateJob(job.id, { status: "error", activity: "failed", error: "Cloud worker could not be queued" });
+	});
+}
 /** The app's ONE extraction pipeline instance — both front doors share it:
  *  quiz-triggered session runs (turn-service) and notes imports
  *  (/api/graph/import) hit the same single-flight registry. */
 export const extraction = createExtractionPipeline({
 	...stores,
+	persistGraph: async () => {
+		await userAuthStorage.getStore()?.flushGraph?.();
+	},
 	// BYOK (owner, 2026-09-22): the extraction stages resolve the chain —
 	// role override → slot → NOTHING — read FRESH per stage call; an empty
 	// chain flows through as undefined and the pipeline refuses the run
@@ -154,6 +182,94 @@ export const extraction = createExtractionPipeline({
 // delivers its steers through THIS composition root (one event: the steer
 // marker, appended natively under the turn claim), and crash recovery
 // re-spawns orphaned sub-agent loops through THIS runner.
+/** Execute one claimed cloud task inside an account-scoped runtime. */
+export async function runClaimedCloudTask(task: CloudWorkerTask): Promise<void> {
+	try {
+		await executeClaimedCloudTask(task);
+	} catch (error) {
+		const message = error instanceof Error ? error.message.slice(0, 160) : "worker_failed";
+		const resultInput = task.kind === "job"
+			? { ...task.input, job: (task.input.job as JobRecord | undefined)?.id
+				? stores.jobStore.getJob((task.input.job as JobRecord).id) ?? task.input.job
+				: task.input.job }
+			: task.input;
+		await retryCloudTask(task, resultInput, message).catch(() => undefined);
+		throw error;
+	}
+}
+
+async function executeClaimedCloudTask(task: CloudWorkerTask): Promise<void> {
+	if (task.kind === "turn") {
+		await finishCloudTask(task, "failed", task.input, "execution_expired");
+		return;
+	}
+	const admin = createAdminClient();
+	if (!admin) throw new Error("Cloud worker is not configured");
+	const [chat, profileResult] = await Promise.all([
+		restoreChatFromCloud(task.chat_id, task.user_id, admin),
+		admin.from("profiles").select("encrypted_keys, model_settings, theme_settings").eq("id", task.user_id).single(),
+	]);
+	if (!chat || profileResult.error || !profileResult.data) {
+		await finishCloudTask(task, "failed", task.input, "account_state_unavailable");
+		return;
+	}
+	const graph = await loadAccountGraph(task.user_id);
+	restoreChatRecord(chat, true);
+	const keys = profileResult.data.encrypted_keys ? readProfileKeys(profileResult.data.encrypted_keys) : {};
+	let heartbeatError: unknown;
+	let cancelled = false;
+	const heartbeat = setInterval(() => {
+		const input = task.kind === "job"
+			? { ...task.input, job: stores.jobStore.getJob((task.input.job as JobRecord).id) ?? task.input.job }
+			: task.input;
+		void heartbeatCloudTask(task, input).catch((error) => {
+			heartbeatError = error;
+			if (cancelled) return;
+			cancelled = true;
+			if (task.kind === "job") abortJob((task.input.job as JobRecord).id);
+			else abortExtraction(task.chat_id);
+		});
+	}, 15_000);
+	try {
+		await userAuthStorage.run({
+			userId: task.user_id,
+			keys,
+			settings: profileSettings(profileResult.data),
+			graphStore: graph.store,
+			flushGraph: graph.flush,
+		}, async () => {
+			if (task.kind === "job") {
+				const job = task.input.job as JobRecord | undefined;
+				if (!job || job.chatId !== task.chat_id) throw new Error("Cloud job payload is invalid");
+				restoreJobRecord(job);
+				await jobRunner.runJob(job.id, task.input.toolInput as never);
+				// Delivering a research result may start a tutor follow-up turn.
+				// Drain it here so the serverless worker remains alive until its
+				// reply and chat persistence have settled.
+				const followUp = runningTurn(task.chat_id);
+				if (followUp) {
+					const reader = followUp.subscribe().getReader();
+					while (!(await reader.read()).done) { /* drain */ }
+				}
+			} else {
+				await extraction.runExtraction(task.chat_id);
+			}
+			if (heartbeatError) throw heartbeatError;
+			await graph.flush();
+			const current = stores.chatStore.getChat(task.chat_id);
+			if (current) await syncChatToCloud(current, task.user_id);
+		});
+		const resultInput = task.kind === "job"
+			? { ...task.input, job: stores.jobStore.getJob((task.input.job as JobRecord).id) }
+			: task.input;
+		await finishCloudTask(task, "completed", resultInput);
+	} catch (error) {
+		throw error;
+	} finally {
+		clearInterval(heartbeat);
+	}
+}
+
 setTurnRunner(async (chatId, input) => {
 	const res = await handleChatInput(chatId, input);
 	// Drive the stream to completion server-side — nobody else will read it,
@@ -756,7 +872,7 @@ export async function handleChatInput(
 						jobs: {
 							chatId,
 							jobStore: stores.jobStore,
-							spawn: (job, input) => void jobRunner.runJob(job.id, input),
+							spawn: spawnBackgroundJob,
 							searchAvailable,
 						},
 						...(graphToolsEnabled(effective) ? { graph: { chatStore: stores.chatStore, graphStore: stores.graphStore } } : {}),
@@ -769,7 +885,7 @@ export async function handleChatInput(
 						chatId,
 						chatStore: stores.chatStore,
 						jobStore: stores.jobStore,
-						spawn: (job, input) => void jobRunner.runJob(job.id, input),
+						spawn: spawnBackgroundJob,
 						// The registry drop's signal (2026-09-20): no live engine
 						// = no research tool in the teacher's registry.
 						searchAvailable,
@@ -785,7 +901,7 @@ export async function handleChatInput(
 						// dispatch (owner ruling — phase-omnipresent), so its ctx
 						// needs the same job wiring as the teacher's.
 						jobStore: stores.jobStore,
-						spawn: (job, input) => void jobRunner.runJob(job.id, input),
+						spawn: spawnBackgroundJob,
 						searchAvailable,
 						// The map reader (wave 7): the prober reads the learner's
 						// knowledge graph through tools when the gate opens —
@@ -894,7 +1010,15 @@ export async function handleChatInput(
 					// Fresh per-turn read of the graph section's chunk budget
 					// (extraction-UX redesign, 2026-09-24): the trigger compares
 					// against it and the pipeline's batches share it.
-					triggerExtraction(stores, extraction, chatId, effective.graph.extractionChunkTokens);
+					const userId = getActiveUserId();
+					if (userId) {
+						const sourceVersion = stores.chatStore.getChat(chatId)?.messages.at(-1)?.id ?? "empty";
+						void enqueueCloudExtraction(userId, chatId, sourceVersion).catch((error) =>
+							console.error(`[chat ${chatId}] extraction queue failed:`, error),
+						);
+					} else {
+						triggerExtraction(stores, extraction, chatId, effective.graph.extractionChunkTokens);
+					}
 				}
 				// PARKED DISMISSAL (owner, 2026-10-04): a dismissal that arrived
 				// mid-turn was parked by the dismiss route (202); now that
