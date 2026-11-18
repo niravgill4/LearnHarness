@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { Chat } from "@/components/chat";
 import { slotsConfigured } from "@/src/core";
-import { compactionInFlight, getChat, isTurnRunning, readSettingsRecord, turnFailure } from "@/src/server";
+import { compactionInFlight, getChat, isTurnRunning, readSettingsRecord, restoreChatRecord, turnFailure } from "@/src/server";
+import { createClient } from "@/lib/supabase/server";
+import { profileSettings } from "@/lib/supabase/profile-settings";
+import { restoreChatFromCloud } from "@/lib/supabase/sync";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +16,24 @@ export default async function ChatPage({
 	searchParams: Promise<{ prompt?: string }>;
 }) {
 	const [{ id }, { prompt }] = await Promise.all([params, searchParams]);
-	const chat = getChat(id);
+	let chat = getChat(id);
+	let settings = readSettingsRecord();
+	const client = await createClient();
+	if (client) {
+		const { data: { user } } = await client.auth.getUser();
+		if (user) {
+			const [cloudChat, profileResult] = await Promise.all([
+				restoreChatFromCloud(id, user.id, client),
+				client.from("profiles").select("model_settings, theme_settings").eq("id", user.id).maybeSingle(),
+			]);
+			if (cloudChat) chat = restoreChatRecord(cloudChat, true);
+			settings = profileSettings(profileResult.data ?? {});
+		}
+	}
 	if (!chat) notFound();
 	// The persistent setup CTA's seed (BYOK, owner 2026-09-22): slotsConfigured
 	// over the settings record, server-read — the same gate home/new read. The
 	// server's 503 stays the truth; this only decides whether the pill rides.
-	const record = readSettingsRecord();
 	return (
 		<Chat
 			key={chat.id}
@@ -30,7 +45,7 @@ export default async function ChatPage({
 				// native messages).
 				initialMessages={chat.messages}
 			initialError={turnFailure(chat.id)}
-			initialConfigured={slotsConfigured(record?.models)}
+			initialConfigured={slotsConfigured(settings?.models)}
 			initialPrompt={prompt}
 			// A teacher turn that outlived its client: the remounted view must
 			// attach (busy shimmer + poll), never resurrect the stale record.

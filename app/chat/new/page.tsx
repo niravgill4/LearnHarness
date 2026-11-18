@@ -1,6 +1,8 @@
 import { NewSession } from "@/components/new-session";
 import { readSettingsRecord } from "@/src/server";
 import { slotsConfigured } from "@/src/core";
+import { createClient } from "@/lib/supabase/server";
+import { profileSettings } from "@/lib/supabase/profile-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +23,18 @@ export default async function NewSessionPage({
 	searchParams: Promise<{ mode?: string }>;
 }) {
 	const { mode } = await searchParams;
+	let configured = slotsConfigured(readSettingsRecord()?.models);
+	const client = await createClient();
+	if (client) {
+		const { data: { user } } = await client.auth.getUser();
+		if (user) {
+			const { data: profile } = await client.from("profiles").select("model_settings, theme_settings").eq("id", user.id).maybeSingle();
+			configured = slotsConfigured(profileSettings(profile ?? {}).models);
+		}
+	}
 	return (
 		<NewSession
-			initialConfigured={slotsConfigured(readSettingsRecord()?.models)}
+			initialConfigured={configured}
 			mode={mode === "practice" ? "practice" : "teach"}
 		/>
 	);

@@ -1,4 +1,4 @@
-import { modelCatalog, onboardingAccountAvailable, onboardingProviderModels, readSettingsRecord, writeSettingsRecord, refreshConnectionCatalog } from "@/src/server";
+import { modelCatalog, onboardingAccountAvailable, onboardingProviderModels, refreshConnectionCatalog } from "@/src/server";
 import { createClient } from "@/lib/supabase/server";
 import { mutateProfileKey, readProfileKeys } from "@/lib/supabase/profile-keys";
 import { ONBOARDING_PROVIDERS, profileModelSlots, validateOnboardingSlots, type LearningSetup, type OnboardingProvider } from "@/lib/onboarding";
@@ -132,10 +132,15 @@ export async function POST(request: Request) {
 			intent: body.intent,
 		};
 		const slots = Object.fromEntries((["strong", "cheap", "vision"] as const).map(name => [name, { model: { provider: provider.id, id: choices[name].id } }])) as Record<"strong" | "cheap" | "vision", { model: { provider: string; id: string } }>;
-		const isClaude = provider.id === "claude-code";
+		const priorPreferences = fullProfile.model_settings?.preferences && typeof fullProfile.model_settings.preferences === "object"
+			? fullProfile.model_settings.preferences
+			: { version: 1 };
 		const nextModelSettings = {
 			...(fullProfile?.model_settings ?? {}),
 			...slots,
+			...(provider.id === "claude-code"
+				? { preferences: { ...priorPreferences, version: 1, claudeCode: { enabled: true } } }
+				: {}),
 			onboarding: setup,
 		};
 
@@ -144,17 +149,6 @@ export async function POST(request: Request) {
 			updated_at: new Date().toISOString(),
 		}).eq("id", user.id);
 		if (saveError) return json({ error: "Your preferences could not be saved." }, 503);
-
-		// Mirror to local disk settings so runtime inference and initialConfigured check pass immediately
-		const localRecord = readSettingsRecord() ?? { version: 1 };
-		writeSettingsRecord({
-			...localRecord,
-			...(isClaude ? { claudeCode: { enabled: true } } : {}),
-			models: {
-				...localRecord.models,
-				...slots,
-			},
-		});
 
 		return json({ saved: true, setup });
 	} catch {
