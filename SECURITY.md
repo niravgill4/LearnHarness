@@ -1,29 +1,19 @@
 # Security policy
 
-LearnHarness stores API keys, sign-in tokens, chats, and learning records on your machine, and its agent reads files and fetches web content on your behalf. If you find a way to abuse any of that, please tell us privately so a fix can ship before the details are public.
+Cognera handles model credentials, sign-in sessions, study materials, and learning records. Its agents can also read documents and fetch web content. Please report vulnerabilities privately so maintainers can investigate before disclosure.
 
 ## Reporting a vulnerability
 
 **Do not open a public issue, pull request, or Discord post for a security problem.**
 
-Report it through GitHub's private vulnerability reporting:
-[Security → Report a vulnerability](https://github.com/amosblomqvist/learnharness/security/advisories/new).
-
-If that page is unavailable, message a maintainer on [Discord](https://discord.gg/5tCHHQEB2e) and ask for a private channel. Do not include any details in that first message.
+Use [GitHub’s private vulnerability reporting form](https://github.com/niravgill4/LearnHarness/security/advisories/new) if it is available. Otherwise, contact the repository owner privately and ask for a secure way to share the details.
 
 A useful report includes:
 
-- the LearnHarness version and your OS;
+- the Cognera version or web build, plus your browser or OS;
 - what an attacker can do and what they need first (a web page the agent reads, a file the learner opens, network access, and so on);
 - steps to reproduce, or a proof of concept;
 - any fix or mitigation you have in mind.
-
-## Security contacts
-
-- [@amosblomqvist](https://github.com/amosblomqvist)
-- [@IsaacZhangg](https://github.com/IsaacZhangg)
-
-Use the private reporting process above for vulnerability reports. Do not report security details through public mentions.
 
 ## What to expect
 
@@ -47,6 +37,7 @@ In scope:
 
 - the desktop app (Electron shell, window, and IPC);
 - the local API server, whether started by the desktop app or run from source;
+- the hosted web app, including authentication and account data;
 - the agent and its tools, including prompt injection from web pages, PDFs, or other content that leads to reading, changing, or sending your data;
 - rendered content such as demos, figures, and markdown;
 - the update and release pipeline.
@@ -55,4 +46,4 @@ Out of scope:
 
 - attacks that already require running code as your OS user;
 - bugs in third-party model or service providers themselves (report those to the provider);
-- automated scanner output without a demonstrated impact on LearnHarness.
+- automated scanner output without a demonstrated impact on Cognera.
