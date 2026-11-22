@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
 	clampZoom,
 	contentBounds,
@@ -24,6 +24,7 @@ export function NotebookCanvas({
 	onToggleFullscreen,
 	onChange,
 	onBusy,
+	onPencilStart,
 	children,
 }: {
 	page: NotePage;
@@ -36,12 +37,14 @@ export function NotebookCanvas({
 	onToggleFullscreen?: () => void;
 	onChange(strokes: InkStroke[]): void;
 	onBusy(active: boolean): void;
+	onPencilStart(): void;
 	children: ReactNode;
 }) {
 	const viewport = useRef<HTMLDivElement>(null),
 		canvas = useRef<HTMLCanvasElement>(null),
 		world = useRef<HTMLElement>(null);
 	const camera = useRef<Camera>({ x: 24, y: 24, zoom: 0.75 });
+	const committed = useRef<{ canvas: HTMLCanvasElement; strokes?: InkStroke[]; camera?: Camera }>(null);
 	const latest = useRef({ page, mode, tool, finger, onChange, onBusy });
 	latest.current = { page, mode, tool, finger, onChange, onBusy };
 	const pointers = useRef(new Map<number, ViewPoint>()),
@@ -80,17 +83,26 @@ export function NotebookCanvas({
 		if (c.height !== height) c.height = height;
 		const context = c.getContext("2d");
 		if (!context) return;
-		context.setTransform(dpr * view.zoom, 0, 0, dpr * view.zoom, dpr * view.x, dpr * view.y);
-		const start = worldPoint(view, { x: 0, y: 0 }),
-			end = worldPoint(view, { x: box.width, y: box.height });
-		paintInk(
-			c,
-			gesture.current
-				? [...strokesRef.current, gesture.current.stroke]
-				: strokesRef.current,
-			true,
-			{ ...start, right: end.x, bottom: end.y },
-		);
+		const base = committed.current ??= { canvas: document.createElement("canvas") };
+		const layer = base.canvas;
+		if (base.strokes !== strokesRef.current || base.camera !== view || layer.width !== width || layer.height !== height) {
+			if (layer.width !== width) layer.width = width;
+			if (layer.height !== height) layer.height = height;
+			layer.getContext("2d")?.setTransform(dpr * view.zoom, 0, 0, dpr * view.zoom, dpr * view.x, dpr * view.y);
+			const start = worldPoint(view, { x: 0, y: 0 });
+			const end = worldPoint(view, { x: box.width, y: box.height });
+			paintInk(layer, strokesRef.current, true, { ...start, right: end.x, bottom: end.y });
+			base.strokes = strokesRef.current;
+			base.camera = view;
+		}
+		context.resetTransform();
+		context.globalCompositeOperation = "copy";
+		context.drawImage(layer, 0, 0);
+		context.globalCompositeOperation = "source-over";
+		if (gesture.current) {
+			context.setTransform(dpr * view.zoom, 0, 0, dpr * view.zoom, dpr * view.x, dpr * view.y);
+			paintInk(c, [gesture.current.stroke], false);
+		}
 		w.style.transform = `translate3d(${view.x}px,${view.y}px,0) scale(${view.zoom})`;
 		host.style.setProperty("--grid-size", `${40 * view.zoom}px`);
 		host.style.setProperty("--grid-x", `${view.x}px`);
@@ -254,12 +266,13 @@ export function NotebookCanvas({
 			window.removeEventListener("afterprint", after);
 		};
 	}, [key]);
-	function local(event: PointerEvent, sample: Pick<globalThis.PointerEvent, "clientX" | "clientY"> = event) {
+	type InkEvent = Pick<globalThis.PointerEvent, "clientX" | "clientY" | "pressure" | "pointerType">;
+	function local(event: Pick<InkEvent, "clientX" | "clientY">, sample = event) {
 		const box = rect.current ?? viewport.current!.getBoundingClientRect();
 		return { x: sample.clientX - box.left, y: sample.clientY - box.top };
 	}
 	function point(
-		event: PointerEvent,
+		event: InkEvent,
 		sample: Pick<globalThis.PointerEvent, "clientX" | "clientY" | "pressure"> = event,
 	): InkPoint {
 		return {
@@ -267,8 +280,8 @@ export function NotebookCanvas({
 			p: event.pointerType === "pen" && sample.pressure ? sample.pressure : 0.5,
 		};
 	}
-	function end(event: PointerEvent) {
-		if (event.pointerType === "pen" || event.pointerId === activePen.current) {
+	function end(event: InkEvent & Pick<globalThis.PointerEvent, "pointerId" | "type">) {
+		if (event.pointerId === activePen.current) {
 			activePen.current = null;
 			lastPenTime.current = Date.now();
 		}
@@ -288,10 +301,11 @@ export function NotebookCanvas({
 				return;
 			}
 			// Guarantee that the final point of fast flick is included
-			const endPt = point(event);
 			const lastPt = stroke.points[stroke.points.length - 1];
-			if (!lastPt || Math.hypot(endPt.x - lastPt.x, endPt.y - lastPt.y) > 0.5) {
-				stroke.points.push(endPt);
+			if (event.type === "pointerup") {
+				const endPt = point(event);
+				if (!lastPt || Math.hypot(endPt.x - lastPt.x, endPt.y - lastPt.y) > 0.5)
+					stroke.points.push({ ...endPt, p: lastPt?.p ?? endPt.p });
 			}
 			gesture.current = null;
 			const nextStrokes = [...strokesRef.current, stroke];
@@ -306,6 +320,20 @@ export function NotebookCanvas({
 			rect.current = null;
 		}
 	}
+	useEffect(() => {
+		// Pencil capture can interfere with Safari's palm handling. Finish a
+		// stroke lifted outside the editor without forcing pointer capture.
+		const finishOutside = (event: globalThis.PointerEvent) => {
+			if (event.pointerId !== activePen.current || (event.target instanceof Node && viewport.current?.contains(event.target))) return;
+			end(event);
+		};
+		window.addEventListener("pointerup", finishOutside, true);
+		window.addEventListener("pointercancel", finishOutside, true);
+		return () => {
+			window.removeEventListener("pointerup", finishOutside, true);
+			window.removeEventListener("pointercancel", finishOutside, true);
+		};
+	}, [key]); // The handler reads the current stroke and callbacks from refs.
 	return (
 		<div className={`nb-canvas-shell tone-${page.tone ?? "light"}`}>
 			<div
@@ -316,7 +344,7 @@ export function NotebookCanvas({
 					// 1. Palm rejection: if Apple Pencil is active, or was used recently, or contact patch is large, drop touch completely
 					if (event.pointerType === "touch") {
 						const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
-						const penCooldown = mode === "draw" && !finger ? 2500 : 1500;
+						const penCooldown = 160;
 						if (
 							activePen.current !== null ||
 							gesture.current?.type === "pen" ||
@@ -348,7 +376,9 @@ export function NotebookCanvas({
 						panning.current = false;
 						setMoving(false);
 
-						if (mode === "draw") {
+						const editable = (event.target as Element).closest(".nb-text-block,input");
+						if (mode === "draw" || (mode === "write" && !editable)) {
+							if (mode === "write") onPencilStart();
 							// If a previous stroke was still pending, finalize it immediately so it is never dropped
 							if (gesture.current) {
 								const prevStroke = gesture.current.stroke;
@@ -472,7 +502,7 @@ export function NotebookCanvas({
 					// Palm rejection: if pencil is active or was used recently, completely drop touch movements
 					if (event.pointerType === "touch") {
 						const isPalm = (event.width && event.width > 24) || (event.height && event.height > 24);
-						const penCooldown = mode === "draw" && !finger ? 2500 : 1500;
+						const penCooldown = 160;
 						if (
 							activePen.current !== null ||
 							gesture.current?.type === "pen" ||
@@ -520,10 +550,14 @@ export function NotebookCanvas({
 					if (gesture.current?.id !== event.pointerId) return;
 					event.preventDefault();
 					const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
-					if (samples.length > 0) {
-						gesture.current.stroke.points.push(...samples.map((s) => point(event, s)));
-					} else {
-						gesture.current.stroke.points.push(point(event));
+					const points = gesture.current.stroke.points;
+					for (const sample of samples.length ? samples : [event]) {
+						const next = point(event, sample);
+						const previous = points.at(-1)!;
+						if (next.x === previous.x && next.y === previous.y) continue;
+						if (event.pointerType === "pen") next.p = previous.p * 0.35 + next.p * 0.65;
+						if (points.length < 14_999) points.push(next);
+						else points[points.length - 1] = next;
 					}
 					schedule();
 				}}

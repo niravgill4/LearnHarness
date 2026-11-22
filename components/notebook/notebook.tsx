@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { SessionStarter } from "../start-session";
@@ -32,6 +32,7 @@ import {
 	sectionColors,
 	validateNotebook,
 	notebookFingerprint,
+	editedNotePages,
 	type NotebookData,
 	type NotebookSnapshot,
 	type NotePage,
@@ -69,10 +70,12 @@ export function Notebook() {
 	const [busy, setBusy] = useState(false),
 		[recoveryError, setRecoveryError] = useState("");
 	const editor = useRef<Editor | null>(null),
+		notebook = useRef<HTMLElement>(null),
 		assetInput = useRef<HTMLInputElement>(null),
 		backupInput = useRef<HTMLInputElement>(null);
 	const live = useRef({
 		data,
+		savedData: data,
 		version: 0,
 		revision: 0,
 		saved: 0,
@@ -102,18 +105,36 @@ export function Notebook() {
 		};
 	}, [fullscreen]);
 
-	// Prevent unwanted WebKit text selection / callout bleeds when drawing or interacting with notebook controls
-	useEffect(() => {
-		const handleSelectStart = (e: Event) => {
-			const target = e.target as HTMLElement | null;
-			if (target?.closest("input.nb-title, .nb-search input, .nb-text-block.is-selected .tiptap")) {
-				return;
-			}
-			e.preventDefault();
+	useLayoutEffect(() => {
+		const root = notebook.current;
+		if (!root) return;
+		const inCanvas = (node: Node | null) =>
+			!!node && root.contains(node) &&
+			(node instanceof Element ? node : node.parentElement)?.closest(".nb-viewport") != null;
+		const clearCanvasSelection = () => {
+			const selection = document.getSelection();
+			if (selection && (inCanvas(selection.anchorNode) || inCanvas(selection.focusNode)))
+				selection.removeAllRanges();
 		};
-		window.addEventListener("selectstart", handleSelectStart);
-		return () => window.removeEventListener("selectstart", handleSelectStart);
-	}, []);
+		const preventCallout = (event: Event) => {
+			if (mode === "write" || !(event.target instanceof Node) || !inCanvas(event.target)) return;
+			event.preventDefault();
+			clearCanvasSelection();
+		};
+		if (mode !== "write") {
+			const focused = document.activeElement;
+			if (focused instanceof HTMLElement && inCanvas(focused)) focused.blur();
+			clearCanvasSelection();
+		}
+		root.addEventListener("selectstart", preventCallout, true);
+		root.addEventListener("contextmenu", preventCallout, true);
+		if (mode !== "write") document.addEventListener("selectionchange", clearCanvasSelection);
+		return () => {
+			root.removeEventListener("selectstart", preventCallout, true);
+			root.removeEventListener("contextmenu", preventCallout, true);
+			document.removeEventListener("selectionchange", clearCanvasSelection);
+		};
+	}, [mode]);
 
 	const activePage = data.pages.find((p) => p.id === pageId),
 		activeBook = data.notebooks.find((n) => n.id === book),
@@ -179,18 +200,26 @@ export function Notebook() {
 					"Local recovery is unavailable. Export a backup if you need to close this tab before saving.",
 				),
 			);
-			const response = await fetch("/api/notebook", {
-				method: "PUT",
+			const send = (method: "PUT" | "PATCH", body: object) => fetch("/api/notebook", {
+				method,
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ version: state.version, data: document }),
+				body: JSON.stringify({ version: state.version, ...body }),
 			});
-			const result = await response.json();
+			const pages = editedNotePages(state.savedData, document);
+			let response = pages?.length ? await send("PATCH", { pages }) : await send("PUT", { data: document });
+			// Older cloud projects can keep saving while the migration rolls out.
+			if (pages?.length && response.status === 501) response = await send("PUT", { data: document });
+			const result = await response.json().catch(() => null);
 			if (!response.ok) {
 				if (response.status === 409) state.conflict = true;
-				throw new Error(result.error);
+				throw new Error(result?.error ?? (response.status === 413
+					? "This save exceeds the upload limit. Your recovery draft is kept."
+					: "Could not save. Your recovery draft is kept."));
 			}
+			if (!Number.isSafeInteger(result?.version)) throw new Error("Could not confirm the save. Your recovery draft is kept.");
 			state.version = result.version;
 			state.saved = revision;
+			state.savedData = document;
 			// Store the current draft against the new base, even when edits arrived during save.
 			await recoveryWrite(state.account, { version: state.version, data: state.data }).catch(() =>
 				setRecoveryError("Saved, but local recovery is unavailable in this browser."),
@@ -215,6 +244,7 @@ export function Notebook() {
 		}
 	}, [storage]);
 	async function load(discard = false) {
+		if (live.current.saving) return;
 		if (
 			discard &&
 			!window.confirm(
@@ -243,6 +273,7 @@ export function Notebook() {
 			const document = recovered ? draft.data : result.data;
 			live.current = {
 				data: document,
+				savedData: result.data,
 				version: result.version,
 				revision: recovered ? 1 : 0,
 				saved: 0,
@@ -553,6 +584,7 @@ export function Notebook() {
 		.sort((a, b) => (query || recent ? b.updatedAt.localeCompare(a.updatedAt) : 0));
 	return (
 		<main
+			ref={notebook}
 			className={`notebook ${fullscreen ? "is-fullscreen" : ""} mode-${mode}`}
 			data-native-keyboard="true"
 			data-history={historyTick}
@@ -900,11 +932,12 @@ export function Notebook() {
 									</>
 								) : mode === "draw" ? (
 									<>
-										<div className="nb-tool-group">
+										<div className="nb-tool-group nb-pen-tray" role="group" aria-label="Pen tray">
 											{(["pen", "highlighter", "eraser"] as const).map((t, i) => (
 												<button
 													key={t}
 													aria-label={t}
+													title={t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : "Eraser"}
 													aria-pressed={tool.tool === t}
 													onClick={() => setTool((v) => ({ ...v, tool: t }))}
 												>
@@ -918,8 +951,8 @@ export function Notebook() {
 												</button>
 											))}
 										</div>
-										<label>
-											Size
+										<label className="nb-ink-size">
+											<span aria-hidden="true" className="nb-size-dot" style={{ width: tool.width + 3, height: tool.width + 3 }} />
 											<input
 												aria-label="Ink thickness"
 												type="range"
@@ -929,12 +962,22 @@ export function Notebook() {
 												onChange={(e) => setTool((v) => ({ ...v, width: Number(e.target.value) }))}
 											/>
 										</label>
-										<input
-											type="color"
-											aria-label="Ink color"
-											value={tool.color}
-											onChange={(e) => setTool((v) => ({ ...v, color: e.target.value }))}
-										/>
+										<div className="nb-ink-colors" role="group" aria-label="Ink colors">
+											{([
+												[activePage.tone === "dark" ? "#e5ece7" : "#223b32", "Default ink"],
+												["#629e86", "Jade"],
+												["#629ed0", "Blue"],
+												["#d6866d", "Terracotta"],
+												["#b797cc", "Lilac"],
+											] as const).map(([color, label]) => (
+												<button key={color} type="button" className="nb-ink-swatch" title={label} aria-label={label}
+													aria-pressed={tool.color === color} onClick={() => setTool(value => ({ ...value, color }))}>
+													<span style={{ backgroundColor: color }} />
+												</button>
+											))}
+											<input type="color" aria-label="Ink color" title="Custom ink color" value={tool.color}
+												onChange={e => setTool(value => ({ ...value, color: e.target.value }))} />
+										</div>
 										<button
 											aria-label="Undo ink"
 											disabled={!undo.current.length || busy}
@@ -1029,10 +1072,13 @@ export function Notebook() {
 								onToggleFullscreen={toggleFullscreen}
 								onChange={inkChange}
 								onBusy={setBusy}
+								onPencilStart={() => setMode("draw")}
 							>
 								<input
 									className="nb-title"
 									aria-label="Page title"
+									readOnly={mode !== "write"}
+									tabIndex={mode === "write" ? 0 : -1}
 									maxLength={250}
 									value={activePage.title}
 									onChange={(e) => changePage({ title: e.target.value })}
@@ -1044,6 +1090,7 @@ export function Notebook() {
 								)}
 								{activePage.blocks.map((block) => (
 									<TextBlock
+										editable={mode === "write"}
 										key={`${pageId}:${block.id}`}
 										block={block}
 										selected={selected === block.id && mode === "write"}

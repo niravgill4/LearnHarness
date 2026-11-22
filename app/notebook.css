@@ -37,9 +37,10 @@
 	user-select: text !important;
 	-webkit-touch-callout: default !important;
 }
-/* In Draw mode or Hand mode, disable all text selection completely */
-.notebook.mode-draw *,
-.notebook.mode-hand * {
+/* Keep the canvas nonselectable in drawing/navigation modes. Search and
+   other controls outside the sheet still accept normal text selection. */
+.notebook .nb-viewport:is(.mode-draw, .mode-hand),
+.notebook .nb-viewport:is(.mode-draw, .mode-hand) * {
 	-webkit-user-select: none !important;
 	user-select: none !important;
 	-webkit-touch-callout: none !important;
@@ -339,6 +340,54 @@
 	border-bottom: 1px solid var(--border);
 	min-height: 55px;
 	z-index: 3;
+}
+
+.nb-tools .nb-pen-tray,
+.nb-tools .nb-ink-colors {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+	padding: 3px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--background);
+}
+
+.nb-tools .nb-ink-swatch {
+	display: grid;
+	place-items: center;
+	width: 36px;
+	min-width: 36px;
+	padding: 0;
+	border: 1px solid transparent;
+	background: transparent;
+	border-radius: 9px;
+}
+
+.nb-tools .nb-ink-swatch[aria-pressed="true"] {
+	border-color: var(--border);
+	background: var(--muted);
+}
+
+.nb-ink-swatch > span {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+}
+
+.nb-size-dot {
+	display: inline-block;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+@media (pointer: coarse) {
+	.nb-tools .nb-ink-swatch {
+		width: 44px;
+		min-width: 44px;
+	}
 }
 .nb-tools button {
 	font-size: 12px;
@@ -981,6 +1030,8 @@
 }
 .nb-world.mode-draw,
 .nb-world.mode-hand,
+.nb-world.mode-draw *,
+.nb-world.mode-hand *,
 .nb-viewport.is-moving .nb-world {
 	pointer-events: none;
 	user-select: none;

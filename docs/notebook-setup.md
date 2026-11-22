@@ -26,12 +26,15 @@ controls available. Exit using Escape or the on-canvas fullscreen button.
    Supabase SQL editor (or with your normal migration deployment). The migration
    creates private notebook tables, a transactional save function, and the private
    `notebook-assets` bucket with ownership policies. Apply it once.
-2. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` using
+2. Apply `supabase/migrations/20261122000000_notebook_page_saves.sql`. Existing
+   libraries stay in place. This adds a versioned transaction for editing
+   individual pages, while library structure changes keep the full save path.
+3. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` using
    the existing account setup. The normal Supabase user session owns the notes;
    notebook endpoints do not use an administrator key or bypass row policies.
-3. Sign in, create a notebook, type and draw, then reload. Confirm the status reads
+4. Sign in, create a notebook, type and draw, then reload. Confirm the status reads
    **Saved to your account**. Sign in on another device and verify the same pages.
-4. Verify a second account cannot see the first account's notebooks or images.
+5. Verify a second account cannot see the first account's notebooks or images.
 
 If Supabase is configured but the migration is missing, the UI reports storage
 unavailability. It does not fall back to shared local records. The migration has

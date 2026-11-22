@@ -92,10 +92,12 @@ test("local API saves atomically, rejects stale writes, and preserves stored wor
 	delete process.env.NEXT_PUBLIC_SUPABASE_URL;
 	delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 	try {
-		const { GET, PUT } = await import("../app/api/notebook/route.ts");
+		const { GET, PUT, PATCH } = await import("../app/api/notebook/route.ts");
 		assert.equal((await (await GET()).json()).version, 0);
 		const data = emptyNotebook();
 		data.notebooks.push({ id: randomUUID(), title: "My notebook" });
+		data.sections.push({ id: randomUUID(), notebookId: data.notebooks[0]!.id, title: "Pages", color: "#223344" });
+		data.pages.push(newNotePage(data.sections[0]!.id), newNotePage(data.sections[0]!.id));
 		const save = (version: number, d: unknown = data) =>
 			PUT(
 				new Request("http://localhost/api/notebook", {
@@ -110,6 +112,15 @@ test("local API saves atomically, rejects stale writes, and preserves stored wor
 		const stored = await (await GET()).json();
 		assert.equal(stored.version, 1);
 		assert.deepEqual(stored.data, data);
+		const edited = { ...data.pages[0]!, title: "Updated title" };
+		const patch = (version: number, pages: unknown[]) => PATCH(new Request("http://localhost/api/notebook", {
+			method: "PATCH", body: JSON.stringify({ version, pages }),
+		}));
+		assert.equal((await patch(1, [edited, edited])).status, 400);
+		assert.equal((await patch(1, [edited])).status, 200);
+		assert.equal((await patch(1, [edited])).status, 409);
+		assert.equal((await patch(2, [{ ...edited, sectionId: randomUUID() }])).status, 409);
+		assert.deepEqual((await (await GET()).json()).data.pages, [edited, data.pages[1]]);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}

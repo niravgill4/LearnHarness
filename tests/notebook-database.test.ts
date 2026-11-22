@@ -22,6 +22,9 @@ test("notebook migration enforces private records/assets and transactional versi
 		await db.exec(
 			await readFile(new URL("../supabase/migrations/20261116000000_notebook.sql", import.meta.url), "utf8"),
 		);
+		await db.exec(
+			await readFile(new URL("../supabase/migrations/20261122000000_notebook_page_saves.sql", import.meta.url), "utf8"),
+		);
 		const a = randomUUID(),
 			b = randomUUID(),
 			book = randomUUID(),
@@ -32,7 +35,7 @@ test("notebook migration enforces private records/assets and transactional versi
 		const data = {
 			notebooks: [{ id: book, title: "Physics" }],
 			sections: [{ id: section, notebookId: book, title: "Work", color: "#8899aa" }],
-			pages: [newNotePage(section)],
+			pages: [newNotePage(section), newNotePage(section)],
 		};
 		const first = await db.query<{ save_notebook: number }>("select save_notebook($1,$2::jsonb)", [
 			0,
@@ -43,10 +46,21 @@ test("notebook migration enforces private records/assets and transactional versi
 			db.query("select save_notebook($1,$2::jsonb)", [0, JSON.stringify(data)]),
 			/NOTEBOOK_CONFLICT/,
 		);
+		const firstPage = { ...data.pages[0], title: "Updated through a patch" };
+		const patch = (version: number, pages: unknown[]) => db.query<{ save_notebook_pages: number }>(
+			"select save_notebook_pages($1,$2::jsonb)", [version, JSON.stringify(pages)],
+		);
+		assert.equal((await patch(1, [firstPage])).rows[0]?.save_notebook_pages, 2);
+		await assert.rejects(patch(1, [firstPage]), /NOTEBOOK_CONFLICT/);
+		await assert.rejects(patch(2, [{ ...firstPage, title: "Should roll back" }, newNotePage(section)]), /NOTEBOOK_CONFLICT/);
+		const afterPatch = await db.query<{ data: typeof data }>("select data from notebook_workspaces");
+		assert.deepEqual(afterPatch.rows[0]?.data.pages, [firstPage, data.pages[1]]);
+		assert.equal((await db.query<{ title: string }>("select title from notebook_pages order by position")).rows[0]?.title, firstPage.title);
 		await db.query("insert into storage.objects(bucket_id,name) values('notebook-assets',$1)", [
 			`${a}/image`,
 		]);
 		await db.query("select set_config('request.jwt.claim.sub',$1,false)", [b]);
+		await assert.rejects(patch(2, [firstPage]), /NOTEBOOK_CONFLICT/);
 		assert.equal((await db.query("select * from notebook_pages")).rows.length, 0);
 		assert.equal((await db.query("select * from notebook_workspaces")).rows.length, 0);
 		assert.equal((await db.query("select * from storage.objects")).rows.length, 0);
@@ -65,15 +79,15 @@ test("notebook migration enforces private records/assets and transactional versi
 		await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
 		await assert.rejects(
 			db.query("select save_notebook($1,$2::jsonb)", [
-				1,
+				2,
 				JSON.stringify({ ...data, pages: [{ ...data.pages[0], sectionId: randomUUID() }] }),
 			]),
 			/foreign key/,
 		);
-		assert.equal((await db.query("select * from notebook_pages")).rows.length, 1);
+		assert.equal((await db.query("select * from notebook_pages")).rows.length, 2);
 		assert.equal(
 			(await db.query<{ version: number }>("select version from notebook_workspaces")).rows[0]!.version,
-			1,
+			2,
 		);
 	} finally {
 		await db.close();

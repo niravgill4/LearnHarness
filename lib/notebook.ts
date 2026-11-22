@@ -32,6 +32,21 @@ export const newNotePage = (sectionId: string): NotePage => ({
 	updatedAt: new Date().toISOString(),
 });
 export const sectionColors = ["#8bb5a0", "#a8a0ce", "#d3aa77", "#86aeca", "#d29da7"];
+export const NOTEBOOK_PATCH_LIMIT = 3_900_000;
+export const NOTEBOOK_PATCH_PAGES = 32;
+
+/** null requires a full save because the library structure changed. */
+export function editedNotePages(base: NotebookData, next: NotebookData): NotePage[] | null {
+	if (base.notebooks !== next.notebooks || base.sections !== next.sections || base.pages.length !== next.pages.length)
+		return null;
+	const edited: NotePage[] = [];
+	for (const [index, page] of next.pages.entries()) {
+		const previous = base.pages[index]!;
+		if (previous.id !== page.id || previous.sectionId !== page.sectionId) return null;
+		if (previous !== page) edited.push(page);
+	}
+	return edited.length <= NOTEBOOK_PATCH_PAGES ? edited : null;
+}
 export function notebookFingerprint(value: unknown): string {
 	if (Array.isArray(value)) return `[${value.map(notebookFingerprint).join(",")}]`;
 	if (value && typeof value === "object")
@@ -68,48 +83,50 @@ export function validateNotebook(value: unknown): value is NotebookData {
 	}
 	if (d.sections.some((s) => !d.notebooks.some((n) => n.id === s.notebookId) || !color.test(s.color)))
 		return false;
-	return d.pages.every((p) => {
+	return d.pages.every(p => d.sections.some(s => s.id === p.sectionId) && validateNotePage(p));
+}
+export function validateNotePage(value: unknown): value is NotePage {
+	if (!value || typeof value !== "object") return false;
+	const p = value as NotePage;
+	if (
+		typeof p.id !== "string" ||
+		!uuid.test(p.id) ||
+		typeof p.sectionId !== "string" ||
+		!uuid.test(p.sectionId) ||
+		!title(p.title) ||
+		!["plain", "ruled", "grid"].includes(p.paper) ||
+		(p.tone !== undefined && !["light", "dark"].includes(p.tone)) ||
+		typeof p.updatedAt !== "string" ||
+		Number.isNaN(Date.parse(p.updatedAt))
+	)
+		return false;
+	if (!Array.isArray(p.blocks) || p.blocks.length > 100 || !Array.isArray(p.strokes) || p.strokes.length > 15000)
+		return false;
+	const blockIds = new Set<string>();
+	for (const b of p.blocks) {
 		if (
-			!d.sections.some((s) => s.id === p.sectionId) ||
-			!["plain", "ruled", "grid"].includes(p.paper) ||
-			(p.tone !== undefined && !["light", "dark"].includes(p.tone)) ||
-			typeof p.updatedAt !== "string" ||
-			Number.isNaN(Date.parse(p.updatedAt))
+			!b ||
+			!uuid.test(b.id) ||
+			blockIds.has(b.id) ||
+			!coordinate(b.x) ||
+			!coordinate(b.y) ||
+			!finite(b.width, 10000) ||
+			b.width < 100 ||
+			!validContent(b.content)
 		)
 			return false;
-		if (
-			!Array.isArray(p.blocks) ||
-			p.blocks.length > 100 ||
-			!Array.isArray(p.strokes) ||
-			p.strokes.length > 15000
-		)
-			return false;
-		const blockIds = new Set<string>();
-		for (const b of p.blocks) {
-			if (
-				!b ||
-				!uuid.test(b.id) ||
-				blockIds.has(b.id) ||
-				!coordinate(b.x) ||
-				!coordinate(b.y) ||
-				!finite(b.width, 10000) ||
-				b.width < 100 ||
-				!validContent(b.content)
-			)
-				return false;
-			blockIds.add(b.id);
-		}
-		return p.strokes.every(
-			(s) =>
-				s &&
-				["pen", "highlighter", "eraser"].includes(s.tool) &&
-				color.test(s.color) &&
-				finite(s.width, 80) &&
-				Array.isArray(s.points) &&
-				s.points.length <= 15000 &&
-				s.points.every((pt) => pt && coordinate(pt.x) && coordinate(pt.y) && finite(pt.p, 1)),
-		);
-	});
+		blockIds.add(b.id);
+	}
+	return p.strokes.every(
+		(s) =>
+			s &&
+			["pen", "highlighter", "eraser"].includes(s.tool) &&
+			color.test(s.color) &&
+			finite(s.width, 80) &&
+			Array.isArray(s.points) &&
+			s.points.length <= 15000 &&
+			s.points.every((pt) => pt && coordinate(pt.x) && coordinate(pt.y) && finite(pt.p, 1)),
+	);
 }
 function validContent(node: unknown, depth = 0): boolean {
 	if (!node || typeof node !== "object" || depth > 40) return false;

@@ -28,7 +28,10 @@ try {
 				sectionId: section,
 				title: "A continuous notebook",
 				paper: "grid",
-				blocks: [],
+				blocks: [{
+					id: randomUUID(), x: 60, y: 140, width: 300,
+					content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Selectable notes" }] }] },
+				}],
 				strokes: [],
 				updatedAt: new Date().toISOString(),
 			},
@@ -47,6 +50,30 @@ try {
 	await page.reload({ waitUntil: "networkidle2" });
 	await page.waitForSelector(".nb-viewport[data-camera]");
 	assert.ok(await page.$(".nb-canvas-shell.tone-light"), "legacy notes keep light paper");
+	await page.waitForSelector('.nb-text-block [contenteditable="true"]');
+	await page.evaluate(() => {
+		const editor = document.querySelector(".nb-text-block .tiptap");
+		editor.focus();
+		getSelection().selectAllChildren(editor);
+		[...document.querySelectorAll(".nb-tools button")].find(button => button.textContent === "Draw").click();
+	});
+	await page.waitForFunction(() => document.querySelector(".nb-viewport").classList.contains("mode-draw"));
+	await page.waitForFunction(() => !document.querySelector(".nb-text-block .tiptap").isContentEditable);
+	assert.deepEqual(await page.evaluate(() => {
+		const editor = document.querySelector(".nb-text-block .tiptap");
+		const rejected = type => !editor.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+		return {
+			cleared: getSelection().isCollapsed && document.activeElement !== editor,
+			locked: document.querySelector(".nb-title").readOnly,
+			selectstart: rejected("selectstart"),
+			contextmenu: rejected("contextmenu"),
+		};
+	}), { cleared: true, locked: true, selectstart: true, contextmenu: true });
+	await page.evaluate(() => [...document.querySelectorAll(".nb-tools button")].find(button => button.textContent === "Write").click());
+	await page.waitForSelector('.nb-text-block [contenteditable="true"]');
+	assert.equal(await page.$eval(".nb-title", element => element.readOnly), false);
+	assert.equal(await page.$eval(".nb-text-block .tiptap", element =>
+		element.dispatchEvent(new Event("contextmenu", { bubbles: true, cancelable: true }))), true);
 	const camera = () => page.$eval(".nb-viewport", (e) => JSON.parse(e.dataset.camera));
 	const send = async (events) =>
 		page.evaluate((events) => {
@@ -103,6 +130,12 @@ try {
 		/0 strokes/,
 		"second finger cancels provisional ink",
 	);
+	await page.evaluate(() =>
+		[...document.querySelectorAll(".nb-tools button")].find(e => e.textContent === "Write").click(),
+	);
+	const pageSave = page.waitForResponse(response =>
+		new URL(response.url()).pathname === "/api/notebook" && response.request().method() === "PATCH",
+	);
 	await send([
 		["pointerdown", 8, 150, 350, "pen"],
 		["pointerdown", 9, 250, 400],
@@ -112,6 +145,13 @@ try {
 		["pointerup", 9, 300, 450],
 	]);
 	await page.waitForFunction(() => document.querySelector(".nb-footer").textContent.includes("1 strokes"));
+	await page.waitForSelector('.nb-pen-tray[aria-label="Pen tray"]');
+	const patch = await pageSave;
+	assert.equal(patch.status(), 200);
+	const patchBody = JSON.parse(patch.request().postData());
+	assert.deepEqual(Object.keys(patchBody).sort(), ["pages", "version"]);
+	assert.equal(patchBody.pages[0].id, id);
+	assert.equal(patchBody.pages[0].strokes.length, 1);
 	const pixel = () =>
 		page.$eval(".nb-ink", (c) => {
 			const ratio = c.width / c.getBoundingClientRect().width;

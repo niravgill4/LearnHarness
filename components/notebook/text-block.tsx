@@ -5,10 +5,11 @@ import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { notebookFingerprint, type NoteBlock } from "@/lib/notebook";
 export function TextBlock({
 	block,
+	editable,
 	selected,
 	onChange,
 	onSelect,
@@ -17,6 +18,7 @@ export function TextBlock({
 	onDelete,
 }: {
 	block: NoteBlock;
+	editable: boolean;
 	selected: boolean;
 	onChange(content: Record<string, unknown>): void;
 	onSelect(): void;
@@ -37,6 +39,7 @@ export function TextBlock({
 			TaskItem.configure({ nested: true }),
 		],
 		content: block.content,
+		editable,
 		immediatelyRender: false,
 		onUpdate: ({ editor }) => onChange(editor.getJSON()),
 		onFocus: ({ editor }) => {
@@ -57,9 +60,14 @@ export function TextBlock({
 			},
 		},
 	});
+	useLayoutEffect(() => {
+		if (!editor || editor.isDestroyed) return;
+		if (!editable && editor.isFocused) editor.commands.blur();
+		editor.setEditable(editable, false);
+	}, [editable, editor]);
 	useEffect(() => {
-		if (selected && editor && !editor.isFocused) editor.commands.focus();
-	}, [selected, editor]);
+		if (editable && selected && editor && !editor.isFocused) editor.commands.focus();
+	}, [editable, selected, editor]);
 	useEffect(() => {
 		if (editor && notebookFingerprint(editor.getJSON()) !== notebookFingerprint(block.content))
 			editor.commands.setContent(block.content, { emitUpdate: false });
